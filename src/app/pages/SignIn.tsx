@@ -3,9 +3,10 @@ import { useForm } from "react-hook-form";
 import { Box, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { motion } from "motion/react";
 import { useNavigate } from "react-router";
+import { supabase } from "../lib/supabaseClient";
 
 interface SignInFormData {
-  emailOrUsername: string;
+  email: string;
   password: string;
 }
 
@@ -15,6 +16,7 @@ export default function SignIn() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [isLocked, setIsLocked] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
     register,
@@ -24,7 +26,7 @@ export default function SignIn() {
     mode: "onSubmit",
   });
 
-  const onSubmit = (data: SignInFormData) => {
+  const handleSignIn = async (email: string, password: string) => {
     // Clear previous errors
     setLoginError(null);
 
@@ -34,30 +36,41 @@ export default function SignIn() {
       return;
     }
 
-    // Mock authentication logic
-    // For demo: correct credentials are any email/username and password "Demo123!"
-    if (data.password === "Demo123!") {
-      console.log("Sign In successful:", data);
-      // In real app: store auth token
+    setIsSubmitting(true);
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        const newFailedAttempts = failedAttempts + 1;
+        setFailedAttempts(newFailedAttempts);
+
+        if (newFailedAttempts >= 3) {
+          setIsLocked(true);
+          setLoginError("Account temporarily locked. Try again in 15 minutes.");
+          setTimeout(() => {
+            setIsLocked(false);
+            setFailedAttempts(0);
+          }, 900000);
+        } else {
+          setLoginError(error.message);
+        }
+
+        return;
+      }
+
+      console.log("Sign In successful:", email);
       setFailedAttempts(0);
       navigate("/dashboard");
-    } else {
-      // Failed login
-      const newFailedAttempts = failedAttempts + 1;
-      setFailedAttempts(newFailedAttempts);
-
-      if (newFailedAttempts >= 3) {
-        setIsLocked(true);
-        setLoginError("Account temporarily locked. Try again in 15 minutes.");
-        // In real app: set a timer to unlock after 15 minutes
-        setTimeout(() => {
-          setIsLocked(false);
-          setFailedAttempts(0);
-        }, 900000); // 15 minutes
-      } else {
-        setLoginError("Invalid username or password");
-      }
+    } catch (err) {
+      setLoginError(err instanceof Error ? err.message : "Sign in failed");
+    } finally {
+      setIsSubmitting(false);
     }
+  };
+
+  const onSubmit = (data: SignInFormData) => {
+    handleSignIn(data.email, data.password);
   };
 
   return (
@@ -130,25 +143,29 @@ export default function SignIn() {
           {/* Username / Email */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Username / Email
+              Email
             </label>
             <input
-              {...register("emailOrUsername", {
-                required: "Username/Email is required",
+              {...register("email", {
+                required: "Email is required",
+                pattern: {
+                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                  message: "Invalid email format",
+                },
               })}
-              type="text"
-              placeholder="Enter your username or email"
+              type="email"
+              placeholder="Enter your email"
               disabled={isLocked}
               className={`w-full px-4 py-3 border-2 rounded-xl outline-none transition-all duration-200 ${
-                errors.emailOrUsername
+                errors.email
                   ? "border-red-300 focus:border-red-500 focus:ring-4 focus:ring-red-100"
                   : "border-gray-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
               } ${isLocked ? "bg-gray-100 cursor-not-allowed" : ""}`}
             />
-            {errors.emailOrUsername && (
+            {errors.email && (
               <div className="flex items-center gap-1 mt-2 text-red-600 text-sm">
                 <AlertCircle className="w-4 h-4" />
-                <span>{errors.emailOrUsername.message}</span>
+                <span>{errors.email.message}</span>
               </div>
             )}
           </div>
@@ -207,23 +224,16 @@ export default function SignIn() {
             whileHover={!isLocked ? { scale: 1.02 } : {}}
             whileTap={!isLocked ? { scale: 0.98 } : {}}
             type="submit"
-            disabled={isLocked}
+            disabled={isLocked || isSubmitting}
             className={`w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-700 text-white text-lg font-semibold rounded-xl shadow-lg transition-all duration-300 mt-2 ${
-              isLocked
+              isLocked || isSubmitting
                 ? "opacity-50 cursor-not-allowed"
                 : "hover:shadow-xl hover:from-blue-700 hover:to-indigo-800"
             }`}
           >
-            {isLocked ? "Account Locked" : "Sign In"}
+            {isLocked ? "Account Locked" : isSubmitting ? "Signing In..." : "Sign In"}
           </motion.button>
         </form>
-
-        {/* Demo Credentials Hint */}
-        <div className="mt-6 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-xs text-blue-700 text-center">
-            <span className="font-semibold">Demo:</span> Use any username/email and password: <code className="bg-blue-100 px-1 rounded">Demo123!</code>
-          </p>
-        </div>
 
         {/* Sign Up Link */}
         <div className="text-center mt-6">

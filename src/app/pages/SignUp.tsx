@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { Box, Eye, EyeOff, CheckCircle2, XCircle } from "lucide-react";
 import { motion } from "motion/react";
 import { useNavigate } from "react-router";
+import { supabase } from "../lib/supabaseClient";
 
 interface SignUpFormData {
   fullName: string;
@@ -17,6 +18,8 @@ export default function SignUp() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [usernameCheck, setUsernameCheck] = useState<"checking" | "available" | "taken" | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
     register,
@@ -74,10 +77,46 @@ export default function SignUp() {
     return true;
   };
 
-  const onSubmit = (data: SignUpFormData) => {
-    console.log("Form submitted:", data);
-    // In a real app: call registration API here
-    navigate("/signin");
+  const onSubmit = async (data: SignUpFormData) => {
+    setSubmitError(null);
+    setIsSubmitting(true);
+
+    try {
+      const { data: authData, error } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: {
+            full_name: data.fullName,
+            username: data.username,
+          },
+        },
+      });
+
+      if (error) {
+        setSubmitError(error.message);
+        return;
+      }
+
+      if (authData.user) {
+        const { error: profileError } = await supabase.from("User").insert({
+          UserID: authData.user.id,
+          Name: data.fullName,
+          Email: data.email,
+          Role: "user",
+        });
+
+        if (profileError) {
+          console.error("Profile insert failed:", profileError.message);
+        }
+      }
+
+      navigate("/signin");
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Sign up failed");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -123,6 +162,12 @@ export default function SignUp() {
             Register to start designing optimized 3D bedroom layouts.
           </p>
         </div>
+
+        {submitError && (
+          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {submitError}
+          </div>
+        )}
 
         {/* Form */}
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
@@ -328,9 +373,10 @@ export default function SignUp() {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             type="submit"
-            className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-700 text-white text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl hover:from-blue-700 hover:to-indigo-800 transition-all duration-300 mt-2"
+            disabled={isSubmitting}
+            className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-700 text-white text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl hover:from-blue-700 hover:to-indigo-800 transition-all duration-300 mt-2 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Register
+            {isSubmitting ? "Creating Account..." : "Register"}
           </motion.button>
         </form>
 
