@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { 
-  Box, 
-  LayoutDashboard, 
-  Upload, 
-  History, 
-  User, 
+import {
+  Box,
+  LayoutDashboard,
+  Upload,
+  History,
+  User,
   LogOut,
   FileUp,
   Boxes,
@@ -67,19 +67,14 @@ export default function Dashboard() {
   const username = profile.fullName;
 
   const handleDeleteAccount = () => {
-    if (deletePassword.trim() === "") {
-      setDeletePassError(true);
-      return;
-    }
+    if (deletePassword.trim() === "") { setDeletePassError(true); return; }
     setShowDeleteModal(false);
     setDeletePassword("");
     setDeletePassError(false);
     navigate("/");
   };
 
-  const handleLogout = () => {
-    navigate("/");
-  };
+  const handleLogout = () => navigate("/");
 
   const menuItems = [
     { id: "dashboard", label: "Dashboard",           icon: LayoutDashboard, path: "/dashboard" },
@@ -89,24 +84,24 @@ export default function Dashboard() {
   ];
 
   const stats = [
-    { label: "Total Uploads",     value: "24", icon: FileUp,     color: "text-blue-600",   bg: "bg-blue-100" },
-    { label: "Designs Generated", value: "18", icon: Boxes,      color: "text-indigo-600", bg: "bg-indigo-100" },
-    { label: "Success Rate",      value: "98%", icon: TrendingUp, color: "text-green-600",  bg: "bg-green-100" },
+    { label: "Total Uploads",     value: "24",  icon: FileUp,     color: "text-teal-400",   bg: "bg-teal-500/10",   glow: "shadow-teal-500/10" },
+    { label: "Designs Generated", value: "18",  icon: Boxes,      color: "text-violet-400", bg: "bg-violet-500/10", glow: "shadow-violet-500/10" },
+    { label: "Success Rate",      value: "98%", icon: TrendingUp, color: "text-emerald-400", bg: "bg-emerald-500/10", glow: "shadow-emerald-500/10" },
   ];
 
   const recentActivity = [
-    { id: 1, name: "Modern Bedroom Layout",     date: "2 hours ago", status: "Completed" },
-    { id: 2, name: "Master Suite Design",       date: "1 day ago",   status: "Completed" },
-    { id: 3, name: "Guest Room Optimization",   date: "2 days ago",  status: "Completed" },
+    { id: 1, name: "Modern Bedroom Layout",   date: "2 hours ago", status: "Completed" },
+    { id: 2, name: "Master Suite Design",     date: "1 day ago",   status: "Completed" },
+    { id: 3, name: "Guest Room Optimization", date: "2 days ago",  status: "Completed" },
   ];
 
   const previousDesigns = [
-    { id: 1, name: "Modern Bedroom Layout",     date: "Feb 23, 2026", rooms: "Bedroom 1",   score: 92, thumb: "MB" },
-    { id: 2, name: "Master Suite Design",       date: "Feb 22, 2026", rooms: "Bedroom 2",   score: 87, thumb: "MS" },
-    { id: 3, name: "Guest Room Optimization",   date: "Feb 20, 2026", rooms: "Guest Room",  score: 78, thumb: "GR" },
-    { id: 4, name: "Living Room Layout",        date: "Feb 18, 2026", rooms: "Living Room", score: 85, thumb: "LR" },
-    { id: 5, name: "Home Office Setup",         date: "Feb 15, 2026", rooms: "Study Room",  score: 91, thumb: "HO" },
-    { id: 6, name: "Kids Bedroom Plan",         date: "Feb 10, 2026", rooms: "Bedroom 3",   score: 74, thumb: "KB" },
+    { id: 1, name: "Modern Bedroom Layout",   date: "Feb 23, 2026", rooms: "Bedroom 1",   score: 92, thumb: "MB" },
+    { id: 2, name: "Master Suite Design",     date: "Feb 22, 2026", rooms: "Bedroom 2",   score: 87, thumb: "MS" },
+    { id: 3, name: "Guest Room Optimization", date: "Feb 20, 2026", rooms: "Guest Room",  score: 78, thumb: "GR" },
+    { id: 4, name: "Living Room Layout",      date: "Feb 18, 2026", rooms: "Living Room", score: 85, thumb: "LR" },
+    { id: 5, name: "Home Office Setup",       date: "Feb 15, 2026", rooms: "Study Room",  score: 91, thumb: "HO" },
+    { id: 6, name: "Kids Bedroom Plan",       date: "Feb 10, 2026", rooms: "Bedroom 3",   score: 74, thumb: "KB" },
   ];
 
   const handleSaveProfile = () => {
@@ -125,32 +120,32 @@ export default function Dashboard() {
     setTimeout(() => setPassMsg(null), 3500);
   };
 
-  // ── Tab content renderers ──────────────────────────────────────────────────
+  // ── Shared input classes ────────────────────
+  const inputCls = "w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-teal-500/50 focus:ring-2 focus:ring-teal-500/15 transition-all";
+  const cardCls = "glass-card rounded-2xl p-6 border border-white/5";
 
+  // ── Tab renderers ──────────────────────────
   const renderDashboard = () => (
     <>
-      {/* Page Title */}
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-        <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">Dashboard</h2>
-        <p className="text-gray-600">Manage your floor plans and 3D layouts</p>
+      <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+        <h2 className="text-3xl md:text-4xl font-bold text-white mb-1">Dashboard</h2>
+        <p className="text-zinc-500">Manage your floor plans and 3D layouts</p>
       </motion.div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        {stats.map((stat, index) => {
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+        {stats.map((stat, i) => {
           const Icon = stat.icon;
           return (
             <motion.div key={stat.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }} whileHover={{ y: -4, transition: { duration: 0.2 } }}
-              className="bg-white rounded-2xl p-6 shadow-md hover:shadow-xl transition-shadow duration-300">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">{stat.label}</p>
-                  <p className="text-3xl font-bold text-gray-800">{stat.value}</p>
-                </div>
-                <div className={`${stat.bg} p-3 rounded-xl`}>
-                  <Icon className={`w-6 h-6 ${stat.color}`} />
-                </div>
+              transition={{ delay: i * 0.1 }} whileHover={{ y: -4, transition: { duration: 0.2 } }}
+              className={`${cardCls} flex items-center justify-between shadow-lg ${stat.glow}`}>
+              <div>
+                <p className="text-sm text-zinc-500 mb-1">{stat.label}</p>
+                <p className="text-3xl font-extrabold text-white">{stat.value}</p>
+              </div>
+              <div className={`${stat.bg} p-3.5 rounded-xl`}>
+                <Icon className={`w-7 h-7 ${stat.color}`} />
               </div>
             </motion.div>
           );
@@ -158,42 +153,42 @@ export default function Dashboard() {
       </div>
 
       {/* Action Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}
-          whileHover={{ y: -8, transition: { duration: 0.3 } }}
-          className="bg-white rounded-3xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 cursor-pointer"
+          whileHover={{ y: -6, transition: { duration: 0.25 } }}
+          className={`${cardCls} cursor-pointer hover:bg-white/[0.07] transition-all glow-teal`}
           onClick={() => navigate("/upload")}>
-          <div className="flex flex-col items-center text-center space-y-6">
-            <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-6 rounded-2xl shadow-lg">
-              <FileUp className="w-16 h-16 text-white" strokeWidth={1.5} />
+          <div className="flex flex-col items-center text-center space-y-5">
+            <div className="bg-gradient-to-br from-teal-400 to-teal-600 p-6 rounded-2xl shadow-lg shadow-teal-500/25">
+              <FileUp className="w-14 h-14 text-white" strokeWidth={1.5} />
             </div>
             <div>
-              <h3 className="text-2xl font-bold text-gray-800 mb-3">Upload Floor Plan</h3>
-              <p className="text-gray-600 leading-relaxed">Upload your 2D floor plan to generate optimized 3D bedroom layouts with AI-powered furniture placement.</p>
+              <h3 className="text-xl font-bold text-white mb-2">Upload Floor Plan</h3>
+              <p className="text-zinc-500 text-sm leading-relaxed">Upload your 2D floor plan to generate optimized 3D bedroom layouts with AI-powered furniture placement.</p>
             </div>
-            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+            <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
               onClick={(e) => { e.stopPropagation(); navigate("/upload"); }}
-              className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300">
+              className="w-full px-6 py-3.5 bg-gradient-to-r from-teal-500 to-teal-600 text-white font-bold rounded-xl shadow-lg shadow-teal-500/20 hover:shadow-teal-500/30 transition-all">
               Start Upload
             </motion.button>
           </div>
         </motion.div>
 
         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}
-          whileHover={{ y: -8, transition: { duration: 0.3 } }}
-          className="bg-white rounded-3xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 cursor-pointer"
+          whileHover={{ y: -6, transition: { duration: 0.25 } }}
+          className={`${cardCls} cursor-pointer hover:bg-white/[0.07] transition-all glow-violet`}
           onClick={() => setActiveMenu("designs")}>
-          <div className="flex flex-col items-center text-center space-y-6">
-            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-6 rounded-2xl shadow-lg">
-              <Boxes className="w-16 h-16 text-white" strokeWidth={1.5} />
+          <div className="flex flex-col items-center text-center space-y-5">
+            <div className="bg-gradient-to-br from-violet-400 to-violet-600 p-6 rounded-2xl shadow-lg shadow-violet-500/25">
+              <Boxes className="w-14 h-14 text-white" strokeWidth={1.5} />
             </div>
             <div>
-              <h3 className="text-2xl font-bold text-gray-800 mb-3">View Previous Designs</h3>
-              <p className="text-gray-600 leading-relaxed">View and manage your previously generated 3D layouts. Download, edit, or share your designs.</p>
+              <h3 className="text-xl font-bold text-white mb-2">View Previous Designs</h3>
+              <p className="text-zinc-500 text-sm leading-relaxed">View and manage your previously generated 3D layouts. Download, edit, or share your designs.</p>
             </div>
-            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+            <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
               onClick={(e) => { e.stopPropagation(); setActiveMenu("designs"); }}
-              className="w-full px-6 py-4 bg-transparent border-2 border-indigo-600 text-indigo-700 font-semibold rounded-xl hover:bg-indigo-50 transition-all duration-300">
+              className="w-full px-6 py-3.5 bg-white/5 border border-violet-500/30 text-violet-400 font-bold rounded-xl hover:bg-violet-500/10 transition-all">
               View Designs
             </motion.button>
           </div>
@@ -202,29 +197,29 @@ export default function Dashboard() {
 
       {/* Recent Activity */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
-        className="bg-white rounded-3xl p-6 md:p-8 shadow-lg">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-            <Clock className="w-6 h-6 text-indigo-600" /> Recent Activity
+        className={cardCls}>
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            <Clock className="w-5 h-5 text-teal-400" /> Recent Activity
           </h3>
           <button onClick={() => setActiveMenu("designs")}
-            className="text-sm text-indigo-600 hover:text-indigo-800 font-semibold hover:underline">View All</button>
+            className="text-sm text-teal-400 hover:text-teal-300 font-semibold transition-colors">View All</button>
         </div>
-        <div className="space-y-3">
-          {recentActivity.map((activity, index) => (
-            <motion.div key={activity.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.5 + index * 0.1 }} whileHover={{ x: 4 }}
-              className="flex items-center justify-between p-4 bg-gray-50 hover:bg-indigo-50 rounded-xl transition-all duration-200 cursor-pointer">
-              <div className="flex items-center gap-4">
-                <div className="bg-indigo-100 p-2 rounded-lg">
-                  <Boxes className="w-5 h-5 text-indigo-600" />
+        <div className="space-y-2">
+          {recentActivity.map((activity, i) => (
+            <motion.div key={activity.id} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.5 + i * 0.08 }} whileHover={{ x: 4 }}
+              className="flex items-center justify-between p-4 bg-white/[0.03] hover:bg-white/[0.06] rounded-xl transition-all cursor-pointer border border-white/5">
+              <div className="flex items-center gap-3">
+                <div className="bg-teal-500/10 p-2 rounded-lg">
+                  <Boxes className="w-4 h-4 text-teal-400" />
                 </div>
                 <div>
-                  <p className="font-semibold text-gray-800">{activity.name}</p>
-                  <p className="text-sm text-gray-500">{activity.date}</p>
+                  <p className="font-semibold text-zinc-200 text-sm">{activity.name}</p>
+                  <p className="text-xs text-zinc-500">{activity.date}</p>
                 </div>
               </div>
-              <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full">{activity.status}</span>
+              <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded-full border border-emerald-500/20">{activity.status}</span>
             </motion.div>
           ))}
         </div>
@@ -234,42 +229,41 @@ export default function Dashboard() {
 
   const renderDesigns = () => (
     <>
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-        <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">Previous Designs</h2>
-        <p className="text-gray-600">All your AI-generated 3D layouts in one place.</p>
+      <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+        <h2 className="text-3xl md:text-4xl font-bold text-white mb-1">Previous Designs</h2>
+        <p className="text-zinc-500">All your AI-generated 3D layouts in one place.</p>
       </motion.div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {previousDesigns.map((design, index) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+        {previousDesigns.map((design, i) => (
           <motion.div key={design.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.07 }} whileHover={{ y: -6, transition: { duration: 0.2 } }}
-            className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100 overflow-hidden">
-            {/* Thumbnail */}
-            <div className="h-36 bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center relative">
-              <span className="text-5xl font-black text-indigo-300 select-none">{design.thumb}</span>
-              <span className={`absolute top-3 right-3 px-2 py-1 text-xs font-bold rounded-full ${
-                design.score >= 90 ? "bg-green-100 text-green-700" :
-                design.score >= 80 ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"
+            transition={{ delay: i * 0.07 }} whileHover={{ y: -5, transition: { duration: 0.2 } }}
+            className="glass-card rounded-2xl overflow-hidden border border-white/5 hover:bg-white/[0.07] transition-all">
+            <div className="h-36 bg-gradient-to-br from-teal-500/10 to-violet-500/10 flex items-center justify-center relative border-b border-white/5">
+              <span className="text-5xl font-black text-white/10 select-none">{design.thumb}</span>
+              <span className={`absolute top-3 right-3 px-2.5 py-1 text-xs font-bold rounded-full ${
+                design.score >= 90 ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20" :
+                design.score >= 80 ? "bg-teal-500/15 text-teal-400 border border-teal-500/20" :
+                "bg-amber-500/15 text-amber-400 border border-amber-500/20"
               }`}>
-                Score: {design.score}
+                {design.score}/100
               </span>
             </div>
             <div className="p-5">
-              <h4 className="font-bold text-gray-800 text-base mb-1 truncate">{design.name}</h4>
-              <p className="text-xs text-gray-500 mb-1">{design.rooms}</p>
-              <p className="text-xs text-gray-400 mb-4">{design.date}</p>
+              <h4 className="font-bold text-zinc-200 text-sm mb-1 truncate">{design.name}</h4>
+              <p className="text-xs text-zinc-500 mb-0.5">{design.rooms}</p>
+              <p className="text-xs text-zinc-600 mb-4">{design.date}</p>
               <div className="flex gap-2">
-                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
                   onClick={() => navigate("/room-view-3d")}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-xl hover:bg-indigo-100 transition-colors">
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-teal-500/10 text-teal-400 text-xs font-semibold rounded-xl hover:bg-teal-500/20 transition-colors border border-teal-500/20">
                   <ExternalLink className="w-3.5 h-3.5" /> Open
                 </motion.button>
-                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-gray-50 text-gray-700 text-xs font-semibold rounded-xl hover:bg-gray-100 transition-colors">
+                <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-white/5 text-zinc-400 text-xs font-semibold rounded-xl hover:bg-white/10 transition-colors border border-white/10">
                   <Download className="w-3.5 h-3.5" /> Export
                 </motion.button>
-                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                  className="py-2 px-3 bg-red-50 text-red-500 text-xs font-semibold rounded-xl hover:bg-red-100 transition-colors">
+                <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
+                  className="py-2 px-3 bg-red-500/10 text-red-400 text-xs rounded-xl hover:bg-red-500/20 transition-colors border border-red-500/20">
                   <Trash2 className="w-3.5 h-3.5" />
                 </motion.button>
               </div>
@@ -282,35 +276,34 @@ export default function Dashboard() {
 
   const renderProfile = () => (
     <>
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8 flex items-center justify-between">
+      <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} className="mb-8 flex items-center justify-between">
         <div>
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">Profile</h2>
-          <p className="text-gray-600">Manage your personal information and account settings.</p>
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-1">Profile</h2>
+          <p className="text-zinc-500">Manage your personal information and account settings.</p>
         </div>
         {profileSaved && (
           <motion.div initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }}
-            className="flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-xl text-sm font-semibold">
+            className="flex items-center gap-2 bg-emerald-500/10 text-emerald-400 px-4 py-2 rounded-xl text-sm font-semibold border border-emerald-500/20">
             <CheckCircle2 className="w-4 h-4" /> Saved!
           </motion.div>
         )}
       </motion.div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-        {/* ── Avatar Card ── */}
-        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
-          className="bg-white rounded-2xl shadow-md p-6 flex flex-col items-center text-center gap-4 border border-gray-100">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Avatar Card */}
+        <motion.div initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }}
+          className={`${cardCls} flex flex-col items-center text-center gap-4`}>
           <div className="relative">
-            <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white text-3xl font-black shadow-lg">
+            <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white text-3xl font-black shadow-lg shadow-teal-500/20">
               {profile.fullName.split(" ").map(w => w[0]).join("").slice(0, 2)}
             </div>
-            <button className="absolute -bottom-2 -right-2 w-8 h-8 bg-white border-2 border-gray-200 rounded-full flex items-center justify-center hover:bg-indigo-50 transition-colors shadow-sm">
-              <Camera className="w-3.5 h-3.5 text-indigo-600" />
+            <button className="absolute -bottom-2 -right-2 w-8 h-8 bg-[#141419] border border-white/10 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors">
+              <Camera className="w-3.5 h-3.5 text-teal-400" />
             </button>
           </div>
           <div>
-            <p className="font-bold text-gray-800 text-lg">{profile.fullName}</p>
-            <p className="text-gray-500 text-sm">@{profile.username}</p>
+            <p className="font-bold text-white text-lg">{profile.fullName}</p>
+            <p className="text-zinc-500 text-sm">@{profile.username}</p>
           </div>
           <div className="w-full space-y-2 text-left">
             {[
@@ -318,42 +311,37 @@ export default function Dashboard() {
               { icon: Phone, value: profile.phone },
               { icon: MapPin, value: profile.location },
             ].map(({ icon: Icon, value }) => (
-              <div key={value} className="flex items-center gap-2 text-xs text-gray-500">
-                <Icon className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+              <div key={value} className="flex items-center gap-2 text-xs text-zinc-500">
+                <Icon className="w-3.5 h-3.5 text-teal-400 shrink-0" />
                 <span className="truncate">{value}</span>
               </div>
             ))}
           </div>
-          <div className="w-full pt-2 border-t border-gray-100">
-            <p className="text-xs text-gray-400 italic text-left">{profile.bio}</p>
+          <div className="w-full pt-3 border-t border-white/5">
+            <p className="text-xs text-zinc-600 italic text-left">{profile.bio}</p>
           </div>
         </motion.div>
 
-        {/* ── Right Column ── */}
+        {/* Right Column */}
         <div className="lg:col-span-2 space-y-5">
-
           {/* Personal Info */}
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
-            className="bg-white rounded-2xl shadow-md p-6 border border-gray-100">
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className={cardCls}>
             <div className="flex items-center justify-between mb-5">
-              <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                <User className="w-4 h-4 text-indigo-500" /> Personal Information
+              <h3 className="font-bold text-zinc-200 flex items-center gap-2">
+                <User className="w-4 h-4 text-teal-400" /> Personal Information
               </h3>
               {!profileEdit ? (
                 <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                   onClick={() => { setProfileDraft({ ...profile }); setProfileEdit(true); }}
-                  className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors">
+                  className="flex items-center gap-1.5 text-xs font-semibold text-teal-400 hover:text-teal-300 bg-teal-500/10 hover:bg-teal-500/20 px-3 py-1.5 rounded-lg transition-colors border border-teal-500/20">
                   <Pencil className="w-3.5 h-3.5" /> Edit
                 </motion.button>
               ) : (
                 <div className="flex gap-2">
-                  <button onClick={() => setProfileEdit(false)}
-                    className="text-xs font-semibold text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors">
-                    Cancel
-                  </button>
+                  <button onClick={() => setProfileEdit(false)} className="text-xs font-semibold text-zinc-500 hover:text-zinc-300 px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors">Cancel</button>
                   <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                     onClick={handleSaveProfile}
-                    className="flex items-center gap-1.5 text-xs font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-700 px-4 py-1.5 rounded-lg shadow-sm">
+                    className="flex items-center gap-1.5 text-xs font-semibold text-white bg-gradient-to-r from-teal-500 to-teal-600 px-4 py-1.5 rounded-lg shadow-sm">
                     <Save className="w-3.5 h-3.5" /> Save
                   </motion.button>
                 </div>
@@ -362,54 +350,50 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {(["fullName", "username", "email", "phone", "location"] as const).map((field) => (
                 <div key={field} className={field === "email" || field === "location" ? "sm:col-span-2" : ""}>
-                  <label className="text-xs font-semibold text-gray-500 mb-1 block capitalize">
+                  <label className="text-xs font-semibold text-zinc-500 mb-1 block capitalize">
                     {field === "fullName" ? "Full Name" : field === "username" ? "Username" : field.charAt(0).toUpperCase() + field.slice(1)}
                   </label>
                   {profileEdit ? (
                     <input value={profileDraft[field]}
                       onChange={e => setProfileDraft(d => ({ ...d, [field]: e.target.value }))}
-                      className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all" />
+                      className={inputCls} />
                   ) : (
-                    <p className="w-full border border-gray-100 bg-gray-50 rounded-xl px-4 py-2.5 text-sm text-gray-700">
-                      {profile[field]}
-                    </p>
+                    <p className="w-full border border-white/5 bg-white/[0.02] rounded-xl px-4 py-2.5 text-sm text-zinc-400">{profile[field]}</p>
                   )}
                 </div>
               ))}
               <div className="sm:col-span-2">
-                <label className="text-xs font-semibold text-gray-500 mb-1 block">Bio</label>
+                <label className="text-xs font-semibold text-zinc-500 mb-1 block">Bio</label>
                 {profileEdit ? (
                   <textarea rows={2} value={profileDraft.bio}
                     onChange={e => setProfileDraft(d => ({ ...d, bio: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all resize-none" />
+                    className={`${inputCls} resize-none`} />
                 ) : (
-                  <p className="w-full border border-gray-100 bg-gray-50 rounded-xl px-4 py-2.5 text-sm text-gray-700">{profile.bio}</p>
+                  <p className="w-full border border-white/5 bg-white/[0.02] rounded-xl px-4 py-2.5 text-sm text-zinc-400">{profile.bio}</p>
                 )}
               </div>
             </div>
           </motion.div>
 
           {/* Change Password */}
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }}
-            className="bg-white rounded-2xl shadow-md p-6 border border-gray-100">
-            <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-5">
-              <Lock className="w-4 h-4 text-indigo-500" /> Change Password
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }} className={cardCls}>
+            <h3 className="font-bold text-zinc-200 flex items-center gap-2 mb-5">
+              <Lock className="w-4 h-4 text-teal-400" /> Change Password
             </h3>
             <div className="space-y-3">
               {([
-                { label: "Current Password",  key: "old",  show: showOldPass, setShow: setShowOldPass },
-                { label: "New Password",       key: "newP", show: showNewPass, setShow: setShowNewPass },
+                { label: "Current Password", key: "old",  show: showOldPass, setShow: setShowOldPass },
+                { label: "New Password",     key: "newP", show: showNewPass, setShow: setShowNewPass },
                 { label: "Confirm New Password", key: "conf", show: showConfPass, setShow: setShowConfPass },
               ] as const).map(({ label, key, show, setShow }) => (
                 <div key={key}>
-                  <label className="text-xs font-semibold text-gray-500 mb-1 block">{label}</label>
+                  <label className="text-xs font-semibold text-zinc-500 mb-1 block">{label}</label>
                   <div className="relative">
-                    <input type={show ? "text" : "password"}
-                      value={passwords[key]}
+                    <input type={show ? "text" : "password"} value={passwords[key]}
                       onChange={e => setPasswords(p => ({ ...p, [key]: e.target.value }))}
-                      className="w-full border border-gray-200 rounded-xl px-4 py-2.5 pr-10 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all" />
+                      className={`${inputCls} pr-10`} />
                     <button type="button" onClick={() => setShow(!show)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300">
                       {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
@@ -417,24 +401,23 @@ export default function Dashboard() {
               ))}
               {passMsg && (
                 <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                  className={`text-xs font-semibold flex items-center gap-1.5 ${passMsg.type === "ok" ? "text-green-600" : "text-red-500"}`}>
+                  className={`text-xs font-semibold flex items-center gap-1.5 ${passMsg.type === "ok" ? "text-emerald-400" : "text-red-400"}`}>
                   {passMsg.type === "ok" ? <CheckCircle2 className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
                   {passMsg.text}
                 </motion.p>
               )}
               <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                 onClick={handleChangePassword}
-                className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-700 text-white font-semibold rounded-xl text-sm shadow-md shadow-indigo-200 hover:shadow-indigo-300 transition-all">
+                className="w-full py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 text-white font-semibold rounded-xl text-sm shadow-md shadow-teal-500/20 hover:shadow-teal-500/30 transition-all">
                 Update Password
               </motion.button>
             </div>
           </motion.div>
 
-          {/* Notification Preferences */}
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-            className="bg-white rounded-2xl shadow-md p-6 border border-gray-100">
-            <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-5">
-              <Bell className="w-4 h-4 text-indigo-500" /> Notifications
+          {/* Notifications */}
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className={cardCls}>
+            <h3 className="font-bold text-zinc-200 flex items-center gap-2 mb-5">
+              <Bell className="w-4 h-4 text-teal-400" /> Notifications
             </h3>
             <div className="space-y-3">
               {([
@@ -442,13 +425,13 @@ export default function Dashboard() {
                 { key: "browser", label: "Browser notifications", desc: "Push alerts in browser" },
                 { key: "updates", label: "Product updates",       desc: "News about new AI features" },
               ] as const).map(({ key, label, desc }) => (
-                <div key={key} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                <div key={key} className="flex items-center justify-between p-3 bg-white/[0.03] rounded-xl border border-white/5">
                   <div>
-                    <p className="text-sm font-semibold text-gray-800">{label}</p>
-                    <p className="text-xs text-gray-500">{desc}</p>
+                    <p className="text-sm font-semibold text-zinc-300">{label}</p>
+                    <p className="text-xs text-zinc-600">{desc}</p>
                   </div>
                   <button onClick={() => setNotifications(n => ({ ...n, [key]: !n[key] }))}
-                    className={`w-11 h-6 rounded-full transition-colors relative ${notifications[key] ? "bg-indigo-600" : "bg-gray-200"}`}>
+                    className={`w-11 h-6 rounded-full transition-colors relative ${notifications[key] ? "bg-teal-500" : "bg-white/10"}`}>
                     <motion.span animate={{ x: notifications[key] ? 20 : 2 }}
                       className="absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm" />
                   </button>
@@ -459,136 +442,90 @@ export default function Dashboard() {
 
           {/* Danger Zone */}
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.26 }}
-            className="bg-white rounded-2xl shadow-md p-6 border border-red-100">
-            <h3 className="font-bold text-red-600 flex items-center gap-2 mb-4">
+            className="glass-card rounded-2xl p-6 border border-red-500/15">
+            <h3 className="font-bold text-red-400 flex items-center gap-2 mb-4">
               <Shield className="w-4 h-4" /> Danger Zone
             </h3>
-            <div className="flex items-center justify-between p-4 bg-red-50 rounded-xl border border-red-200">
+            <div className="flex items-center justify-between p-4 bg-red-500/5 rounded-xl border border-red-500/15">
               <div>
-                <p className="text-sm font-semibold text-red-700">Delete Account</p>
-                <p className="text-xs text-red-400">Permanently delete your account and all data.</p>
+                <p className="text-sm font-semibold text-red-300">Delete Account</p>
+                <p className="text-xs text-red-500/70">Permanently delete your account and all data.</p>
               </div>
               <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
                 onClick={() => { setShowDeleteModal(true); setDeletePassword(""); setDeletePassError(false); }}
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-xl hover:bg-red-700 transition-colors shadow-sm">
+                className="flex items-center gap-2 px-4 py-2 bg-red-500/15 text-red-400 text-sm font-semibold rounded-xl hover:bg-red-500/25 transition-colors border border-red-500/20">
                 <Trash2 className="w-3.5 h-3.5" /> Delete
               </motion.button>
             </div>
           </motion.div>
-
         </div>
       </div>
     </>
   );
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 relative">
+    <div className="min-h-screen w-full bg-[#0a0a0f] relative" style={{ fontFamily: "'Inter', sans-serif" }}>
 
-      {/* ── Delete Account Confirmation Modal ── */}
+      {/* Delete Account Modal */}
       <AnimatePresence>
         {showDeleteModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-            onClick={() => setShowDeleteModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              transition={{ type: "spring", stiffness: 320, damping: 26 }}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+            onClick={() => setShowDeleteModal(false)}>
+            <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }} transition={{ type: "spring", stiffness: 320, damping: 26 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden"
-            >
-              {/* Red header */}
-              <div className="bg-gradient-to-r from-red-500 to-rose-600 px-6 py-5">
+              className="w-full max-w-md bg-[#141419] rounded-3xl shadow-2xl overflow-hidden border border-white/10">
+              <div className="bg-gradient-to-r from-red-500 to-rose-600 px-6 py-5 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="bg-white/20 p-2.5 rounded-xl">
-                    <Shield className="w-6 h-6 text-white" />
-                  </div>
+                  <div className="bg-white/20 p-2.5 rounded-xl"><Shield className="w-5 h-5 text-white" /></div>
                   <div>
-                    <h3 className="text-white font-bold text-lg">Delete Account</h3>
+                    <h3 className="text-white font-bold">Delete Account</h3>
                     <p className="text-red-100 text-xs">This action is permanent and cannot be undone</p>
                   </div>
-                  <button onClick={() => setShowDeleteModal(false)} className="ml-auto text-white/70 hover:text-white transition-colors">
-                    <X className="w-5 h-5" />
-                  </button>
                 </div>
+                <button onClick={() => setShowDeleteModal(false)} className="text-white/70 hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-
               <div className="p-6 space-y-4">
-                {/* User preview */}
-                <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-2xl p-4">
-                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white font-bold text-sm shrink-0">
-                    {profile.fullName.split(" ").map(n => n[0]).join("").slice(0,2).toUpperCase()}
+                <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/20 rounded-2xl p-4">
+                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                    {profile.fullName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
                   </div>
                   <div className="min-w-0">
-                    <p className="font-bold text-gray-900 text-sm truncate">{profile.fullName}</p>
-                    <p className="text-xs text-gray-500 truncate">{profile.email}</p>
-                    <p className="text-xs text-gray-400">@{profile.username}</p>
+                    <p className="font-bold text-zinc-200 text-sm truncate">{profile.fullName}</p>
+                    <p className="text-xs text-zinc-500 truncate">{profile.email}</p>
+                    <p className="text-xs text-zinc-600">@{profile.username}</p>
                   </div>
                 </div>
-
-                {/* Warning */}
-                <p className="text-center text-gray-700 text-sm font-semibold">
-                  Are you sure you want to permanently delete your account?
-                </p>
-                <p className="text-center text-gray-400 text-xs">
-                  All your uploads, designs, and data will be removed forever.
-                </p>
-
-                {/* Password confirmation */}
+                <p className="text-center text-zinc-300 text-sm font-semibold">Are you sure you want to permanently delete your account?</p>
+                <p className="text-center text-zinc-600 text-xs">All your uploads, designs, and data will be removed forever.</p>
                 <div>
-                  <label className="text-xs font-semibold text-gray-700 mb-1.5 flex items-center gap-1.5">
-                    <Lock className="w-3.5 h-3.5 text-gray-500" />
-                    Confirm with your password
+                  <label className="text-xs font-semibold text-zinc-400 mb-1.5 flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 text-zinc-500" /> Confirm with your password
                   </label>
-                  <input
-                    type="password"
-                    autoFocus
-                    placeholder="Enter your password…"
+                  <input type="password" autoFocus placeholder="Enter your password…"
                     value={deletePassword}
                     onChange={(e) => { setDeletePassword(e.target.value); setDeletePassError(false); }}
                     onKeyDown={(e) => e.key === "Enter" && handleDeleteAccount()}
-                    className={`w-full border rounded-xl px-4 py-2.5 text-sm outline-none transition-all ${
-                      deletePassError
-                        ? "border-red-400 ring-2 ring-red-200 bg-red-50"
-                        : "border-gray-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-                    }`}
-                  />
-                  {deletePassError && (
-                    <p className="text-red-500 text-[11px] mt-1 flex items-center gap-1">
-                      <X className="w-3 h-3" /> Password is required to confirm deletion.
-                    </p>
-                  )}
+                    className={`${inputCls} ${deletePassError ? "border-red-500/50" : ""}`} />
+                  {deletePassError && <p className="text-red-400 text-xs mt-1">Password is required to confirm deletion.</p>}
                 </div>
-
-                {/* Warning banner */}
-                <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
-                  <Shield className="w-4 h-4 text-amber-500 shrink-0" />
-                  <p className="text-amber-700 text-[11px] font-semibold">
-                    Warning: This action cannot be undone. Your account will be permanently removed.
-                  </p>
+                <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2.5">
+                  <Shield className="w-4 h-4 text-amber-400 shrink-0" />
+                  <p className="text-amber-300 text-xs font-semibold">Warning: This action cannot be undone.</p>
                 </div>
-
-                {/* Actions */}
                 <div className="flex gap-3 pt-1">
-                  <motion.button
-                    whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                  <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                     onClick={() => setShowDeleteModal(false)}
-                    className="flex-1 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-700 font-semibold text-sm hover:bg-gray-50 transition-all"
-                  >
+                    className="flex-1 py-2.5 rounded-xl border border-white/10 bg-white/5 text-zinc-300 font-semibold text-sm hover:bg-white/10 transition-all">
                     Cancel
                   </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                  <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                     onClick={handleDeleteAccount}
-                    className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-red-500 to-rose-600 text-white font-bold text-sm shadow-md shadow-red-200 hover:shadow-red-300 transition-all flex items-center justify-center gap-2"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Delete My Account
+                    className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-red-500 to-rose-600 text-white font-bold text-sm shadow-md flex items-center justify-center gap-2">
+                    <Trash2 className="w-4 h-4" /> Delete My Account
                   </motion.button>
                 </div>
               </div>
@@ -597,63 +534,39 @@ export default function Dashboard() {
         )}
       </AnimatePresence>
 
-      {/* Animated Blueprint Pattern Background */}
-      <div className="absolute inset-0 opacity-5">
-        <div className="absolute inset-0" style={{
-          backgroundImage: `
-            linear-gradient(rgba(99, 102, 241, 0.1) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(99, 102, 241, 0.1) 1px, transparent 1px)
-          `,
-          backgroundSize: '40px 40px'
-        }}></div>
-      </div>
+      {/* Dot grid overlay */}
+      <div className="absolute inset-0 dot-grid pointer-events-none" />
 
-      {/* Top Navigation Bar */}
-      <nav className="relative bg-white shadow-md border-b border-gray-200">
+      {/* Top Nav */}
+      <nav className="relative glass-nav z-30">
         <div className="px-4 md:px-8 py-4">
           <div className="flex items-center justify-between">
-            {/* Left: Logo and System Name */}
             <div className="flex items-center gap-4">
-              {/* Mobile Menu Toggle */}
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="lg:hidden text-gray-600 hover:text-gray-800"
-              >
+              <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="lg:hidden text-zinc-400 hover:text-white">
                 {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
               </button>
-
-              <div 
-                className="flex items-center gap-3 cursor-pointer"
-                onClick={() => navigate("/")}
-              >
-                <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-2 rounded-xl shadow-lg">
+              <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/")}>
+                <div className="bg-gradient-to-br from-teal-400 to-teal-600 p-2 rounded-xl shadow-lg shadow-teal-500/20">
                   <Box className="w-8 h-8 text-white" strokeWidth={1.5} />
                 </div>
                 <div className="hidden md:block">
-                  <h1 className="text-lg font-bold text-gray-800">3D Layout System</h1>
-                  <p className="text-xs text-gray-500">AI-Powered Design</p>
+                  <h1 className="text-base font-bold text-white">3D Layout System</h1>
+                  <p className="text-xs text-zinc-500">AI-Powered Design</p>
                 </div>
               </div>
             </div>
-
-            {/* Right: User Info and Logout */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <div className="hidden md:block text-right">
-                <p className="text-sm text-gray-600">Welcome back,</p>
-                <p className="font-semibold text-gray-800">{username} 👋</p>
+                <p className="text-xs text-zinc-500">Welcome back,</p>
+                <p className="font-semibold text-white text-sm">{username} 👋</p>
               </div>
-              {/* Dark Mode Toggle */}
-              <motion.button
-                whileHover={{ scale: 1.08 }}
-                whileTap={{ scale: 0.92 }}
-                onClick={toggle}
-                title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
-                className="w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-all duration-200"
-              >
+              <motion.button whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
+                onClick={toggle} title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                className="w-9 h-9 flex items-center justify-center rounded-xl border border-white/10 bg-white/5 text-zinc-400 hover:bg-teal-500/10 hover:text-teal-400 hover:border-teal-500/20 transition-all">
                 <AnimatePresence mode="wait" initial={false}>
                   {theme === "dark" ? (
                     <motion.span key="sun" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.2 }}>
-                      <Sun className="w-4 h-4 text-amber-500" />
+                      <Sun className="w-4 h-4 text-amber-400" />
                     </motion.span>
                   ) : (
                     <motion.span key="moon" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.2 }}>
@@ -662,15 +575,10 @@ export default function Dashboard() {
                   )}
                 </AnimatePresence>
               </motion.button>
-
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleLogout}
-                className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-colors duration-200"
-              >
+              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleLogout}
+                className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors">
                 <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline">Logout</span>
+                <span className="hidden sm:inline text-sm font-medium">Logout</span>
               </motion.button>
             </div>
           </div>
@@ -678,72 +586,54 @@ export default function Dashboard() {
       </nav>
 
       <div className="flex">
-        {/* Left Sidebar Navigation - Desktop */}
-        <aside className="hidden lg:block w-64 bg-white shadow-lg border-r border-gray-200 min-h-[calc(100vh-73px)] relative">
-          <nav className="p-4 space-y-2">
+        {/* Desktop Sidebar */}
+        <aside className="hidden lg:flex flex-col w-64 glass-sidebar min-h-[calc(100vh-69px)] relative border-r border-white/5">
+          <nav className="p-4 space-y-1.5 flex-1">
             {menuItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeMenu === item.id;
               return (
-                <motion.button
-                  key={item.id}
-                  whileHover={{ x: 4 }}
+                <motion.button key={item.id} whileHover={{ x: 4 }}
                   onClick={() => { setActiveMenu(item.id); if (item.path) navigate(item.path); }}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${
                     isActive
-                      ? "bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-md"
-                      : "text-gray-700 hover:bg-indigo-50"
-                  }`}
-                >
-                  <Icon className="w-5 h-5" />
-                  <span className="font-medium">{item.label}</span>
+                      ? "bg-gradient-to-r from-teal-500/20 to-teal-600/10 text-teal-300 border border-teal-500/20"
+                      : "text-zinc-500 hover:text-zinc-200 hover:bg-white/5"
+                  }`}>
+                  <Icon className={`w-5 h-5 ${isActive ? "text-teal-400" : ""}`} />
+                  {item.label}
                 </motion.button>
               );
             })}
           </nav>
-
-          {/* Logout at Bottom of Sidebar */}
-          <div className="absolute bottom-4 left-4 right-4">
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-xl transition-all duration-200"
-            >
-              <LogOut className="w-5 h-5" />
-              <span className="font-medium">Logout</span>
+          <div className="p-4 border-t border-white/5">
+            <button onClick={handleLogout}
+              className="w-full flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl text-sm font-medium transition-all">
+              <LogOut className="w-5 h-5" /> Logout
             </button>
           </div>
         </aside>
 
-        {/* Mobile Sidebar Navigation */}
+        {/* Mobile Sidebar */}
         <AnimatePresence>
           {mobileMenuOpen && (
-            <motion.aside
-              initial={{ x: -300 }}
-              animate={{ x: 0 }}
-              exit={{ x: -300 }}
+            <motion.aside initial={{ x: -300 }} animate={{ x: 0 }} exit={{ x: -300 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="lg:hidden fixed left-0 top-[73px] bottom-0 w-64 bg-white shadow-2xl border-r border-gray-200 z-50"
-            >
-              <nav className="p-4 space-y-2">
+              className="lg:hidden fixed left-0 top-[69px] bottom-0 w-64 glass-sidebar shadow-2xl z-50 border-r border-white/5">
+              <nav className="p-4 space-y-1.5">
                 {menuItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = activeMenu === item.id;
                   return (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        setActiveMenu(item.id);
-                        setMobileMenuOpen(false);
-                        if (item.path) navigate(item.path);
-                      }}
-                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                    <button key={item.id}
+                      onClick={() => { setActiveMenu(item.id); setMobileMenuOpen(false); if (item.path) navigate(item.path); }}
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${
                         isActive
-                          ? "bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-md"
-                          : "text-gray-700 hover:bg-indigo-50"
-                      }`}
-                    >
-                      <Icon className="w-5 h-5" />
-                      <span className="font-medium">{item.label}</span>
+                          ? "bg-teal-500/15 text-teal-300 border border-teal-500/20"
+                          : "text-zinc-500 hover:text-zinc-200 hover:bg-white/5"
+                      }`}>
+                      <Icon className={`w-5 h-5 ${isActive ? "text-teal-400" : ""}`} />
+                      {item.label}
                     </button>
                   );
                 })}
@@ -752,26 +642,19 @@ export default function Dashboard() {
           )}
         </AnimatePresence>
 
-        {/* Main Content Area */}
-        <main className="flex-1 p-4 md:p-8 relative">
+        {/* Main Content */}
+        <main className="flex-1 p-4 md:p-8 relative overflow-x-hidden">
           <div className="max-w-7xl mx-auto">
-            {/* Welcome Section - Mobile */}
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="md:hidden mb-6 bg-white rounded-2xl p-6 shadow-md"
-            >
-              <h2 className="text-2xl font-bold text-gray-800">
-                Welcome back, {username} 👋
-              </h2>
-              <p className="text-gray-600 text-sm mt-1">
-                Ready to create amazing 3D layouts?
-              </p>
+            {/* Mobile greeting */}
+            <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }}
+              className="md:hidden mb-6 glass-card rounded-2xl p-5 border border-white/5">
+              <h2 className="text-xl font-bold text-white">Welcome back, {username} 👋</h2>
+              <p className="text-zinc-500 text-sm mt-1">Ready to create amazing 3D layouts?</p>
             </motion.div>
 
             <AnimatePresence mode="wait">
-              <motion.div key={activeMenu} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.18 }}>
+              <motion.div key={activeMenu} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }}>
                 {activeMenu === "dashboard" && renderDashboard()}
                 {activeMenu === "designs"   && renderDesigns()}
                 {activeMenu === "profile"   && renderProfile()}

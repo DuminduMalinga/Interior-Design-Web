@@ -876,51 +876,35 @@ export default function ViewLayouts() {
   const selectedLayout = MOCK_LAYOUTS.find((l) => l.id === selectedId);
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 relative">
-      {/* Blueprint grid */}
-      <div className="absolute inset-0 opacity-[0.04] pointer-events-none">
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `
-              linear-gradient(rgba(99,102,241,0.8) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(99,102,241,0.8) 1px, transparent 1px)
-            `,
-            backgroundSize: "40px 40px",
-          }}
-        />
-      </div>
+    <div className="min-h-screen w-full bg-[#0a0a0f] relative" style={{ fontFamily: "'Inter', sans-serif" }}>
+      <div className="absolute inset-0 dot-grid pointer-events-none" />
+      <div className="absolute top-1/4 right-1/4 w-[400px] h-[400px] bg-teal-500/5 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-1/4 left-1/4 w-[300px] h-[300px] bg-violet-500/5 rounded-full blur-[100px] pointer-events-none" />
 
       {/* Compare Modal */}
       <CompareModal layouts={MOCK_LAYOUTS} open={compareOpen} onClose={() => setCompareOpen(false)} />
 
       {/* ── Navigation ── */}
-      <nav className="relative bg-white shadow-md border-b border-gray-200 z-30">
+      <nav className="relative glass-nav z-30">
         <div className="px-4 md:px-8 py-4">
           <div className="flex items-center justify-between">
-            <div
-              className="flex items-center gap-3 cursor-pointer"
-              onClick={() => navigate("/dashboard")}
-            >
-              <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-2 rounded-xl shadow-lg">
+            <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/dashboard")}>
+              <div className="bg-gradient-to-br from-teal-400 to-teal-600 p-2 rounded-xl shadow-lg shadow-teal-500/20">
                 <Box className="w-8 h-8 text-white" strokeWidth={1.5} />
               </div>
               <div className="hidden md:block">
-                <h1 className="text-lg font-bold text-gray-800">3D Layout System</h1>
-                <p className="text-xs text-gray-500">AI-Powered Design</p>
+                <h1 className="text-base font-bold text-white">3D Layout System</h1>
+                <p className="text-xs text-zinc-500">AI-Powered Design</p>
               </div>
             </div>
             <div className="flex items-center gap-4">
               <div className="hidden md:block text-right">
-                <p className="text-sm text-gray-600">Welcome back,</p>
-                <p className="font-semibold text-gray-800">{username} 👋</p>
+                <p className="text-xs text-zinc-500">Welcome back,</p>
+                <p className="font-semibold text-white text-sm">{username} 👋</p>
               </div>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                 onClick={() => navigate("/")}
-                className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-colors duration-200"
-              >
+                className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors">
                 <LogOut className="w-4 h-4" />
                 <span className="hidden sm:inline text-sm font-medium">Logout</span>
               </motion.button>
@@ -938,7 +922,7 @@ export default function ViewLayouts() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-6 py-4 flex justify-center">
+          <div className="glass-card rounded-2xl border border-white/5 px-6 py-4 flex justify-center">
             <StepIndicator current={4} />
           </div>
         </motion.div>
@@ -951,32 +935,24 @@ export default function ViewLayouts() {
           className="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-3"
         >
           <div>
-            <h2 className="text-3xl md:text-4xl font-extrabold bg-gradient-to-r from-blue-700 to-indigo-700 bg-clip-text text-transparent">
+            <h2 className="text-3xl md:text-4xl font-extrabold bg-gradient-to-r from-teal-300 to-cyan-400 bg-clip-text text-transparent">
               Generated Furniture Layouts
             </h2>
-            <p className="text-gray-500 mt-1.5 text-sm md:text-base">
+            <p className="text-zinc-500 mt-1.5 text-sm md:text-base">
               Review and compare optimized layout options for your selected room.
             </p>
           </div>
           <div className="flex items-center gap-3 shrink-0">
             <ScoreTooltip />
-            <motion.button
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.97 }}
+            <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
               onClick={() => setCompareOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 border border-indigo-200 bg-white text-indigo-700 hover:bg-indigo-50 rounded-xl text-sm font-semibold shadow-sm transition-all"
-            >
-              <GitCompare className="w-4 h-4" />
-              Compare
+              className="flex items-center gap-2 px-4 py-2 border border-teal-500/20 bg-teal-500/10 text-teal-400 hover:bg-teal-500/20 rounded-xl text-sm font-semibold transition-all">
+              <GitCompare className="w-4 h-4" /> Compare
             </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.97 }}
+            <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
               onClick={() => { setIsLoading(true); setTimeout(() => setIsLoading(false), 1800); }}
-              className="flex items-center gap-2 px-4 py-2 border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 rounded-xl text-sm font-semibold shadow-sm transition-all"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Regenerate
+              className="flex items-center gap-2 px-4 py-2 border border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10 rounded-xl text-sm font-semibold transition-all">
+              <RefreshCw className="w-4 h-4" /> Regenerate
             </motion.button>
           </div>
         </motion.div>
@@ -988,26 +964,17 @@ export default function ViewLayouts() {
 
             {/* Error state */}
             {hasError && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.97 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="bg-white rounded-3xl shadow-xl border border-red-200 p-12 flex flex-col items-center gap-4 text-center"
-              >
-                <div className="bg-red-100 p-5 rounded-2xl">
-                  <AlertCircle className="w-12 h-12 text-red-500" />
+              <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}
+                className="glass-card rounded-3xl border border-red-500/20 p-12 flex flex-col items-center gap-4 text-center">
+                <div className="bg-red-500/10 p-5 rounded-2xl border border-red-500/20">
+                  <AlertCircle className="w-12 h-12 text-red-400" />
                 </div>
-                <h3 className="text-xl font-bold text-gray-800">Layout Generation Failed</h3>
-                <p className="text-gray-500 max-w-sm">
-                  Layout generation failed. Please try again or re-upload your floor plan.
-                </p>
-                <motion.button
-                  whileHover={{ scale: 1.04 }}
-                  whileTap={{ scale: 0.97 }}
+                <h3 className="text-xl font-bold text-white">Layout Generation Failed</h3>
+                <p className="text-zinc-500 max-w-sm">Layout generation failed. Please try again or re-upload your floor plan.</p>
+                <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
                   onClick={() => navigate("/upload")}
-                  className="mt-2 flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl font-semibold shadow-md"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  Try Again
+                  className="mt-2 flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-xl font-semibold shadow-md shadow-teal-500/20">
+                  <RefreshCw className="w-4 h-4" /> Try Again
                 </motion.button>
               </motion.div>
             )}
@@ -1015,25 +982,18 @@ export default function ViewLayouts() {
             {/* Loading state */}
             {!hasError && isLoading && (
               <div>
-                <div className="flex items-center gap-3 mb-6 bg-white rounded-2xl px-5 py-4 shadow-sm border border-gray-100">
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-                  >
-                    <Loader2 className="w-5 h-5 text-indigo-500" />
+                <div className="flex items-center gap-3 mb-6 glass-card rounded-2xl px-5 py-4 border border-white/5">
+                  <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}>
+                    <Loader2 className="w-5 h-5 text-teal-400" />
                   </motion.div>
                   <div>
-                    <p className="text-sm font-semibold text-gray-700">Generating optimized layouts…</p>
-                    <p className="text-xs text-gray-400">Our AI is calculating the best furniture arrangements</p>
+                    <p className="text-sm font-semibold text-zinc-200">Generating optimized layouts…</p>
+                    <p className="text-xs text-zinc-500">Our AI is calculating the best furniture arrangements</p>
                   </div>
                   <div className="ml-auto flex-1 max-w-xs">
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <motion.div
-                        initial={{ width: "0%" }}
-                        animate={{ width: "100%" }}
-                        transition={{ duration: 2.2, ease: "easeInOut" }}
-                        className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full"
-                      />
+                    <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                      <motion.div initial={{ width: "0%" }} animate={{ width: "100%" }} transition={{ duration: 2.2, ease: "easeInOut" }}
+                        className="h-full bg-gradient-to-r from-teal-400 to-cyan-400 rounded-full" />
                     </div>
                   </div>
                 </div>
@@ -1078,53 +1038,32 @@ export default function ViewLayouts() {
           <div className="xl:col-span-1 flex flex-col gap-4">
 
             {/* Selected Room Preview */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.15 }}
-              className="bg-white rounded-2xl shadow-md border border-gray-100 p-5"
-            >
-              <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-                <BedDouble className="w-4 h-4 text-indigo-500" />
-                Selected Room
+            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 }}
+              className="glass-card rounded-2xl border border-white/5 p-5">
+              <h4 className="text-sm font-bold text-zinc-300 mb-3 flex items-center gap-2">
+                <BedDouble className="w-4 h-4 text-teal-400" /> Selected Room
               </h4>
-              {/* Mini floor plan */}
-              <div className="w-full rounded-xl overflow-hidden bg-indigo-50 border border-indigo-100" style={{ height: 110 }}>
+              <div className="w-full rounded-xl overflow-hidden bg-teal-500/[0.03] border border-teal-500/10" style={{ height: 110 }}>
                 <svg viewBox="0 0 160 110" width="100%" height="100%">
-                  {[20, 40, 60, 80, 100, 120, 140].map((v) => (
-                    <g key={v}>
-                      <line x1={v} y1="5" x2={v} y2="105" stroke="#c7d2fe" strokeWidth="0.5" />
-                    </g>
-                  ))}
-                  {[20, 40, 60, 80, 100].map((v) => (
-                    <g key={v}>
-                      <line x1="5" y1={v} x2="155" y2={v} stroke="#c7d2fe" strokeWidth="0.5" />
-                    </g>
-                  ))}
-                  <rect x="8" y="8" width="144" height="94" rx="4" fill="none" stroke="#6366f1" strokeWidth="2" />
-                  <line x1="60" y1="8" x2="80" y2="8" stroke="#a5b4fc" strokeWidth="3" />
-                  <path d="M 8 94 Q 18 94 18 84" fill="none" stroke="#6366f1" strokeWidth="1.2" strokeDasharray="2,1.5" />
-                  <text x="80" y="58" textAnchor="middle" fill="#818cf8" fontSize="9" fontFamily="sans-serif" fontWeight="bold">
-                    {SELECTED_ROOM.name}
-                  </text>
-                  <text x="80" y="72" textAnchor="middle" fill="#a5b4fc" fontSize="7.5" fontFamily="sans-serif">
-                    {SELECTED_ROOM.width}ft × {SELECTED_ROOM.height}ft
-                  </text>
+                  {[20, 40, 60, 80, 100, 120, 140].map((v) => (<g key={v}><line x1={v} y1="5" x2={v} y2="105" stroke="rgba(255,255,255,0.04)" strokeWidth="0.5" /></g>))}
+                  {[20, 40, 60, 80, 100].map((v) => (<g key={v}><line x1="5" y1={v} x2="155" y2={v} stroke="rgba(255,255,255,0.04)" strokeWidth="0.5" /></g>))}
+                  <rect x="8" y="8" width="144" height="94" rx="4" fill="none" stroke="#14b8a6" strokeWidth="2" />
+                  <line x1="60" y1="8" x2="80" y2="8" stroke="#2dd4bf" strokeWidth="3" />
+                  <path d="M 8 94 Q 18 94 18 84" fill="none" stroke="#14b8a6" strokeWidth="1.2" strokeDasharray="2,1.5" />
+                  <text x="80" y="58" textAnchor="middle" fill="#2dd4bf" fontSize="9" fontFamily="sans-serif" fontWeight="bold">{SELECTED_ROOM.name}</text>
+                  <text x="80" y="72" textAnchor="middle" fill="#5eead4" fontSize="7.5" fontFamily="sans-serif">{SELECTED_ROOM.width}ft × {SELECTED_ROOM.height}ft</text>
                 </svg>
               </div>
               <div className="mt-3 flex items-center justify-between">
                 <div>
-                  <p className="font-bold text-gray-800 text-sm">{SELECTED_ROOM.name}</p>
-                  <p className="text-gray-400 text-xs">{SELECTED_ROOM.type}</p>
+                  <p className="font-bold text-zinc-200 text-sm">{SELECTED_ROOM.name}</p>
+                  <p className="text-zinc-600 text-xs">{SELECTED_ROOM.type}</p>
                 </div>
                 <div className="text-right">
-                  <div className="flex items-center gap-1 text-gray-500 text-xs justify-end">
-                    <Maximize2 className="w-3 h-3" />
-                    {SELECTED_ROOM.width}ft × {SELECTED_ROOM.height}ft
+                  <div className="flex items-center gap-1 text-zinc-600 text-xs justify-end">
+                    <Maximize2 className="w-3 h-3" /> {SELECTED_ROOM.width}ft × {SELECTED_ROOM.height}ft
                   </div>
-                  <p className="text-xs font-semibold text-indigo-600">
-                    {SELECTED_ROOM.width * SELECTED_ROOM.height} sq ft
-                  </p>
+                  <p className="text-xs font-semibold text-teal-400">{SELECTED_ROOM.width * SELECTED_ROOM.height} sq ft</p>
                 </div>
               </div>
             </motion.div>
@@ -1132,24 +1071,20 @@ export default function ViewLayouts() {
             {/* Selection Summary */}
             <AnimatePresence mode="wait">
               {selectedLayout ? (
-                <motion.div
-                  key={selectedLayout.id}
-                  initial={{ opacity: 0, scale: 0.96 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.96 }}
-                  className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl shadow-lg p-5 text-white"
-                >
+                <motion.div key={selectedLayout.id} initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }}
+                  className="bg-gradient-to-br from-teal-500/20 to-teal-600/10 glass-card rounded-2xl border border-teal-500/20 shadow-lg p-5">
+                  
                   <div className="flex items-center justify-between mb-3">
                     <div>
-                      <p className="text-white/60 text-xs font-medium">Active Selection</p>
-                      <h4 className="font-bold text-lg">{selectedLayout.label}</h4>
+                      <p className="text-teal-300/60 text-xs font-medium">Active Selection</p>
+                      <h4 className="font-bold text-lg text-white">{selectedLayout.label}</h4>
                     </div>
-                    <div className="bg-white/20 rounded-xl p-2 text-center min-w-[52px]">
-                      <p className="text-2xl font-extrabold">{selectedLayout.score}</p>
-                      <p className="text-white/70 text-[10px] font-medium">/ 100</p>
+                    <div className="bg-white/10 rounded-xl p-2 text-center min-w-[52px]">
+                       <p className="text-2xl font-extrabold text-teal-300">{selectedLayout.score}</p>
+                       <p className="text-teal-300/60 text-[10px] font-medium">/ 100</p>
                     </div>
                   </div>
-                  <p className="text-white/70 text-xs leading-relaxed mb-3">{selectedLayout.summary}</p>
+                  <p className="text-teal-100/50 text-xs leading-relaxed mb-3">{selectedLayout.summary}</p>
                   <div className="space-y-1.5">
                     {[
                       { label: "Space", value: selectedLayout.breakdown.spaceUtilization },
@@ -1157,8 +1092,8 @@ export default function ViewLayouts() {
                       { label: "Ergonomics", value: selectedLayout.breakdown.ergonomics },
                     ].map(({ label, value }) => (
                       <div key={label} className="flex items-center gap-2">
-                        <span className="text-white/60 text-[11px] w-20">{label}</span>
-                        <div className="flex-1 h-1.5 bg-white/20 rounded-full overflow-hidden">
+                        <span className="text-teal-200/50 text-[11px] w-20">{label}</span>
+                        <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
                           <motion.div
                             initial={{ width: 0 }}
                             animate={{ width: `${value}%` }}
@@ -1166,7 +1101,7 @@ export default function ViewLayouts() {
                             className="h-full bg-white rounded-full"
                           />
                         </div>
-                        <span className="text-white text-[11px] font-bold w-8 text-right">{value}%</span>
+                        <span className="text-teal-300 text-[11px] font-bold w-8 text-right">{value}%</span>
                       </div>
                     ))}
                   </div>
@@ -1186,73 +1121,50 @@ export default function ViewLayouts() {
 
             {/* Layouts count badge */}
             {!isLoading && !hasError && (
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3 flex items-center justify-between">
+              <div className="glass-card rounded-xl border border-white/5 px-4 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-indigo-400" />
-                  <span className="text-sm font-semibold text-gray-700">AI Generated</span>
+                  <Sparkles className="w-4 h-4 text-teal-400" />
+                  <span className="text-sm font-semibold text-zinc-300">AI Generated</span>
                 </div>
-                <span className="text-sm font-bold text-indigo-700">{MOCK_LAYOUTS.length} layouts</span>
+                <span className="text-sm font-bold text-teal-400">{MOCK_LAYOUTS.length} layouts</span>
               </div>
             )}
 
             {/* Action Buttons */}
             <div className="flex flex-col gap-3">
-              <motion.button
-                whileHover={selectedId ? { scale: 1.03, y: -1 } : {}}
-                whileTap={selectedId ? { scale: 0.97 } : {}}
-                onClick={handleContinue}
-                disabled={!selectedId || isLoading}
+              <motion.button whileHover={selectedId ? { scale: 1.03, y: -1 } : {}} whileTap={selectedId ? { scale: 0.97 } : {}}
+                onClick={handleContinue} disabled={!selectedId || isLoading}
                 className={`w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl font-semibold text-sm transition-all duration-300 ${
                   selectedId && !isLoading
-                    ? "bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg shadow-indigo-200 hover:shadow-indigo-300"
-                    : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                }`}
-              >
-                Continue with Selected Layout
-                <ArrowRight className="w-4 h-4" />
+                    ? "bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-lg shadow-teal-500/20 hover:shadow-teal-500/30"
+                    : "bg-white/5 text-zinc-600 cursor-not-allowed border border-white/5"
+                }`}>
+                Continue with Selected Layout <ArrowRight className="w-4 h-4" />
               </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
+              <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                 onClick={() => navigate("/select-room")}
-                className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 hover:border-gray-300 shadow-sm transition-all"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Back to Room Selection
+                className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm bg-white/5 text-zinc-400 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all">
+                <ArrowLeft className="w-4 h-4" /> Back to Room Selection
               </motion.button>
             </div>
           </div>
         </div>
 
         {/* Mobile bottom action bar */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.35 }}
-          className="xl:hidden mt-6 flex gap-3"
-        >
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.97 }}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="xl:hidden mt-6 flex gap-3">
+          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
             onClick={() => navigate("/select-room")}
-            className="flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm bg-white text-gray-700 border border-gray-200 shadow-sm hover:bg-gray-50 transition-all"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back
+            className="flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm bg-white/5 text-zinc-400 border border-white/10 hover:bg-white/10 transition-all">
+            <ArrowLeft className="w-4 h-4" /> Back
           </motion.button>
-          <motion.button
-            whileHover={selectedId ? { scale: 1.02 } : {}}
-            whileTap={selectedId ? { scale: 0.97 } : {}}
-            onClick={handleContinue}
-            disabled={!selectedId || isLoading}
+          <motion.button whileHover={selectedId ? { scale: 1.02 } : {}} whileTap={selectedId ? { scale: 0.97 } : {}}
+            onClick={handleContinue} disabled={!selectedId || isLoading}
             className={`flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-all ${
               selectedId && !isLoading
-                ? "bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg shadow-indigo-100"
-                : "bg-gray-100 text-gray-400 cursor-not-allowed"
-            }`}
-          >
-            Continue
-            <ArrowRight className="w-4 h-4" />
+                ? "bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-lg shadow-teal-500/20"
+                : "bg-white/5 text-zinc-600 cursor-not-allowed"
+            }`}>
+            Continue <ArrowRight className="w-4 h-4" />
           </motion.button>
         </motion.div>
       </main>

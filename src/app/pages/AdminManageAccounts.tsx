@@ -139,9 +139,9 @@ function SortIcon({ field, sort }: { field: SortField; sort: { f: SortField; d: 
       </span>
     );
   return sort.d === "asc" ? (
-    <ChevronUp className="w-3.5 h-3.5 inline ml-1 text-indigo-600" />
+    <ChevronUp className="w-3.5 h-3.5 inline ml-1 text-teal-400" />
   ) : (
-    <ChevronDown className="w-3.5 h-3.5 inline ml-1 text-indigo-600" />
+    <ChevronDown className="w-3.5 h-3.5 inline ml-1 text-teal-400" />
   );
 }
 
@@ -187,7 +187,7 @@ function DeleteModal({
         exit={{ scale: 0.9, opacity: 0, y: 20 }}
         transition={{ type: "spring", stiffness: 320, damping: 26 }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden"
+        className="w-full max-w-md bg-[#0f0f17] border border-white/10 rounded-3xl shadow-2xl overflow-hidden"
       >
         {/* Red header */}
         <div className="bg-gradient-to-r from-red-500 to-rose-600 px-6 py-5">
@@ -204,25 +204,25 @@ function DeleteModal({
 
         <div className="p-6 space-y-4">
           {/* User Preview */}
-          <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-2xl p-4">
+          <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/20 rounded-2xl p-4">
             <div
               className={`w-11 h-11 rounded-xl bg-gradient-to-br ${avatarColor(user.avatar)} flex items-center justify-center text-white font-bold text-sm shrink-0`}
             >
               {user.avatar}
             </div>
             <div className="min-w-0">
-              <p className="font-bold text-gray-900 text-sm truncate">{user.fullName}</p>
-              <p className="text-xs text-gray-500 truncate">{user.email}</p>
-              <p className="text-xs text-gray-400">@{user.username}</p>
+              <p className="font-bold text-zinc-100 text-sm truncate">{user.fullName}</p>
+              <p className="text-xs text-zinc-500 truncate">{user.email}</p>
+              <p className="text-xs text-zinc-600">@{user.username}</p>
             </div>
           </div>
 
           {/* Warning text */}
           <div className="text-center space-y-1">
-            <p className="text-gray-800 font-semibold text-sm">
+            <p className="text-zinc-100 font-semibold text-sm">
               Are you sure you want to permanently delete this account?
             </p>
-            <p className="text-gray-500 text-xs">
+            <p className="text-zinc-500 text-xs">
               All uploads, designs, and data associated with this account will be removed.
             </p>
           </div>
@@ -254,10 +254,10 @@ function DeleteModal({
               value={adminPass}
               onChange={(e) => { setAdminPass(e.target.value); setPassError(false); }}
               onKeyDown={(e) => e.key === "Enter" && handleConfirm()}
-              className={`w-full border rounded-xl px-4 py-2.5 text-sm outline-none transition-all ${
+              className={`w-full border rounded-xl px-4 py-2.5 text-sm outline-none transition-all bg-white/5 text-zinc-200 placeholder:text-zinc-600 ${
                 passError
-                  ? "border-red-400 ring-2 ring-red-200 bg-red-50"
-                  : "border-gray-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                  ? "border-red-500/40 ring-2 ring-red-500/20"
+                  : "border-white/10 focus:border-teal-500/50 focus:ring-2 focus:ring-teal-500/20"
               }`}
             />
             {passError && (
@@ -268,9 +268,9 @@ function DeleteModal({
           </div>
 
           {/* Cannot be undone banner */}
-          <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
-            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
-            <p className="text-amber-700 text-[11px] font-semibold">
+          <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2.5">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+            <p className="text-amber-300 text-[11px] font-semibold">
               Warning: This action cannot be undone. The account will be permanently removed.
             </p>
           </div>
@@ -281,7 +281,7 @@ function DeleteModal({
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
               onClick={onCancel}
-              className="flex-1 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-700 font-semibold text-sm hover:bg-gray-50 transition-all"
+              className="flex-1 py-2.5 rounded-xl border border-white/10 bg-white/5 text-zinc-300 font-semibold text-sm hover:bg-white/10 transition-all"
             >
               Cancel
             </motion.button>
@@ -325,19 +325,18 @@ function ViewUserModal({
         exit={{ scale: 0.92, opacity: 0, y: 16 }}
         transition={{ type: "spring", stiffness: 300, damping: 24 }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden"
+        className="w-full max-w-sm bg-[#0f0f17] border border-white/10 rounded-3xl shadow-2xl overflow-hidden"
       >
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-700 px-6 py-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div
-              className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${avatarColor(user.avatar)} flex items-center justify-center text-white font-bold text-base`}
-            >
-              {user.avatar}
-            </div>
-            <div>
-              <h3 className="text-white font-bold">{user.fullName}</h3>
-              <p className="text-blue-200 text-xs">@{user.username}</p>
+              className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${avatarColor(user.avatar)} flex items-center justify-center text-white font-bold text-base`}>
+            {user.avatar}
+          </div>
+          <div>
+            <h3 className="text-white font-bold">{user.fullName}</h3>
+            <p className="text-teal-300 text-xs">@{user.username}</p>
             </div>
           </div>
           <button onClick={onClose} className="text-white/70 hover:text-white transition-colors">
@@ -356,9 +355,9 @@ function ViewUserModal({
             { label: "Uploads", value: `${user.uploads} uploads`, icon: Upload },
             { label: "Last Active", value: user.lastActive, icon: Activity },
           ].map(({ label, value, icon: Icon }) => (
-            <div key={label} className="flex items-center gap-3 py-1.5 border-b border-gray-50 last:border-0">
-              <Icon className="w-4 h-4 text-indigo-400 shrink-0" />
-              <span className="text-xs text-gray-400 w-24 shrink-0">{label}</span>
+            <div key={label} className="flex items-center gap-3 py-1.5 border-b border-white/5 last:border-0">
+              <Icon className="w-4 h-4 text-teal-400 shrink-0" />
+              <span className="text-xs text-zinc-500 w-24 shrink-0">{label}</span>
               <span
                 className={`text-xs font-semibold truncate ${
                   label === "Role" && value === "Admin"
@@ -520,15 +519,9 @@ export default function AdminManageAccounts() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex flex-col">
-
-      {/* Blueprint grid overlay */}
-      <div className="absolute inset-0 opacity-[0.025] pointer-events-none">
-        <div className="absolute inset-0" style={{
-          backgroundImage: `linear-gradient(rgba(99,102,241,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.8) 1px, transparent 1px)`,
-          backgroundSize: "40px 40px",
-        }} />
-      </div>
+    <div className="min-h-screen w-full bg-[#0a0a0f] flex flex-col" style={{ fontFamily: "'Inter', sans-serif" }}>
+      <div className="absolute inset-0 dot-grid pointer-events-none" />
+      <div className="absolute top-1/4 right-1/3 w-[400px] h-[400px] bg-teal-500/4 rounded-full blur-[100px] pointer-events-none" />
 
       {/* ── Modals ── */}
       <AnimatePresence>
@@ -571,7 +564,7 @@ export default function AdminManageAccounts() {
       </AnimatePresence>
 
       {/* ── Top Navigation ── */}
-      <nav className="relative bg-white shadow-md border-b border-gray-200 z-30">
+      <nav className="relative glass-nav z-30">
         <div className="px-4 md:px-6 py-4">
           <div className="flex items-center justify-between">
             {/* Logo + hamburger */}
@@ -586,16 +579,16 @@ export default function AdminManageAccounts() {
                 className="flex items-center gap-3 cursor-pointer"
                 onClick={() => navigate("/dashboard")}
               >
-                <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-2 rounded-xl shadow-lg">
+                <div className="bg-gradient-to-br from-teal-400 to-teal-600 p-2 rounded-xl shadow-lg shadow-teal-500/20">
                   <Box className="w-7 h-7 text-white" strokeWidth={1.5} />
                 </div>
                 <div className="hidden md:block">
-                  <h1 className="text-base font-bold text-gray-800">3D Layout System</h1>
-                  <p className="text-[11px] text-gray-500">AI-Powered Design</p>
+                  <h1 className="text-base font-bold text-white">3D Layout System</h1>
+                  <p className="text-[11px] text-zinc-500">AI-Powered Design</p>
                 </div>
               </div>
               {/* Admin badge */}
-              <span className="hidden sm:flex items-center gap-1 bg-indigo-100 text-indigo-700 text-[11px] font-bold px-2.5 py-1 rounded-full border border-indigo-200">
+              <span className="hidden sm:flex items-center gap-1 bg-teal-500/10 text-teal-400 text-[11px] font-bold px-2.5 py-1 rounded-full border border-teal-500/20">
                 <ShieldCheck className="w-3 h-3" />
                 Admin Panel
               </span>
@@ -603,27 +596,22 @@ export default function AdminManageAccounts() {
 
             {/* Right */}
             <div className="flex items-center gap-3">
-              <button className="relative p-2 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">
+              <button className="relative p-2 rounded-xl border border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10 transition-colors">
                 <Bell className="w-4 h-4" />
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                  3
-                </span>
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">3</span>
               </button>
-              <div className="hidden md:flex items-center gap-2.5 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
-                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white text-[11px] font-bold">
+              <div className="hidden md:flex items-center gap-2.5 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white text-[11px] font-bold">
                   JS
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-gray-800">{adminUsername}</p>
-                  <p className="text-[10px] text-indigo-600 font-semibold">Administrator</p>
+                  <p className="text-xs font-bold text-zinc-200">{adminUsername}</p>
+                  <p className="text-[10px] text-teal-400 font-semibold">Administrator</p>
                 </div>
               </div>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                 onClick={() => navigate("/")}
-                className="flex items-center gap-1.5 px-3 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-colors text-sm font-medium"
-              >
+                className="flex items-center gap-1.5 px-3 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors text-sm font-medium">
                 <LogOut className="w-4 h-4" />
                 <span className="hidden sm:inline">Logout</span>
               </motion.button>
@@ -635,47 +623,35 @@ export default function AdminManageAccounts() {
       <div className="flex flex-1 relative">
 
         {/* ── Sidebar (desktop) ── */}
-        <aside className="hidden lg:flex flex-col w-60 bg-white shadow-lg border-r border-gray-200 min-h-[calc(100vh-69px)]">
+        <aside className="hidden lg:flex flex-col w-60 glass-card border-r border-white/5 shadow-none min-h-[calc(100vh-69px)]">
           <nav className="p-4 space-y-1 flex-1">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-3 mb-3">
-              Administration
-            </p>
+            <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest px-3 mb-3">Administration</p>
             {ADMIN_NAV.map((item) => {
               const Icon = item.icon;
               const isActive = item.id === activeNav;
               return (
-                <motion.button
-                  key={item.id}
-                  whileHover={{ x: 3 }}
+                <motion.button key={item.id} whileHover={{ x: 3 }}
                   onClick={() => { setActiveNav(item.id); navigate(item.path); }}
                   className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
                     isActive
-                      ? "bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-md"
-                      : "text-gray-600 hover:bg-indigo-50 hover:text-indigo-700"
-                  }`}
-                >
+                      ? "bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-md shadow-teal-500/20"
+                      : "text-zinc-500 hover:bg-white/5 hover:text-teal-400"
+                  }`}>
                   <Icon className="w-4 h-4" />
                   {item.label}
                   {item.id === "accounts" && (
-                    <span
-                      className={`ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                        isActive ? "bg-white/20 text-white" : "bg-indigo-100 text-indigo-700"
-                      }`}
-                    >
-                      {users.length}
-                    </span>
+                    <span className={`ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                      isActive ? "bg-white/20 text-white" : "bg-teal-500/10 text-teal-400"
+                    }`}>{users.length}</span>
                   )}
                 </motion.button>
               );
             })}
           </nav>
-          <div className="p-4 border-t border-gray-100">
-            <button
-              onClick={() => navigate("/")}
-              className="w-full flex items-center gap-2 px-4 py-2.5 text-red-600 hover:bg-red-50 rounded-xl text-sm font-medium transition-all"
-            >
-              <LogOut className="w-4 h-4" />
-              Sign Out
+          <div className="p-4 border-t border-white/5">
+            <button onClick={() => navigate("/")}
+              className="w-full flex items-center gap-2 px-4 py-2.5 text-red-400 hover:bg-red-500/10 rounded-xl text-sm font-medium transition-all">
+              <LogOut className="w-4 h-4" /> Sign Out
             </button>
           </div>
         </aside>
@@ -691,29 +667,21 @@ export default function AdminManageAccounts() {
                 className="lg:hidden fixed inset-0 bg-black/30 z-40"
                 onClick={() => setSidebarOpen(false)}
               />
-              <motion.aside
-                initial={{ x: -280 }}
-                animate={{ x: 0 }}
-                exit={{ x: -280 }}
+              <motion.aside initial={{ x: -280 }} animate={{ x: 0 }} exit={{ x: -280 }}
                 transition={{ type: "spring", stiffness: 300, damping: 28 }}
-                className="lg:hidden fixed left-0 top-[69px] bottom-0 w-60 bg-white shadow-2xl border-r border-gray-200 z-50 flex flex-col"
-              >
+                className="lg:hidden fixed left-0 top-[69px] bottom-0 w-60 bg-[#0f0f1a] border-r border-white/10 z-50 flex flex-col shadow-2xl">
                 <nav className="p-4 space-y-1 flex-1 overflow-y-auto">
                   {ADMIN_NAV.map((item) => {
                     const Icon = item.icon;
                     const isActive = item.id === activeNav;
                     return (
-                      <button
-                        key={item.id}
-                        onClick={() => { setActiveNav(item.id); setSidebarOpen(false); }}
+                      <button key={item.id} onClick={() => { setActiveNav(item.id); setSidebarOpen(false); }}
                         className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
                           isActive
-                            ? "bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-md"
-                            : "text-gray-600 hover:bg-indigo-50"
-                        }`}
-                      >
-                        <Icon className="w-4 h-4" />
-                        {item.label}
+                            ? "bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-md"
+                            : "text-zinc-500 hover:bg-white/5 hover:text-teal-400"
+                        }`}>
+                        <Icon className="w-4 h-4" />{item.label}
                       </button>
                     );
                   })}
@@ -730,33 +698,25 @@ export default function AdminManageAccounts() {
             {/* Page Header */}
             <motion.div initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
               <div>
-                <h2 className="text-2xl md:text-3xl font-extrabold bg-gradient-to-r from-blue-700 to-indigo-700 bg-clip-text text-transparent">
+                <h2 className="text-2xl md:text-3xl font-extrabold bg-gradient-to-r from-teal-300 to-cyan-400 bg-clip-text text-transparent">
                   Manage User Accounts
                 </h2>
-                <p className="text-gray-500 text-sm mt-1">View, search, and manage registered users.</p>
+                <p className="text-zinc-500 text-sm mt-1">View, search, and manage registered users.</p>
               </div>
               <div className="flex items-center gap-2">
-                <motion.button
-                  whileHover={{ scale: 1.04 }}
-                  whileTap={{ scale: 0.97 }}
+                <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
                   onClick={() => setShowAudit((p) => !p)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-semibold shadow-sm transition-all ${
+                  className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-semibold transition-all ${
                     showAudit
-                      ? "bg-indigo-600 text-white border-indigo-600"
-                      : "bg-white border-gray-200 text-gray-700 hover:bg-indigo-50"
-                  }`}
-                >
-                  <FileText className="w-4 h-4" />
-                  Audit Log
+                      ? "bg-teal-500 text-white border-teal-500"
+                      : "bg-white/5 border-white/10 text-zinc-400 hover:bg-white/10"
+                  }`}>
+                  <FileText className="w-4 h-4" /> Audit Log
                 </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.04 }}
-                  whileTap={{ scale: 0.97 }}
+                <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
                   onClick={handleExportCSV}
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 text-sm font-semibold shadow-sm transition-all"
-                >
-                  <Download className="w-4 h-4" />
-                  Export CSV
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10 text-sm font-semibold transition-all">
+                  <Download className="w-4 h-4" /> Export CSV
                 </motion.button>
               </div>
             </motion.div>
@@ -769,23 +729,20 @@ export default function AdminManageAccounts() {
               className="grid grid-cols-2 sm:grid-cols-4 gap-3"
             >
               {[
-                { label: "Total Users", value: stats.total, icon: Users, color: "from-blue-500 to-indigo-600", bg: "bg-blue-50", text: "text-blue-700" },
-                { label: "Active",      value: stats.active, icon: CheckCircle2, color: "from-green-500 to-emerald-600", bg: "bg-green-50", text: "text-green-700" },
-                { label: "Suspended",  value: stats.suspended, icon: XCircle, color: "from-red-500 to-rose-600", bg: "bg-red-50", text: "text-red-700" },
-                { label: "Admins",     value: stats.admins, icon: ShieldCheck, color: "from-purple-500 to-violet-600", bg: "bg-purple-50", text: "text-purple-700" },
+                { label: "Total Users", value: stats.total, icon: Users, color: "from-teal-400 to-teal-600", bg: "bg-teal-500/10", text: "text-teal-400" },
+                { label: "Active",      value: stats.active, icon: CheckCircle2, color: "from-emerald-400 to-emerald-600", bg: "bg-emerald-500/10", text: "text-emerald-400" },
+                { label: "Suspended",   value: stats.suspended, icon: XCircle, color: "from-red-400 to-rose-600", bg: "bg-red-500/10", text: "text-red-400" },
+                { label: "Admins",      value: stats.admins, icon: ShieldCheck, color: "from-violet-400 to-violet-600", bg: "bg-violet-500/10", text: "text-violet-400" },
               ].map((stat) => {
                 const Icon = stat.icon;
                 return (
-                  <div
-                    key={stat.label}
-                    className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-3"
-                  >
-                    <div className={`p-2.5 rounded-xl ${stat.bg}`}>
+                  <div key={stat.label} className="glass-card rounded-2xl border border-white/5 p-4 flex items-center gap-3">
+                    <div className={`p-2.5 rounded-xl ${stat.bg} border border-white/5`}>
                       <Icon className={`w-5 h-5 ${stat.text}`} />
                     </div>
                     <div>
-                      <p className="text-2xl font-extrabold text-gray-900">{stat.value}</p>
-                      <p className="text-xs text-gray-500 font-medium">{stat.label}</p>
+                      <p className="text-2xl font-extrabold text-zinc-100">{stat.value}</p>
+                      <p className="text-xs text-zinc-500 font-medium">{stat.label}</p>
                     </div>
                   </div>
                 );
@@ -801,46 +758,32 @@ export default function AdminManageAccounts() {
                   exit={{ opacity: 0, height: 0 }}
                   className="overflow-hidden"
                 >
-                  <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                  <div className="glass-card rounded-2xl border border-white/5 p-5">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-bold text-gray-800 text-sm flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-indigo-500" />
-                        Recent Audit Log
+                      <h3 className="font-bold text-zinc-200 text-sm flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-teal-400" /> Recent Audit Log
                       </h3>
                       <button onClick={() => setShowAudit(false)}>
-                        <X className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+                        <X className="w-4 h-4 text-zinc-600 hover:text-zinc-300" />
                       </button>
                     </div>
                     <div className="space-y-2">
                       {MOCK_AUDIT.map((log) => (
-                        <div
-                          key={log.id}
-                          className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100"
-                        >
-                          <div
-                            className={`p-1.5 rounded-lg ${
-                              log.action.includes("Deleted")
-                                ? "bg-red-100"
-                                : log.action.includes("Suspended")
-                                ? "bg-amber-100"
-                                : "bg-green-100"
-                            }`}
-                          >
-                            {log.action.includes("Deleted") ? (
-                              <Trash2 className="w-3.5 h-3.5 text-red-600" />
-                            ) : log.action.includes("Suspended") ? (
-                              <ToggleLeft className="w-3.5 h-3.5 text-amber-600" />
-                            ) : (
-                              <ToggleRight className="w-3.5 h-3.5 text-green-600" />
-                            )}
+                        <div key={log.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                          <div className={`p-1.5 rounded-lg ${
+                            log.action.includes("Deleted") ? "bg-red-500/10" :
+                            log.action.includes("Suspended") ? "bg-amber-500/10" :
+                            "bg-emerald-500/10"
+                          }`}>
+                            {log.action.includes("Deleted") ? <Trash2 className="w-3.5 h-3.5 text-red-400" /> :
+                             log.action.includes("Suspended") ? <ToggleLeft className="w-3.5 h-3.5 text-amber-400" /> :
+                             <ToggleRight className="w-3.5 h-3.5 text-emerald-400" />}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold text-gray-800">{log.action}</p>
-                            <p className="text-[11px] text-gray-500 truncate">
-                              Target: {log.target} · By: @{log.by}
-                            </p>
+                            <p className="text-xs font-semibold text-zinc-200">{log.action}</p>
+                            <p className="text-[11px] text-zinc-500 truncate">Target: {log.target} · By: @{log.by}</p>
                           </div>
-                          <span className="text-[10px] text-gray-400 whitespace-nowrap">{log.at}</span>
+                          <span className="text-[10px] text-zinc-600 whitespace-nowrap">{log.at}</span>
                         </div>
                       ))}
                     </div>
@@ -854,7 +797,7 @@ export default function AdminManageAccounts() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.12 }}
-              className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4"
+              className="glass-card rounded-2xl border border-white/5 p-4"
             >
               <div className="flex flex-col lg:flex-row gap-3">
                 {/* Search */}
@@ -865,7 +808,7 @@ export default function AdminManageAccounts() {
                     placeholder="Search by name, username, or email…"
                     value={search}
                     onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                    className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all bg-gray-50 focus:bg-white"
+                    className="w-full pl-9 pr-4 py-2.5 border border-white/10 bg-white/5 rounded-xl text-sm outline-none focus:border-teal-500/50 focus:ring-2 focus:ring-teal-500/20 transition-all text-zinc-200 placeholder:text-zinc-600"
                   />
                 </div>
 
@@ -875,7 +818,7 @@ export default function AdminManageAccounts() {
                   <select
                     value={roleFilter}
                     onChange={(e) => { setRoleFilter(e.target.value as "All" | Role); setPage(1); }}
-                    className="pl-9 pr-8 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-indigo-400 bg-gray-50 focus:bg-white appearance-none cursor-pointer font-medium text-gray-700 min-w-[130px]"
+                    className="pl-9 pr-8 py-2.5 border border-white/10 bg-white/5 rounded-xl text-sm outline-none focus:border-teal-500/50 appearance-none cursor-pointer font-medium text-zinc-300 min-w-[130px]"
                   >
                     <option value="All">All Roles</option>
                     <option value="Admin">Admin</option>
@@ -889,7 +832,7 @@ export default function AdminManageAccounts() {
                   <select
                     value={statusFilter}
                     onChange={(e) => { setStatusFilter(e.target.value as "All" | Status); setPage(1); }}
-                    className="pl-9 pr-8 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-indigo-400 bg-gray-50 focus:bg-white appearance-none cursor-pointer font-medium text-gray-700 min-w-[140px]"
+                    className="pl-9 pr-8 py-2.5 border border-white/10 bg-white/5 rounded-xl text-sm outline-none focus:border-teal-500/50 appearance-none cursor-pointer font-medium text-zinc-300 min-w-[140px]"
                   >
                     <option value="All">All Statuses</option>
                     <option value="Active">Active</option>
