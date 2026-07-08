@@ -560,26 +560,6 @@ export default function Dashboard() {
                 <p className="text-xs text-zinc-500">Welcome back,</p>
                 <p className="font-semibold text-white text-sm">{username} 👋</p>
               </div>
-              <motion.button whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
-                onClick={toggle} title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
-                className="w-9 h-9 flex items-center justify-center rounded-xl border border-white/10 bg-white/5 text-zinc-400 hover:bg-teal-500/10 hover:text-teal-400 hover:border-teal-500/20 transition-all">
-                <AnimatePresence mode="wait" initial={false}>
-                  {theme === "dark" ? (
-                    <motion.span key="sun" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.2 }}>
-                      <Sun className="w-4 h-4 text-amber-400" />
-                    </motion.span>
-                  ) : (
-                    <motion.span key="moon" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.2 }}>
-                      <Moon className="w-4 h-4" />
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </motion.button>
-              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleLogout}
-                className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors">
-                <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline text-sm font-medium">Logout</span>
-              </motion.button>
             </div>
           </div>
         </div>
