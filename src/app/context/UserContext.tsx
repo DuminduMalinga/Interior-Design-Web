@@ -29,8 +29,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let isMounted = true;
-
     const loadProfile = async () => {
+      setIsLoading(true);
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -41,8 +41,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       }
 
       const metadata = user.user_metadata as Record<string, unknown> | undefined;
-      const fallbackFullName = typeof metadata?.full_name === "string" ? metadata.full_name : user.email?.split("@")[0] ?? "User";
-      const fallbackUsername = typeof metadata?.username === "string" ? metadata.username : user.email?.split("@")[0] ?? "user";
+      const fallbackFullName = typeof metadata?.full_name === "string" && metadata.full_name ? metadata.full_name : user.email?.split("@")[0] ?? "User";
+      const fallbackUsername = typeof metadata?.username === "string" && metadata.username ? metadata.username : user.email?.split("@")[0] ?? "user";
 
       const { data: userRow } = await supabase
         .from("User")
@@ -54,18 +54,36 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      const dbFullName = userRow?.FullName && String(userRow.FullName).trim() !== "" ? String(userRow.FullName) : null;
+      const dbUserName = userRow?.UserName && String(userRow.UserName).trim() !== "" ? String(userRow.UserName) : null;
+      const dbEmail = userRow?.Email ?? user.email ?? "";
+
       setProfile({
-        fullName: userRow?.FullName ?? fallbackFullName,
-        username: userRow?.UserName ?? fallbackUsername,
-        email: userRow?.Email ?? user.email ?? "",
+        fullName: dbFullName ?? fallbackFullName,
+        username: dbUserName ?? fallbackUsername,
+        email: dbEmail,
       });
       setIsLoading(false);
     };
 
     void loadProfile();
 
+    const { data: { subscription } = {} } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN" || event === "PASSWORD_RECOVERY" || event === "TOKEN_REFRESHED") {
+        void loadProfile();
+      }
+      if (event === "SIGNED_OUT") {
+        setProfile(defaultProfile);
+      }
+    });
+
     return () => {
       isMounted = false;
+      try {
+        subscription?.unsubscribe?.();
+      } catch {
+        // ignore
+      }
     };
   }, []);
 

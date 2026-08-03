@@ -3,6 +3,7 @@ import Welcome from "./pages/Welcome";
 import SignUp from "./pages/SignUp";
 import SignIn from "./pages/SignIn";
 import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import UploadFloorPlan from "./pages/UploadFloorPlan";
 import Processing from "./pages/Processing";
@@ -27,6 +28,10 @@ export const router = createBrowserRouter([
   {
     path: "/forgot-password",
     Component: ForgotPassword,
+  },
+  {
+    path: "/reset-password",
+    Component: ResetPassword,
   },
   {
     path: "/dashboard",
