@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Box, Eye, EyeOff, CheckCircle2, XCircle } from "lucide-react";
 import { motion } from "motion/react";
@@ -20,6 +20,8 @@ export default function SignUp() {
   const [usernameCheck, setUsernameCheck] = useState<"checking" | "available" | "taken" | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const usernameCheckTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const usernameCheckRequestId = useRef(0);
 
   const {
     register,
@@ -35,15 +37,38 @@ export default function SignUp() {
   const username = watch("username", "");
 
   const checkUsername = (value: string) => {
-    if (value.length < 3) return;
+    const trimmedValue = value.trim();
+
+    if (usernameCheckTimeout.current) {
+      clearTimeout(usernameCheckTimeout.current);
+    }
+
+    if (trimmedValue.length < 3) {
+      setUsernameCheck(null);
+      return;
+    }
+
+    const requestId = ++usernameCheckRequestId.current;
     setUsernameCheck("checking");
-    setTimeout(() => {
-      if (value.toLowerCase().startsWith("admin")) {
-        setUsernameCheck("taken");
-      } else {
-        setUsernameCheck("available");
+    usernameCheckTimeout.current = setTimeout(async () => {
+      const { data, error } = await supabase
+        .from("User")
+        .select("UserID")
+        .eq("UserName", trimmedValue)
+        .maybeSingle();
+
+      if (requestId !== usernameCheckRequestId.current) {
+        return;
       }
-    }, 500);
+
+      if (error) {
+        console.error("Username lookup failed:", error.message);
+        setUsernameCheck(null);
+        return;
+      }
+
+      setUsernameCheck(data ? "taken" : "available");
+    }, 400);
   };
 
   const getPasswordStrength = (pwd: string) => {
@@ -75,13 +100,32 @@ export default function SignUp() {
     setSubmitError(null);
     setIsSubmitting(true);
     try {
+      const normalizedUsername = data.username.trim();
+      const normalizedEmail = data.email.trim();
+
+      const { data: existingUser, error: usernameError } = await supabase
+        .from("User")
+        .select("UserID")
+        .eq("UserName", normalizedUsername)
+        .maybeSingle();
+
+      if (usernameError) {
+        setSubmitError(usernameError.message);
+        return;
+      }
+
+      if (existingUser) {
+        setSubmitError("Username already exists");
+        return;
+      }
+
       const { data: authData, error } = await supabase.auth.signUp({
-        email: data.email,
+        email: normalizedEmail,
         password: data.password,
         options: {
           data: {
             full_name: data.fullName,
-            username: data.username,
+            username: normalizedUsername,
           },
         },
       });
@@ -89,17 +133,25 @@ export default function SignUp() {
         setSubmitError(error.message);
         return;
       }
-      if (authData.user) {
-        const { error: profileError } = await supabase.from("User").insert({
-          UserID: authData.user.id,
-          Name: data.fullName,
-          Email: data.email,
-          Role: "user",
-        });
-        if (profileError) {
-          console.error("Profile insert failed:", profileError.message);
-        }
+
+      if (!authData.user) {
+        setSubmitError("Account creation did not return a user record");
+        return;
       }
+
+      const { error: profileError } = await supabase.from("User").insert({
+        UserID: authData.user.id,
+        UserName: normalizedUsername,
+        FullName: data.fullName.trim(),
+        Email: normalizedEmail,
+        Password: data.password,
+      });
+
+      if (profileError) {
+        setSubmitError(profileError.message);
+        return;
+      }
+
       navigate("/signin");
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Sign up failed");

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Box,
   LayoutDashboard,
@@ -33,6 +33,26 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router";
 import { useTheme } from "../context/ThemeContext";
+import { supabase } from "../lib/supabaseClient";
+
+type ProfileState = {
+  fullName: string;
+  username: string;
+  email: string;
+  phone: string;
+  location: string;
+  bio: string;
+};
+
+const createProfileState = (overrides: Partial<ProfileState> = {}): ProfileState => ({
+  fullName: "User",
+  username: "user",
+  email: "",
+  phone: "+1 (555) 012-3456",
+  location: "New York, USA",
+  bio: "Interior design enthusiast. Using AI to bring floor plans to life.",
+  ...overrides,
+});
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -46,14 +66,7 @@ export default function Dashboard() {
   const [showOldPass, setShowOldPass] = useState(false);
   const [showNewPass, setShowNewPass] = useState(false);
   const [showConfPass, setShowConfPass] = useState(false);
-  const [profile, setProfile] = useState({
-    fullName: "John Smith",
-    username: "johnsmith",
-    email: "john@example.com",
-    phone: "+1 (555) 012-3456",
-    location: "New York, USA",
-    bio: "Interior design enthusiast. Using AI to bring floor plans to life.",
-  });
+  const [profile, setProfile] = useState<ProfileState>(() => createProfileState());
   const [profileDraft, setProfileDraft] = useState({ ...profile });
   const [passwords, setPasswords] = useState({ old: "", newP: "", conf: "" });
   const [passMsg, setPassMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
@@ -64,7 +77,50 @@ export default function Dashboard() {
   const [deletePassword, setDeletePassword] = useState("");
   const [deletePassError, setDeletePassError] = useState(false);
 
-  const username = profile.fullName;
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadProfile = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!isMounted || !user) {
+        return;
+      }
+
+      const metadata = user.user_metadata as Record<string, unknown> | undefined;
+      const fallbackFullName = typeof metadata?.full_name === "string" ? metadata.full_name : user.email?.split("@")[0] ?? "User";
+      const fallbackUsername = typeof metadata?.username === "string" ? metadata.username : user.email?.split("@")[0] ?? "user";
+
+      const { data: userRow } = await supabase
+        .from("User")
+        .select("FullName, UserName, Email")
+        .eq("UserID", user.id)
+        .maybeSingle();
+
+      if (!isMounted) {
+        return;
+      }
+
+      const nextProfile = createProfileState({
+        fullName: userRow?.FullName ?? fallbackFullName,
+        username: userRow?.UserName ?? fallbackUsername,
+        email: userRow?.Email ?? user.email ?? "",
+      });
+
+      setProfile(nextProfile);
+      setProfileDraft(nextProfile);
+    };
+
+    void loadProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const username = profile.fullName || profile.username;
 
   const handleDeleteAccount = () => {
     if (deletePassword.trim() === "") { setDeletePassError(true); return; }
