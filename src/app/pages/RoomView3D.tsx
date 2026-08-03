@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router";
+import { useCurrentUserProfile } from "../context/UserContext";
 
 // ─────────────────────────────────────────────
 // Types
@@ -778,7 +779,8 @@ function ExportDropdown() {
 // ─────────────────────────────────────────────
 export default function RoomView3D() {
   const navigate = useNavigate();
-  const username = "John Smith";
+  const { profile } = useCurrentUserProfile();
+  const username = profile.username;
 
   // Viewer states
   const [isLoading, setIsLoading] = useState(true);

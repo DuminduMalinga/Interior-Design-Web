@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { Box, ArrowLeft, CheckCircle2, AlertCircle } from "lucide-react";
 import { motion } from "motion/react";
 import { useNavigate } from "react-router";
+import { supabase } from "../lib/supabaseClient";
 
 interface ForgotPasswordFormData {
   email: string;
@@ -11,6 +12,8 @@ interface ForgotPasswordFormData {
 export default function ForgotPassword() {
   const navigate = useNavigate();
   const [submitted, setSubmitted] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const {
     register,
@@ -20,9 +23,22 @@ export default function ForgotPassword() {
     mode: "onSubmit",
   });
 
-  const onSubmit = (data: ForgotPasswordFormData) => {
-    console.log("Password reset requested for:", data.email);
+  const onSubmit = async (data: ForgotPasswordFormData) => {
+    setIsSending(true);
+    setSubmitError(null);
+
+    const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
+      redirectTo: `${window.location.origin}/signin`,
+    });
+
+    if (error) {
+      setSubmitError(error.message);
+      setIsSending(false);
+      return;
+    }
+
     setSubmitted(true);
+    setIsSending(false);
   };
 
   if (submitted) {
@@ -99,6 +115,13 @@ export default function ForgotPassword() {
 
         {/* Form */}
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          {submitError && (
+            <div className="flex items-start gap-2 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+              <AlertCircle className="w-5 h-5 text-red-400 mt-0.5 shrink-0" />
+              <p className="text-sm text-red-300">{submitError}</p>
+            </div>
+          )}
+
           {/* Email */}
           <div>
             <label className="block text-sm font-semibold text-zinc-400 mb-2">
@@ -134,8 +157,9 @@ export default function ForgotPassword() {
             whileTap={{ scale: 0.98 }}
             type="submit"
             className="w-full px-6 py-4 bg-gradient-to-r from-teal-500 to-teal-600 text-white text-lg font-semibold rounded-xl shadow-lg shadow-teal-500/20 hover:shadow-teal-500/30 hover:from-teal-400 hover:to-teal-500 transition-all duration-300"
+            disabled={isSending}
           >
-            Send Reset Instructions
+            {isSending ? "Sending..." : "Send Reset Instructions"}
           </motion.button>
         </form>
 

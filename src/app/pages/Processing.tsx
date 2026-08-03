@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import { Box, CheckCircle2, Loader2, LogOut, Sparkles } from "lucide-react";
 import { motion } from "motion/react";
 import { useNavigate } from "react-router";
+import { useCurrentUserProfile } from "../context/UserContext";
 
 export default function Processing() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
-  const username = "John Smith";
+  const { profile } = useCurrentUserProfile();
+  const username = profile.username;
 
   const processingSteps = [
     { label: "Analyzing floor plan image", duration: 2000 },

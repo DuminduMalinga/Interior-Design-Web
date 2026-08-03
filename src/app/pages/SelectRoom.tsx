@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router";
+import { useCurrentUserProfile } from "../context/UserContext";
 
 type RoomType = "Bedroom" | "Living Room" | "Study Room" | "Kitchen" | "Bathroom" | "Other";
 
@@ -157,7 +158,8 @@ export default function SelectRoom() {
   const navigate = useNavigate();
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const username = "John Smith";
+  const { profile } = useCurrentUserProfile();
+  const username = profile.username;
   const rooms = DETECTED_ROOMS;
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId) ?? null;
 

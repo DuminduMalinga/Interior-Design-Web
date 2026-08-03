@@ -33,7 +33,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router";
 import { useTheme } from "../context/ThemeContext";
-import { supabase } from "../lib/supabaseClient";
+import { useCurrentUserProfile } from "../context/UserContext";
 
 type ProfileState = {
   fullName: string;
@@ -57,6 +57,7 @@ const createProfileState = (overrides: Partial<ProfileState> = {}): ProfileState
 export default function Dashboard() {
   const navigate = useNavigate();
   const { theme, toggle } = useTheme();
+  const { profile: currentUser } = useCurrentUserProfile();
   const [activeMenu, setActiveMenu] = useState("dashboard");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -78,49 +79,17 @@ export default function Dashboard() {
   const [deletePassError, setDeletePassError] = useState(false);
 
   useEffect(() => {
-    let isMounted = true;
+    const nextProfile = createProfileState({
+      fullName: currentUser.fullName,
+      username: currentUser.username,
+      email: currentUser.email,
+    });
 
-    const loadProfile = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    setProfile(nextProfile);
+    setProfileDraft(nextProfile);
+  }, [currentUser.email, currentUser.fullName, currentUser.username]);
 
-      if (!isMounted || !user) {
-        return;
-      }
-
-      const metadata = user.user_metadata as Record<string, unknown> | undefined;
-      const fallbackFullName = typeof metadata?.full_name === "string" ? metadata.full_name : user.email?.split("@")[0] ?? "User";
-      const fallbackUsername = typeof metadata?.username === "string" ? metadata.username : user.email?.split("@")[0] ?? "user";
-
-      const { data: userRow } = await supabase
-        .from("User")
-        .select("FullName, UserName, Email")
-        .eq("UserID", user.id)
-        .maybeSingle();
-
-      if (!isMounted) {
-        return;
-      }
-
-      const nextProfile = createProfileState({
-        fullName: userRow?.FullName ?? fallbackFullName,
-        username: userRow?.UserName ?? fallbackUsername,
-        email: userRow?.Email ?? user.email ?? "",
-      });
-
-      setProfile(nextProfile);
-      setProfileDraft(nextProfile);
-    };
-
-    void loadProfile();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  const username = profile.fullName || profile.username;
+  const username = profile.username;
 
   const handleDeleteAccount = () => {
     if (deletePassword.trim() === "") { setDeletePassError(true); return; }

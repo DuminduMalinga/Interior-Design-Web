@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router";
+import { useCurrentUserProfile } from "../context/UserContext";
 
 export default function UploadFloorPlan() {
   const navigate = useNavigate();
@@ -27,19 +28,23 @@ export default function UploadFloorPlan() {
   const [success, setSuccess] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const { profile } = useCurrentUserProfile();
 
-  const username = "John Smith";
-  const SUPPORTED_FORMATS = ["image/png", "image/jpeg", "image/jpg", "application/pdf"];
+  const username = profile.username;
+  const SUPPORTED_FORMATS = ["image/png", "image/jpeg", "image/jpg"];
+  const SUPPORTED_EXTENSIONS = ["png", "jpg", "jpeg"];
   const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
   const validateFile = (file: File): boolean => {
     setError(null); setSuccess(null);
-    if (!SUPPORTED_FORMATS.includes(file.type)) {
-      setError("Unsupported file format. Please upload PNG, JPG, or PDF files only.");
+    const fileExtension = file.name.split(".").pop()?.toLowerCase() ?? "";
+
+    if (!SUPPORTED_FORMATS.includes(file.type) && !SUPPORTED_EXTENSIONS.includes(fileExtension)) {
+      setError("Unsupported file format. Please upload PNG, JPG, or JPEG files only.");
       return false;
     }
-    if (file.size > MAX_FILE_SIZE) {
-      setError("File size exceeds limit. Maximum file size is 10MB.");
+    if (file.size >= MAX_FILE_SIZE) {
+      setError("File size exceeds the 10MB limit. Please upload a smaller image.");
       return false;
     }
     return true;
@@ -289,7 +294,7 @@ export default function UploadFloorPlan() {
             )}
 
             {/* Hidden input */}
-            <input ref={fileInputRef} type="file" accept=".png,.jpg,.jpeg,.pdf" onChange={handleFileInputChange} className="hidden" />
+            <input ref={fileInputRef} type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" onChange={handleFileInputChange} className="hidden" />
 
             {/* Upload Button */}
             {selectedFile && !isUploading && (

@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router";
+import { useCurrentUserProfile } from "../context/UserContext";
 
 // ─────────────────────────────────────────────
 // Types
@@ -853,7 +854,8 @@ function LayoutCard({
 // ─────────────────────────────────────────────
 export default function ViewLayouts() {
   const navigate = useNavigate();
-  const username = "John Smith";
+  const { profile } = useCurrentUserProfile();
+  const username = profile.username;
 
   const bestId = MOCK_LAYOUTS.reduce((best, l) => (l.score > best.score ? l : best), MOCK_LAYOUTS[0])?.id;
   const [selectedId, setSelectedId] = useState<string>(bestId ?? "");
