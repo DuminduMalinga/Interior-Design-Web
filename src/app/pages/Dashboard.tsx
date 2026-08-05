@@ -22,6 +22,7 @@ import {
   Camera,
   CheckCircle2,
   Bell,
+  ShieldCheck,
   Shield,
   Pencil,
   Trash2,
@@ -101,11 +102,14 @@ export default function Dashboard() {
 
   const handleLogout = () => navigate("/");
 
+  const isAdmin = currentUser.role.trim().toLowerCase() === "admin";
+
   const menuItems = [
     { id: "dashboard", label: "Dashboard",           icon: LayoutDashboard, path: "/dashboard" },
     { id: "upload",    label: "Upload Floor Plan",   icon: Upload,          path: "/upload" },
     { id: "designs",   label: "View Previous Designs", icon: History,       path: null },
     { id: "profile",   label: "Profile",             icon: User,            path: null },
+    ...(isAdmin ? [{ id: "admin-accounts", label: "Manage Accounts", icon: ShieldCheck, path: "/admin/accounts" }] : []),
   ];
 
   const stats = [

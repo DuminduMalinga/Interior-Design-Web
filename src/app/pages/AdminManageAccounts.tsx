@@ -20,27 +20,21 @@ import {
   Eye,
   Download,
   Filter,
-  ToggleLeft,
-  ToggleRight,
-  FileText,
-  Activity,
   User,
   Lock,
   Menu,
   Bell,
   RefreshCw,
-  Clock,
-  Upload,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router";
+import { supabase } from "../lib/supabaseClient";
 
 // ─────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────
 type Role = "Admin" | "Customer";
-type Status = "Active" | "Suspended";
-type SortField = "id" | "fullName" | "username" | "email" | "role" | "registeredAt" | "uploads";
+type SortField = "id" | "fullName" | "username" | "email" | "role";
 type SortDir = "asc" | "desc";
 
 interface UserAccount {
@@ -48,59 +42,10 @@ interface UserAccount {
   fullName: string;
   username: string;
   email: string;
+  password: string;
   role: Role;
-  status: Status;
-  registeredAt: string;
-  uploads: number;
-  lastActive: string;
   avatar: string;
 }
-
-interface AuditLog {
-  id: string;
-  action: string;
-  target: string;
-  by: string;
-  at: string;
-}
-
-// ─────────────────────────────────────────────
-// Mock Data
-// ─────────────────────────────────────────────
-const CURRENT_ADMIN_ID = "u001";
-
-const MOCK_USERS: UserAccount[] = [
-  { id: "u001", fullName: "John Smith",      username: "johnsmith",   email: "john@example.com",    role: "Admin",    status: "Active",    registeredAt: "2025-01-15", uploads: 24, lastActive: "2 mins ago",  avatar: "JS" },
-  { id: "u002", fullName: "Emily Johnson",   username: "emilyjohn",   email: "emily@example.com",   role: "Customer", status: "Active",    registeredAt: "2025-02-20", uploads: 11, lastActive: "1 hr ago",    avatar: "EJ" },
-  { id: "u003", fullName: "Michael Brown",   username: "mbrown",      email: "michael@example.com", role: "Customer", status: "Suspended", registeredAt: "2025-03-05", uploads:  3, lastActive: "5 days ago",  avatar: "MB" },
-  { id: "u004", fullName: "Sarah Davis",     username: "sarahdavis",  email: "sarah@example.com",   role: "Customer", status: "Active",    registeredAt: "2025-03-18", uploads: 18, lastActive: "30 mins ago", avatar: "SD" },
-  { id: "u005", fullName: "James Wilson",    username: "jameswilson", email: "james@example.com",   role: "Customer", status: "Active",    registeredAt: "2025-04-02", uploads:  7, lastActive: "2 hrs ago",   avatar: "JW" },
-  { id: "u006", fullName: "Linda Martinez",  username: "lindamart",   email: "linda@example.com",   role: "Admin",    status: "Active",    registeredAt: "2025-04-10", uploads: 32, lastActive: "10 mins ago", avatar: "LM" },
-  { id: "u007", fullName: "David Anderson",  username: "danderson",   email: "david@example.com",   role: "Customer", status: "Active",    registeredAt: "2025-04-25", uploads:  5, lastActive: "1 day ago",   avatar: "DA" },
-  { id: "u008", fullName: "Jessica Taylor",  username: "jesstaylor",  email: "jessica@example.com", role: "Customer", status: "Suspended", registeredAt: "2025-05-03", uploads:  1, lastActive: "7 days ago",  avatar: "JT" },
-  { id: "u009", fullName: "Christopher Lee", username: "chrislee",    email: "chris@example.com",   role: "Customer", status: "Active",    registeredAt: "2025-05-14", uploads:  9, lastActive: "3 hrs ago",   avatar: "CL" },
-  { id: "u010", fullName: "Amanda White",    username: "amandaw",     email: "amanda@example.com",  role: "Customer", status: "Active",    registeredAt: "2025-05-28", uploads: 14, lastActive: "45 mins ago", avatar: "AW" },
-  { id: "u011", fullName: "Robert Harris",   username: "robharris",   email: "robert@example.com",  role: "Customer", status: "Active",    registeredAt: "2025-06-02", uploads:  0, lastActive: "Never",       avatar: "RH" },
-  { id: "u012", fullName: "Natalie Clark",   username: "natclark",    email: "natalie@example.com", role: "Customer", status: "Active",    registeredAt: "2025-06-15", uploads:  6, lastActive: "2 days ago",  avatar: "NC" },
-  { id: "u013", fullName: "Kevin Lewis",     username: "kevinlewis",  email: "kevin@example.com",   role: "Customer", status: "Suspended", registeredAt: "2025-07-01", uploads:  2, lastActive: "14 days ago", avatar: "KL" },
-  { id: "u014", fullName: "Megan Robinson",  username: "meganrob",    email: "megan@example.com",   role: "Customer", status: "Active",    registeredAt: "2025-07-09", uploads: 21, lastActive: "1 hr ago",    avatar: "MR" },
-  { id: "u015", fullName: "Daniel Walker",   username: "danwalker",   email: "daniel@example.com",  role: "Customer", status: "Active",    registeredAt: "2025-07-22", uploads:  8, lastActive: "5 hrs ago",   avatar: "DW" },
-  { id: "u016", fullName: "Stephanie Hall",  username: "stephall",    email: "steph@example.com",   role: "Customer", status: "Active",    registeredAt: "2025-08-04", uploads: 16, lastActive: "20 mins ago", avatar: "SH" },
-  { id: "u017", fullName: "Tyler Young",     username: "tyleryoung",  email: "tyler@example.com",   role: "Customer", status: "Active",    registeredAt: "2025-08-18", uploads:  4, lastActive: "3 days ago",  avatar: "TY" },
-  { id: "u018", fullName: "Hannah King",     username: "hannahking",  email: "hannah@example.com",  role: "Customer", status: "Suspended", registeredAt: "2025-09-01", uploads:  0, lastActive: "Never",       avatar: "HK" },
-  { id: "u019", fullName: "Brandon Scott",   username: "brandscott",  email: "brandon@example.com", role: "Customer", status: "Active",    registeredAt: "2025-09-10", uploads: 12, lastActive: "4 hrs ago",   avatar: "BS" },
-  { id: "u020", fullName: "Olivia Green",    username: "oliviag",     email: "olivia@example.com",  role: "Customer", status: "Active",    registeredAt: "2025-10-05", uploads:  3, lastActive: "1 day ago",   avatar: "OG" },
-  { id: "u021", fullName: "Marcus Adams",    username: "marcusAdams", email: "marcus@example.com",  role: "Customer", status: "Active",    registeredAt: "2025-10-20", uploads:  7, lastActive: "6 hrs ago",   avatar: "MA" },
-  { id: "u022", fullName: "Chloe Nelson",    username: "chloenelson", email: "chloe@example.com",   role: "Customer", status: "Active",    registeredAt: "2025-11-03", uploads: 19, lastActive: "2 hrs ago",   avatar: "CN" },
-];
-
-const MOCK_AUDIT: AuditLog[] = [
-  { id: "a1", action: "Deleted Account",    target: "user@example.com",   by: "johnsmith", at: "2025-12-01 14:32" },
-  { id: "a2", action: "Suspended Account",  target: "test@example.com",   by: "lindamart", at: "2025-11-28 09:15" },
-  { id: "a3", action: "Restored Account",   target: "guest@example.com",  by: "johnsmith", at: "2025-11-25 16:45" },
-  { id: "a4", action: "Deleted Account",    target: "old@example.com",    by: "lindamart", at: "2025-11-20 11:00" },
-  { id: "a5", action: "Suspended Account",  target: "spam@example.com",   by: "johnsmith", at: "2025-11-18 08:30" },
-];
 
 const PAGE_SIZE = 10;
 
@@ -110,9 +55,6 @@ const PAGE_SIZE = 10;
 const ADMIN_NAV = [
   { id: "dashboard",   label: "Dashboard",       icon: LayoutDashboard, path: "/dashboard" },
   { id: "accounts",    label: "Manage Accounts", icon: Users,           path: "/admin/accounts" },
-  { id: "security",    label: "Security Logs",   icon: ShieldCheck,     path: "/admin/security" },
-  { id: "audit",       label: "Audit Log",       icon: FileText,        path: "/admin/audit" },
-  { id: "activity",    label: "Activity",        icon: Activity,        path: "/admin/activity" },
 ];
 
 // ─────────────────────────────────────────────
@@ -143,6 +85,50 @@ function SortIcon({ field, sort }: { field: SortField; sort: { f: SortField; d: 
   ) : (
     <ChevronDown className="w-3.5 h-3.5 inline ml-1 text-teal-400" />
   );
+}
+
+type UserRow = {
+  UserID: string;
+  UserName: string | null;
+  FullName: string | null;
+  Email: string | null;
+  Password: string | null;
+  Role: string | null;
+};
+
+function getInitials(fullName: string, username: string) {
+  const nameParts = fullName.trim().split(/\s+/).filter(Boolean);
+  const fallback = username.trim().replace(/[^a-zA-Z0-9]/g, "");
+  const primary = nameParts.length > 0 ? nameParts : [fallback || "User"];
+  return primary
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "U")
+    .join("")
+    .slice(0, 2);
+}
+
+function mapUserRow(row: UserRow): UserAccount {
+  const fullName = row.FullName?.trim() || "Unnamed User";
+  const username = row.UserName?.trim() || row.Email?.split("@")[0] || row.UserID;
+  const email = row.Email?.trim() || "";
+  const password = row.Password?.trim() || "";
+  const role = row.Role?.trim().toLowerCase() === "admin" ? "Admin" : "Customer";
+
+  return {
+    id: row.UserID,
+    fullName,
+    username,
+    email,
+    password,
+    role,
+    avatar: getInitials(fullName, username),
+  };
+}
+
+function maskSecret(value: string) {
+  if (!value) return "";
+  if (value.length <= 4) return "••••";
+  return `${value.slice(0, 2)}${"•".repeat(Math.max(4, value.length - 4))}${value.slice(-2)}`;
 }
 
 // ─────────────────────────────────────────────
@@ -223,22 +209,8 @@ function DeleteModal({
               Are you sure you want to permanently delete this account?
             </p>
             <p className="text-zinc-500 text-xs">
-              All uploads, designs, and data associated with this account will be removed.
+              This removes the user record and any linked profile data from the database.
             </p>
-          </div>
-
-          {/* Warning badges */}
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { icon: Upload, label: `${user.uploads} uploads`, color: "text-orange-600 bg-orange-50 border-orange-200" },
-              { icon: FileText, label: "All designs", color: "text-red-600 bg-red-50 border-red-200" },
-              { icon: Activity, label: "All history", color: "text-rose-600 bg-rose-50 border-rose-200" },
-            ].map(({ icon: Icon, label, color }) => (
-              <div key={label} className={`flex flex-col items-center gap-1 p-2 rounded-xl border text-[11px] font-semibold ${color}`}>
-                <Icon className="w-3.5 h-3.5" />
-                {label}
-              </div>
-            ))}
           </div>
 
           {/* Admin password */}
@@ -349,26 +321,13 @@ function ViewUserModal({
             { label: "User ID", value: user.id, icon: User },
             { label: "Full Name", value: user.fullName, icon: User },
             { label: "Email", value: user.email, icon: User },
+            { label: "Password", value: user.password ? maskSecret(user.password) : "Not set", icon: Lock },
             { label: "Role", value: user.role, icon: ShieldCheck },
-            { label: "Status", value: user.status, icon: Activity },
-            { label: "Registered", value: user.registeredAt, icon: Clock },
-            { label: "Uploads", value: `${user.uploads} uploads`, icon: Upload },
-            { label: "Last Active", value: user.lastActive, icon: Activity },
           ].map(({ label, value, icon: Icon }) => (
             <div key={label} className="flex items-center gap-3 py-1.5 border-b border-white/5 last:border-0">
               <Icon className="w-4 h-4 text-teal-400 shrink-0" />
               <span className="text-xs text-zinc-500 w-24 shrink-0">{label}</span>
-              <span
-                className={`text-xs font-semibold truncate ${
-                  label === "Role" && value === "Admin"
-                    ? "text-indigo-700"
-                    : label === "Status" && value === "Suspended"
-                    ? "text-red-600"
-                    : label === "Status"
-                    ? "text-green-600"
-                    : "text-gray-800"
-                }`}
-              >
+              <span className={`text-xs font-semibold truncate ${label === "Role" && value === "Admin" ? "text-indigo-700" : "text-gray-800"}`}>
                 {value}
               </span>
             </div>
@@ -384,21 +343,22 @@ function ViewUserModal({
 // ─────────────────────────────────────────────
 export default function AdminManageAccounts() {
   const navigate = useNavigate();
-  const adminUsername = "johnsmith";
 
-  const [users, setUsers] = useState<UserAccount[]>(MOCK_USERS);
+  const [users, setUsers] = useState<UserAccount[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeNav, setActiveNav] = useState("accounts");
+  const [currentAdminId, setCurrentAdminId] = useState<string | null>(null);
+  const [currentAdminName, setCurrentAdminName] = useState("Administrator");
+  const [currentAdminUsername, setCurrentAdminUsername] = useState("admin");
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Search & filter
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<"All" | Role>("All");
-  const [statusFilter, setStatusFilter] = useState<"All" | Status>("All");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
 
   // Sort
-  const [sort, setSort] = useState<{ f: SortField; d: SortDir }>({ f: "registeredAt", d: "desc" });
+  const [sort, setSort] = useState<{ f: SortField; d: SortDir }>({ f: "fullName", d: "asc" });
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -410,8 +370,68 @@ export default function AdminManageAccounts() {
   // Notifications
   const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
 
-  // Audit log panel
-  const [showAudit, setShowAudit] = useState(false);
+  const loadUsers = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+
+    try {
+      const [{ data: authData, error: authError }, { data: userRows, error: usersError }] = await Promise.all([
+        supabase.auth.getUser(),
+        supabase.from("User").select("UserID, UserName, FullName, Email, Role").order("FullName", { ascending: true }),
+      ]);
+
+      if (authError) {
+        setLoadError(authError.message);
+      }
+
+      if (usersError) {
+        setLoadError(usersError.message);
+      } else {
+        setUsers((userRows ?? []).map((row) => mapUserRow(row as UserRow)));
+      }
+
+      const currentUser = authData.user;
+      setCurrentAdminId(currentUser?.id ?? null);
+
+      if (currentUser) {
+        const { data: currentRow } = await supabase
+          .from("User")
+          .select("UserName, FullName, Email")
+          .eq("UserID", currentUser.id)
+          .maybeSingle();
+
+        const metadata = currentUser.user_metadata as Record<string, unknown> | undefined;
+        const fallbackName = typeof metadata?.full_name === "string" && metadata.full_name ? metadata.full_name : currentUser.email?.split("@")[0] ?? "Administrator";
+        const fallbackUsername = typeof metadata?.username === "string" && metadata.username ? metadata.username : currentUser.email?.split("@")[0] ?? "admin";
+
+        setCurrentAdminName(currentRow?.FullName?.trim() || fallbackName);
+        setCurrentAdminUsername(currentRow?.UserName?.trim() || fallbackUsername);
+      }
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Unable to load users from the database.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadUsers();
+
+    const channel = supabase
+      .channel("admin-user-table-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "User" },
+        () => {
+          void loadUsers();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, []);
 
   // Show toast helper
   const showToast = (type: "success" | "error", msg: string) => {
@@ -431,9 +451,6 @@ export default function AdminManageAccounts() {
           u.email.toLowerCase().includes(q)
       );
     if (roleFilter !== "All") arr = arr.filter((u) => u.role === roleFilter);
-    if (statusFilter !== "All") arr = arr.filter((u) => u.status === statusFilter);
-    if (dateFrom) arr = arr.filter((u) => u.registeredAt >= dateFrom);
-    if (dateTo) arr = arr.filter((u) => u.registeredAt <= dateTo);
 
     arr.sort((a, b) => {
       let va: string | number = a[sort.f as keyof UserAccount] as string | number;
@@ -445,7 +462,7 @@ export default function AdminManageAccounts() {
       return 0;
     });
     return arr;
-  }, [users, search, roleFilter, statusFilter, dateFrom, dateTo, sort]);
+  }, [users, search, roleFilter, sort]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageUsers = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -460,42 +477,34 @@ export default function AdminManageAccounts() {
   const clearFilters = () => {
     setSearch("");
     setRoleFilter("All");
-    setStatusFilter("All");
-    setDateFrom("");
-    setDateTo("");
     setPage(1);
   };
 
-  const hasFilters = search || roleFilter !== "All" || statusFilter !== "All" || dateFrom || dateTo;
+  const hasFilters = search || roleFilter !== "All";
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
-    setUsers((prev) => prev.filter((u) => u.id !== deleteTarget.id));
-    setDeleteTarget(null);
-    showToast("success", `Account "${deleteTarget.username}" deleted successfully.`);
-    if (pageUsers.length === 1 && page > 1) setPage((p) => p - 1);
-  };
+    try {
+      const { error } = await supabase.from("User").delete().eq("UserID", deleteTarget.id);
+      if (error) {
+        showToast("error", error.message);
+        return;
+      }
 
-  const handleToggleStatus = (id: string) => {
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === id
-          ? { ...u, status: u.status === "Active" ? "Suspended" : "Active" }
-          : u
-      )
-    );
-    const target = users.find((u) => u.id === id);
-    if (target) {
-      const newStatus = target.status === "Active" ? "Suspended" : "Active";
-      showToast("success", `${target.username} is now ${newStatus}.`);
+      setUsers((prev) => prev.filter((u) => u.id !== deleteTarget.id));
+      setDeleteTarget(null);
+      showToast("success", `Account "${deleteTarget.username}" deleted successfully.`);
+      if (pageUsers.length === 1 && page > 1) setPage((p) => p - 1);
+    } catch (err) {
+      showToast("error", err instanceof Error ? err.message : "Failed to delete account.");
     }
   };
 
   const handleExportCSV = () => {
-    const header = "ID,Full Name,Username,Email,Role,Status,Registered,Uploads\n";
+    const header = "ID,Full Name,Username,Email,Role\n";
     const rows = filtered
       .map((u) =>
-        [u.id, u.fullName, u.username, u.email, u.role, u.status, u.registeredAt, u.uploads].join(
+        [u.id, u.fullName, u.username, u.email, u.role].join(
           ","
         )
       )
@@ -513,9 +522,8 @@ export default function AdminManageAccounts() {
   // Stats
   const stats = {
     total: users.length,
-    active: users.filter((u) => u.status === "Active").length,
-    suspended: users.filter((u) => u.status === "Suspended").length,
     admins: users.filter((u) => u.role === "Admin").length,
+    customers: users.filter((u) => u.role === "Customer").length,
   };
 
   return (
@@ -602,10 +610,16 @@ export default function AdminManageAccounts() {
               </button>
               <div className="hidden md:flex items-center gap-2.5 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
                 <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white text-[11px] font-bold">
-                  JS
+                  {currentAdminName
+                    .split(" ")
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((part) => part[0]?.toUpperCase() ?? "A")
+                    .join("")
+                    .slice(0, 2) || "AD"}
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-zinc-200">{adminUsername}</p>
+                  <p className="text-xs font-bold text-zinc-200">{currentAdminUsername}</p>
                   <p className="text-[10px] text-teal-400 font-semibold">Administrator</p>
                 </div>
               </div>
@@ -705,13 +719,9 @@ export default function AdminManageAccounts() {
               </div>
               <div className="flex items-center gap-2">
                 <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
-                  onClick={() => setShowAudit((p) => !p)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-semibold transition-all ${
-                    showAudit
-                      ? "bg-teal-500 text-white border-teal-500"
-                      : "bg-white/5 border-white/10 text-zinc-400 hover:bg-white/10"
-                  }`}>
-                  <FileText className="w-4 h-4" /> Audit Log
+                  onClick={loadUsers}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10 text-sm font-semibold transition-all">
+                  <RefreshCw className="w-4 h-4" /> Refresh
                 </motion.button>
                 <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
                   onClick={handleExportCSV}
@@ -726,13 +736,12 @@ export default function AdminManageAccounts() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.07 }}
-              className="grid grid-cols-2 sm:grid-cols-4 gap-3"
+              className="grid grid-cols-1 sm:grid-cols-3 gap-3"
             >
               {[
                 { label: "Total Users", value: stats.total, icon: Users, color: "from-teal-400 to-teal-600", bg: "bg-teal-500/10", text: "text-teal-400" },
-                { label: "Active",      value: stats.active, icon: CheckCircle2, color: "from-emerald-400 to-emerald-600", bg: "bg-emerald-500/10", text: "text-emerald-400" },
-                { label: "Suspended",   value: stats.suspended, icon: XCircle, color: "from-red-400 to-rose-600", bg: "bg-red-500/10", text: "text-red-400" },
                 { label: "Admins",      value: stats.admins, icon: ShieldCheck, color: "from-violet-400 to-violet-600", bg: "bg-violet-500/10", text: "text-violet-400" },
+                { label: "Customers",    value: stats.customers, icon: User, color: "from-emerald-400 to-emerald-600", bg: "bg-emerald-500/10", text: "text-emerald-400" },
               ].map((stat) => {
                 const Icon = stat.icon;
                 return (
@@ -748,49 +757,6 @@ export default function AdminManageAccounts() {
                 );
               })}
             </motion.div>
-
-            {/* Audit Log Panel */}
-            <AnimatePresence>
-              {showAudit && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="overflow-hidden"
-                >
-                  <div className="glass-card rounded-2xl border border-white/5 p-5">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-bold text-zinc-200 text-sm flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-teal-400" /> Recent Audit Log
-                      </h3>
-                      <button onClick={() => setShowAudit(false)}>
-                        <X className="w-4 h-4 text-zinc-600 hover:text-zinc-300" />
-                      </button>
-                    </div>
-                    <div className="space-y-2">
-                      {MOCK_AUDIT.map((log) => (
-                        <div key={log.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                          <div className={`p-1.5 rounded-lg ${
-                            log.action.includes("Deleted") ? "bg-red-500/10" :
-                            log.action.includes("Suspended") ? "bg-amber-500/10" :
-                            "bg-emerald-500/10"
-                          }`}>
-                            {log.action.includes("Deleted") ? <Trash2 className="w-3.5 h-3.5 text-red-400" /> :
-                             log.action.includes("Suspended") ? <ToggleLeft className="w-3.5 h-3.5 text-amber-400" /> :
-                             <ToggleRight className="w-3.5 h-3.5 text-emerald-400" />}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold text-zinc-200">{log.action}</p>
-                            <p className="text-[11px] text-zinc-500 truncate">Target: {log.target} · By: @{log.by}</p>
-                          </div>
-                          <span className="text-[10px] text-zinc-600 whitespace-nowrap">{log.at}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
 
             {/* Search & Filters */}
             <motion.div
@@ -824,39 +790,6 @@ export default function AdminManageAccounts() {
                     <option value="Admin">Admin</option>
                     <option value="Customer">Customer</option>
                   </select>
-                </div>
-
-                {/* Status filter */}
-                <div className="relative">
-                  <Activity className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => { setStatusFilter(e.target.value as "All" | Status); setPage(1); }}
-                    className="pl-9 pr-8 py-2.5 border border-white/10 bg-white/5 rounded-xl text-sm outline-none focus:border-teal-500/50 appearance-none cursor-pointer font-medium text-zinc-300 min-w-[140px]"
-                  >
-                    <option value="All">All Statuses</option>
-                    <option value="Active">Active</option>
-                    <option value="Suspended">Suspended</option>
-                  </select>
-                </div>
-
-                {/* Date range */}
-                <div className="flex items-center gap-2">
-                  <input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
-                    className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-indigo-400 bg-gray-50 text-gray-600 w-[140px]"
-                    title="From date"
-                  />
-                  <span className="text-gray-400 text-xs font-medium">to</span>
-                  <input
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
-                    className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-indigo-400 bg-gray-50 text-gray-600 w-[140px]"
-                    title="To date"
-                  />
                 </div>
 
                 {/* Clear */}
@@ -908,10 +841,8 @@ export default function AdminManageAccounts() {
                           { key: "fullName",     label: "Full Name" },
                           { key: "username",     label: "Username" },
                           { key: "email",        label: "Email" },
+                          { key: "password",     label: "Password" },
                           { key: "role",         label: "Role" },
-                          { key: "status",       label: "Status" },
-                          { key: "registeredAt", label: "Registered" },
-                          { key: "uploads",      label: "Uploads" },
                         ] as { key: SortField; label: string }[]
                       ).map(({ key, label }) => (
                         <th
@@ -931,11 +862,17 @@ export default function AdminManageAccounts() {
                   <tbody>
                     {pageUsers.length === 0 ? (
                       <tr>
-                        <td colSpan={9} className="py-16 text-center">
+                        <td colSpan={7} className="py-16 text-center">
                           <div className="flex flex-col items-center gap-3 text-gray-400">
-                            <Users className="w-10 h-10 opacity-30" />
-                            <p className="text-sm font-medium">No users match your filters.</p>
-                            {hasFilters && (
+                            {isLoading ? (
+                              <RefreshCw className="w-10 h-10 opacity-30 animate-spin" />
+                            ) : (
+                              <Users className="w-10 h-10 opacity-30" />
+                            )}
+                            <p className="text-sm font-medium">
+                              {isLoading ? "Loading users from Supabase..." : loadError ?? "No users found."}
+                            </p>
+                            {!isLoading && hasFilters && (
                               <button
                                 onClick={clearFilters}
                                 className="text-indigo-600 text-xs font-semibold hover:underline"
@@ -943,12 +880,20 @@ export default function AdminManageAccounts() {
                                 Clear filters
                               </button>
                             )}
+                            {!isLoading && loadError && (
+                              <button
+                                onClick={loadUsers}
+                                className="text-indigo-600 text-xs font-semibold hover:underline"
+                              >
+                                Retry loading users
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
                     ) : (
                       pageUsers.map((user, idx) => {
-                        const isOwnAccount = user.id === CURRENT_ADMIN_ID;
+                        const isOwnAccount = user.id === currentAdminId;
                         const isEven = idx % 2 === 1;
                         return (
                           <motion.tr
@@ -984,10 +929,6 @@ export default function AdminManageAccounts() {
                                       </span>
                                     )}
                                   </p>
-                                  <p className="text-[11px] text-gray-400 flex items-center gap-1">
-                                    <Clock className="w-2.5 h-2.5" />
-                                    {user.lastActive}
-                                  </p>
                                 </div>
                               </div>
                             </td>
@@ -1000,6 +941,13 @@ export default function AdminManageAccounts() {
                             {/* Email */}
                             <td className="px-4 py-3.5">
                               <span className="text-gray-600 text-xs truncate max-w-[180px] block">{user.email}</span>
+                            </td>
+
+                            {/* Password */}
+                            <td className="px-4 py-3.5">
+                              <span className="text-gray-600 text-xs font-mono truncate max-w-[180px] block">
+                                {user.password ? maskSecret(user.password) : "Not set"}
+                              </span>
                             </td>
 
                             {/* Role */}
@@ -1015,37 +963,6 @@ export default function AdminManageAccounts() {
                                 {user.role === "Customer" && <User className="w-3 h-3" />}
                                 {user.role}
                               </span>
-                            </td>
-
-                            {/* Status */}
-                            <td className="px-4 py-3.5">
-                              <span
-                                className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full ${
-                                  user.status === "Active"
-                                    ? "bg-green-100 text-green-700"
-                                    : "bg-red-100 text-red-600"
-                                }`}
-                              >
-                                <span
-                                  className={`w-1.5 h-1.5 rounded-full ${
-                                    user.status === "Active" ? "bg-green-500" : "bg-red-500"
-                                  }`}
-                                />
-                                {user.status}
-                              </span>
-                            </td>
-
-                            {/* Registered */}
-                            <td className="px-4 py-3.5">
-                              <span className="text-xs text-gray-500">{user.registeredAt}</span>
-                            </td>
-
-                            {/* Uploads */}
-                            <td className="px-4 py-3.5">
-                              <div className="flex items-center gap-1.5">
-                                <Upload className="w-3.5 h-3.5 text-gray-400" />
-                                <span className="text-sm font-semibold text-gray-700">{user.uploads}</span>
-                              </div>
                             </td>
 
                             {/* Actions */}
@@ -1066,25 +983,6 @@ export default function AdminManageAccounts() {
                                 <motion.button
                                   whileHover={{ scale: 1.15 }}
                                   whileTap={{ scale: 0.9 }}
-                                  onClick={() => handleToggleStatus(user.id)}
-                                  title={user.status === "Active" ? "Suspend account" : "Restore account"}
-                                  className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
-                                    user.status === "Active"
-                                      ? "bg-amber-50 text-amber-600 hover:bg-amber-100"
-                                      : "bg-green-50 text-green-600 hover:bg-green-100"
-                                  }`}
-                                >
-                                  {user.status === "Active" ? (
-                                    <ToggleLeft className="w-3.5 h-3.5" />
-                                  ) : (
-                                    <ToggleRight className="w-3.5 h-3.5" />
-                                  )}
-                                </motion.button>
-
-                                {/* Delete */}
-                                <motion.button
-                                  whileHover={!isOwnAccount ? { scale: 1.15 } : {}}
-                                  whileTap={!isOwnAccount ? { scale: 0.9 } : {}}
                                   onClick={() => !isOwnAccount && setDeleteTarget(user)}
                                   title={isOwnAccount ? "Cannot delete your own account" : "Delete account"}
                                   disabled={isOwnAccount}

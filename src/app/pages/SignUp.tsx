@@ -144,6 +144,7 @@ export default function SignUp() {
         UserName: normalizedUsername,
         FullName: data.fullName.trim(),
         Email: normalizedEmail,
+        Role: "Customer",
         Password: data.password,
       });
 

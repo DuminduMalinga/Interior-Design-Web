@@ -34,7 +34,7 @@ export default function SignIn() {
     }
     setIsSubmitting(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
         const newFailedAttempts = failedAttempts + 1;
         setFailedAttempts(newFailedAttempts);
@@ -50,9 +50,26 @@ export default function SignIn() {
         }
         return;
       }
-      console.log("Sign In successful:", email);
+
+      const authUser = data.user;
+      const { data: userRow, error: roleError } = authUser
+        ? await supabase
+            .from("User")
+            .select("*")
+            .eq("UserID", authUser.id)
+            .maybeSingle()
+        : { data: null, error: null };
+
+      if (roleError) {
+        console.warn("Role lookup failed, defaulting to dashboard:", roleError.message);
+      }
+
+      const rawRole = userRow?.Role ?? userRow?.role;
+      const role = typeof rawRole === "string" ? rawRole.trim().toLowerCase() : "customer";
+
+      console.log("Sign In successful:", email, role);
       setFailedAttempts(0);
-      navigate("/dashboard");
+      navigate(role === "admin" ? "/admin/accounts" : "/dashboard");
     } catch (err) {
       setLoginError(err instanceof Error ? err.message : "Sign in failed");
     } finally {
