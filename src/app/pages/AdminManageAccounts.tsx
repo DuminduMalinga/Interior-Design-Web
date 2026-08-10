@@ -141,11 +141,11 @@ function mapUserRow(row: UserRow): UserAccount {
 
 /** Compute a user status badge from their LastSignIn timestamp */
 function getStatus(lastSignIn: string | null): { label: string; dotClass: string; textClass: string; bgClass: string } {
-  if (!lastSignIn) return { label: "Never", dotClass: "bg-gray-400", textClass: "text-gray-500", bgClass: "bg-gray-100 border-gray-200" };
+  if (!lastSignIn) return { label: "Never", dotClass: "bg-zinc-500", textClass: "text-zinc-400", bgClass: "bg-zinc-500/10 border-zinc-500/20" };
   const days = (Date.now() - new Date(lastSignIn).getTime()) / 86_400_000;
-  if (days < 7) return { label: "Active", dotClass: "bg-emerald-400", textClass: "text-emerald-700", bgClass: "bg-emerald-50 border-emerald-200" };
-  if (days < 30) return { label: "Inactive", dotClass: "bg-amber-400", textClass: "text-amber-700", bgClass: "bg-amber-50 border-amber-200" };
-  return { label: "Long time ago", dotClass: "bg-gray-400", textClass: "text-gray-600", bgClass: "bg-gray-100 border-gray-200" };
+  if (days < 7) return { label: "Active", dotClass: "bg-emerald-400", textClass: "text-emerald-400", bgClass: "bg-emerald-500/10 border-emerald-500/20" };
+  if (days < 30) return { label: "Inactive", dotClass: "bg-amber-400", textClass: "text-amber-400", bgClass: "bg-amber-500/10 border-amber-500/20" };
+  return { label: "Long time ago", dotClass: "bg-zinc-500", textClass: "text-zinc-400", bgClass: "bg-zinc-500/10 border-zinc-500/20" };
 }
 
 
@@ -331,10 +331,9 @@ function DeleteModal({
 
           {/* Admin password */}
           <div>
-            <label className="text-xs font-semibold text-gray-700 mb-1.5 flex items-center gap-1.5">
+            {/* <label className="text-xs font-semibold text-gray-700 mb-1.5 flex items-center gap-1.5">
               <Lock className="w-3.5 h-3.5 text-gray-500" />
-              Confirm with your admin password
-            </label>
+            </label> */}
             <input
               ref={inputRef}
               type="password"
@@ -442,7 +441,7 @@ function ViewUserModal({
             <div key={label} className="flex items-center gap-3 py-1.5 border-b border-white/5 last:border-0">
               <Icon className="w-4 h-4 text-teal-400 shrink-0" />
               <span className="text-xs text-zinc-500 w-24 shrink-0">{label}</span>
-              <span className={`text-xs font-semibold truncate ${label === "Role" && value === "Admin" ? "text-indigo-700" : "text-gray-800"}`}>
+              <span className={`text-xs font-semibold truncate ${label === "Role" && value === "Admin" ? "text-violet-400" : "text-zinc-200"}`}>
                 {value}
               </span>
             </div>
@@ -783,7 +782,8 @@ export default function AdminManageAccounts() {
   return (
     <div className="min-h-screen w-full bg-[#0a0a0f] flex flex-col" style={{ fontFamily: "'Inter', sans-serif" }}>
       <div className="absolute inset-0 dot-grid pointer-events-none" />
-      <div className="absolute top-1/4 right-1/3 w-[400px] h-[400px] bg-teal-500/4 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute top-1/4 right-1/3 w-[500px] h-[500px] bg-teal-500/5 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-1/4 left-1/4 w-[400px] h-[400px] bg-violet-500/5 rounded-full blur-[120px] pointer-events-none" />
 
       {/* ── Modals ── */}
       <AnimatePresence>
@@ -1285,7 +1285,7 @@ USING (
               <div className="flex flex-col lg:flex-row gap-3">
                 {/* Search */}
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                   <input
                     type="text"
                     placeholder="Search by name, username, or email…"
@@ -1297,11 +1297,11 @@ USING (
 
                 {/* Role filter */}
                 <div className="relative">
-                  <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none" />
                   <select
                     value={roleFilter}
                     onChange={(e) => { setRoleFilter(e.target.value as "All" | Role); setPage(1); }}
-                    className="pl-9 pr-8 py-2.5 border border-white/10 bg-white/5 rounded-xl text-sm outline-none focus:border-teal-500/50 appearance-none cursor-pointer font-medium text-zinc-300 min-w-[130px]"
+                    className="pl-9 pr-8 py-2.5 border border-white/10 bg-[#0f0f1a] rounded-xl text-sm outline-none focus:border-teal-500/50 appearance-none cursor-pointer font-medium text-zinc-300 min-w-[130px]"
                   >
                     <option value="All">All Roles</option>
                     <option value="Admin">Admin</option>
@@ -1317,7 +1317,7 @@ USING (
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={clearFilters}
-                    className="flex items-center gap-1.5 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-semibold transition-all whitespace-nowrap"
+                    className="flex items-center gap-1.5 px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 rounded-xl text-sm font-semibold transition-all whitespace-nowrap"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
                     Clear
@@ -1326,16 +1326,16 @@ USING (
               </div>
 
               {/* Result count */}
-              <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-                <p className="text-xs text-gray-500">
+              <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/5">
+                <p className="text-xs text-zinc-500">
                   Showing{" "}
-                  <span className="font-bold text-gray-800">{pageUsers.length}</span> of{" "}
-                  <span className="font-bold text-gray-800">{filtered.length}</span> users
+                  <span className="font-bold text-zinc-300">{pageUsers.length}</span> of{" "}
+                  <span className="font-bold text-zinc-300">{filtered.length}</span> users
                   {hasFilters && (
-                    <span className="ml-2 text-indigo-600 font-medium">(filtered)</span>
+                    <span className="ml-2 text-teal-400 font-medium">(filtered)</span>
                   )}
                 </p>
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-zinc-600">
                   Page {page} of {totalPages}
                 </p>
               </div>
@@ -1346,12 +1346,12 @@ USING (
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.18 }}
-              className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden"
+              className="glass-card rounded-2xl border border-white/5 shadow-lg overflow-hidden"
             >
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-gradient-to-r from-slate-50 to-indigo-50 border-b border-gray-200">
+                    <tr className="bg-gradient-to-r from-teal-500/5 to-violet-500/5 border-b border-white/8">
                       {(
                         [
                           { key: "id", label: "User ID" },
@@ -1364,16 +1364,16 @@ USING (
                         <th
                           key={key}
                           onClick={() => handleSort(key)}
-                          className="px-4 py-3.5 text-left text-[11px] font-bold text-gray-600 uppercase tracking-wider cursor-pointer hover:text-indigo-700 whitespace-nowrap select-none"
+                          className="px-4 py-3.5 text-left text-[11px] font-bold text-zinc-500 uppercase tracking-wider cursor-pointer hover:text-teal-400 whitespace-nowrap select-none transition-colors"
                         >
                           {label}
                           <SortIcon field={key} sort={sort} />
                         </th>
                       ))}
-                      <th className="px-4 py-3.5 text-left text-[11px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                      <th className="px-4 py-3.5 text-left text-[11px] font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap">
                         Status
                       </th>
-                      <th className="px-4 py-3.5 text-center text-[11px] font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                      <th className="px-4 py-3.5 text-center text-[11px] font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap">
                         Actions
                       </th>
                     </tr>
@@ -1382,9 +1382,9 @@ USING (
                     {pageUsers.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="py-16 text-center">
-                          <div className="flex flex-col items-center gap-3 text-gray-400">
+                          <div className="flex flex-col items-center gap-3 text-zinc-500">
                             {isLoading ? (
-                              <RefreshCw className="w-10 h-10 opacity-30 animate-spin" />
+                              <RefreshCw className="w-10 h-10 opacity-30 animate-spin text-teal-400" />
                             ) : (
                               <Users className="w-10 h-10 opacity-30" />
                             )}
@@ -1394,7 +1394,7 @@ USING (
                             {!isLoading && hasFilters && (
                               <button
                                 onClick={clearFilters}
-                                className="text-indigo-600 text-xs font-semibold hover:underline"
+                                className="text-teal-400 text-xs font-semibold hover:text-teal-300 transition-colors"
                               >
                                 Clear filters
                               </button>
@@ -1402,7 +1402,7 @@ USING (
                             {!isLoading && loadError && (
                               <button
                                 onClick={loadUsers}
-                                className="text-indigo-600 text-xs font-semibold hover:underline"
+                                className="text-teal-400 text-xs font-semibold hover:text-teal-300 transition-colors"
                               >
                                 Retry loading users
                               </button>
@@ -1420,12 +1420,12 @@ USING (
                             initial={{ opacity: 0, y: 6 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: idx * 0.04 }}
-                            className={`border-b border-gray-100 last:border-0 transition-colors group ${isEven ? "bg-slate-50/60" : "bg-white"
-                              } hover:bg-indigo-50/50`}
+                            className={`border-b border-white/5 last:border-0 transition-colors group ${isEven ? "bg-white/[0.02]" : ""
+                              } hover:bg-teal-500/[0.04]`}
                           >
                             {/* User ID */}
                             <td className="px-4 py-3.5">
-                              <span className="font-mono text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg">
+                              <span className="font-mono text-[11px] font-bold text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded-lg border border-teal-500/20">
                                 {user.id}
                               </span>
                             </td>
@@ -1439,10 +1439,10 @@ USING (
                                   {user.avatar}
                                 </div>
                                 <div className="min-w-0">
-                                  <p className="font-semibold text-gray-900 text-sm truncate max-w-[140px]">
+                                  <p className="font-semibold text-zinc-200 text-sm truncate max-w-[140px]">
                                     {user.fullName}
                                     {isOwnAccount && (
-                                      <span className="ml-1.5 text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-bold">
+                                      <span className="ml-1.5 text-[9px] bg-teal-500/15 text-teal-400 px-1.5 py-0.5 rounded-full font-bold border border-teal-500/20">
                                         YOU
                                       </span>
                                     )}
@@ -1453,20 +1453,20 @@ USING (
 
                             {/* Username */}
                             <td className="px-4 py-3.5">
-                              <span className="text-gray-700 text-sm font-medium">@{user.username}</span>
+                              <span className="text-zinc-400 text-sm font-medium">@{user.username}</span>
                             </td>
 
                             {/* Email */}
                             <td className="px-4 py-3.5">
-                              <span className="text-gray-600 text-xs truncate max-w-[180px] block">{user.email}</span>
+                              <span className="text-zinc-500 text-xs truncate max-w-[180px] block">{user.email}</span>
                             </td>
 
                             {/* Role */}
                             <td className="px-4 py-3.5">
                               <span
                                 className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border ${user.role === "Admin"
-                                  ? "bg-indigo-100 text-indigo-700 border-indigo-200"
-                                  : "bg-gray-100 text-gray-600 border-gray-200"
+                                  ? "bg-violet-500/15 text-violet-400 border-violet-500/20"
+                                  : "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"
                                   }`}
                               >
                                 {user.role === "Admin" && <ShieldCheck className="w-3 h-3" />}
@@ -1497,12 +1497,12 @@ USING (
                                   whileTap={{ scale: 0.9 }}
                                   onClick={() => setViewTarget(user)}
                                   title="View details"
-                                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors"
+                                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-teal-500/10 text-teal-400 hover:bg-teal-500/20 border border-teal-500/20 transition-colors"
                                 >
                                   <Eye className="w-3.5 h-3.5" />
                                 </motion.button>
 
-                                {/* Toggle Status */}
+                                {/* Delete */}
                                 <motion.button
                                   whileHover={{ scale: 1.15 }}
                                   whileTap={{ scale: 0.9 }}
@@ -1510,8 +1510,8 @@ USING (
                                   title={isOwnAccount ? "Cannot delete your own account" : "Delete account"}
                                   disabled={isOwnAccount}
                                   className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${isOwnAccount
-                                    ? "bg-gray-50 text-gray-300 cursor-not-allowed"
-                                    : "bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-700"
+                                    ? "bg-white/5 text-zinc-700 cursor-not-allowed"
+                                    : "bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20"
                                     }`}
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -1528,10 +1528,10 @@ USING (
 
               {/* ── Pagination ── */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-between px-4 py-3.5 border-t border-gray-100 bg-gray-50/60">
-                  <p className="text-xs text-gray-500">
+                <div className="flex items-center justify-between px-4 py-3.5 border-t border-white/5 bg-white/[0.02]">
+                  <p className="text-xs text-zinc-500">
                     {(page - 1) * PAGE_SIZE + 1}–
-                    {Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length} users
+                    {Math.min(page * PAGE_SIZE, filtered.length)} of <span className="text-zinc-300 font-bold">{filtered.length}</span> users
                   </p>
                   <div className="flex items-center gap-1">
                     <motion.button
@@ -1539,7 +1539,7 @@ USING (
                       whileTap={{ scale: 0.92 }}
                       onClick={() => setPage(1)}
                       disabled={page === 1}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                      className="w-7 h-7 flex items-center justify-center rounded-lg border border-white/10 bg-white/5 text-zinc-400 hover:bg-teal-500/10 hover:text-teal-400 hover:border-teal-500/20 disabled:opacity-25 disabled:cursor-not-allowed transition-all"
                     >
                       <ChevronsLeft className="w-3.5 h-3.5" />
                     </motion.button>
@@ -1548,7 +1548,7 @@ USING (
                       whileTap={{ scale: 0.92 }}
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
                       disabled={page === 1}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                      className="w-7 h-7 flex items-center justify-center rounded-lg border border-white/10 bg-white/5 text-zinc-400 hover:bg-teal-500/10 hover:text-teal-400 hover:border-teal-500/20 disabled:opacity-25 disabled:cursor-not-allowed transition-all"
                     >
                       <ChevronLeft className="w-3.5 h-3.5" />
                     </motion.button>
@@ -1563,8 +1563,8 @@ USING (
                           whileTap={{ scale: 0.92 }}
                           onClick={() => setPage(p)}
                           className={`w-7 h-7 flex items-center justify-center rounded-lg text-xs font-bold border transition-all ${p === page
-                            ? "bg-gradient-to-r from-blue-600 to-indigo-700 text-white border-indigo-600 shadow-sm"
-                            : "border-gray-200 bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-700"
+                            ? "bg-gradient-to-r from-teal-500 to-teal-600 text-white border-teal-500 shadow-sm shadow-teal-500/20"
+                            : "border-white/10 bg-white/5 text-zinc-400 hover:bg-teal-500/10 hover:text-teal-400 hover:border-teal-500/20"
                             }`}
                         >
                           {p}
@@ -1576,7 +1576,7 @@ USING (
                       whileTap={{ scale: 0.92 }}
                       onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                       disabled={page === totalPages}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                      className="w-7 h-7 flex items-center justify-center rounded-lg border border-white/10 bg-white/5 text-zinc-400 hover:bg-teal-500/10 hover:text-teal-400 hover:border-teal-500/20 disabled:opacity-25 disabled:cursor-not-allowed transition-all"
                     >
                       <ChevronRight className="w-3.5 h-3.5" />
                     </motion.button>
@@ -1585,7 +1585,7 @@ USING (
                       whileTap={{ scale: 0.92 }}
                       onClick={() => setPage(totalPages)}
                       disabled={page === totalPages}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                      className="w-7 h-7 flex items-center justify-center rounded-lg border border-white/10 bg-white/5 text-zinc-400 hover:bg-teal-500/10 hover:text-teal-400 hover:border-teal-500/20 disabled:opacity-25 disabled:cursor-not-allowed transition-all"
                     >
                       <ChevronsRight className="w-3.5 h-3.5" />
                     </motion.button>
