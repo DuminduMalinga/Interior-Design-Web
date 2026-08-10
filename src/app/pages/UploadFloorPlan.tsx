@@ -16,6 +16,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router";
 import { useCurrentUserProfile } from "../context/UserContext";
+import { supabase } from "../lib/supabaseClient";
 
 export default function UploadFloorPlan() {
   const navigate = useNavigate();
@@ -79,23 +80,74 @@ export default function UploadFloorPlan() {
     setSelectedFile(null); setPreviewUrl(null); setError(null); setSuccess(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (!selectedFile) return;
-    setIsUploading(true); setError(null); setSuccess(null); setUploadProgress(0);
-    const interval = setInterval(() => {
-      setUploadProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setTimeout(() => {
-            setIsUploading(false);
-            setSuccess("File uploaded successfully! Processing floor plan...");
-            setTimeout(() => navigate("/processing"), 2000);
-          }, 500);
-          return 100;
-        }
-        return prev + 10;
-      });
-    }, 200);
+
+    setIsUploading(true);
+    setError(null);
+    setSuccess(null);
+    setUploadProgress(0);
+
+    try {
+      // ── 1. Get current authenticated user ───────────────────────────────
+      const { data: { user }, error: authErr } = await supabase.auth.getUser();
+      if (authErr || !user) throw new Error("You must be signed in to upload.");
+
+      setUploadProgress(20);
+
+      // ── 2. Build a unique storage path ──────────────────────────────────
+      const ext = selectedFile.name.split(".").pop()?.toLowerCase() ?? "jpg";
+      const floorPlanId = crypto.randomUUID();
+      const storagePath = `${user.id}/${floorPlanId}.${ext}`;
+
+      // ── 3. Upload file to Supabase Storage ──────────────────────────────
+      const { error: uploadErr } = await supabase.storage
+        .from("floorplans")
+        .upload(storagePath, selectedFile, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: selectedFile.type || "image/jpeg",
+        });
+
+      if (uploadErr) throw new Error(`Storage upload failed: ${uploadErr.message}`);
+
+      setUploadProgress(60);
+
+      // ── 4. Get the public URL ────────────────────────────────────────────
+      const { data: { publicUrl } } = supabase.storage
+        .from("floorplans")
+        .getPublicUrl(storagePath);
+
+      setUploadProgress(80);
+
+      // ── 5. Insert a record into the FloorPlan table ──────────────────────
+      const { error: dbErr } = await supabase
+        .from("FloorPlan")
+        .insert({
+          FloorPlanID: floorPlanId,
+          UploadDateTime: new Date().toISOString(),
+          ImagePath: publicUrl,
+          Status: "Pending",
+          UserID: user.id,
+        });
+
+      if (dbErr) throw new Error(`Database insert failed: ${dbErr.message}`);
+
+      setUploadProgress(100);
+
+      // ── 6. Navigate to processing page ───────────────────────────────────
+      setTimeout(() => {
+        setIsUploading(false);
+        setSuccess("File uploaded successfully! Processing floor plan...");
+        setTimeout(() => navigate("/processing", { state: { floorPlanId } }), 1500);
+      }, 400);
+
+    } catch (err: unknown) {
+      setIsUploading(false);
+      setUploadProgress(0);
+      const message = err instanceof Error ? err.message : "Upload failed. Please try again.";
+      setError(message);
+    }
   };
 
   const steps = [

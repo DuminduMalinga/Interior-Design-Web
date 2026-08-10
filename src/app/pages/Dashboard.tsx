@@ -83,6 +83,7 @@ export default function Dashboard() {
   const [deletePassword, setDeletePassword] = useState("");
   const [deletePassError, setDeletePassError] = useState(false);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
   const [deleteRequestMsg, setDeleteRequestMsg] = useState<{ type: "success" | "error" | "pending"; text: string } | null>(null);
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
 
@@ -109,6 +110,33 @@ export default function Dashboard() {
       .maybeSingle();
     setHasPendingRequest(!!data);
   }, []);
+
+  const handleCancelRequest = async () => {
+    setCancelSubmitting(true);
+    setDeleteRequestMsg(null);
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        setDeleteRequestMsg({ type: "error", text: "Unable to verify your session. Please sign in again." });
+        return;
+      }
+      const { error } = await supabase
+        .from("DeletionRequest")
+        .delete()
+        .eq("UserID", user.id)
+        .eq("Status", "pending");
+      if (error) {
+        setDeleteRequestMsg({ type: "error", text: error.message });
+        return;
+      }
+      setHasPendingRequest(false);
+      setDeleteRequestMsg({ type: "success", text: "Your deletion request has been cancelled. Your account is safe." });
+    } catch (err) {
+      setDeleteRequestMsg({ type: "error", text: err instanceof Error ? err.message : "Failed to cancel request." });
+    } finally {
+      setCancelSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     void checkPendingRequest();
@@ -173,32 +201,32 @@ export default function Dashboard() {
   const isAdmin = currentUser.role.trim().toLowerCase() === "admin";
 
   const menuItems = [
-    { id: "dashboard", label: "Dashboard",           icon: LayoutDashboard, path: "/dashboard" },
-    { id: "upload",    label: "Upload Floor Plan",   icon: Upload,          path: "/upload" },
-    { id: "designs",   label: "View Previous Designs", icon: History,       path: null },
-    { id: "profile",   label: "Profile",             icon: User,            path: null },
+    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
+    { id: "upload", label: "Upload Floor Plan", icon: Upload, path: "/upload" },
+    { id: "designs", label: "View Previous Designs", icon: History, path: null },
+    { id: "profile", label: "Profile", icon: User, path: null },
     ...(isAdmin ? [{ id: "admin-accounts", label: "Manage Accounts", icon: ShieldCheck, path: "/admin/accounts" }] : []),
   ];
 
   const stats = [
-    { label: "Total Uploads",     value: "24",  icon: FileUp,     color: "text-teal-400",   bg: "bg-teal-500/10",   glow: "shadow-teal-500/10" },
-    { label: "Designs Generated", value: "18",  icon: Boxes,      color: "text-violet-400", bg: "bg-violet-500/10", glow: "shadow-violet-500/10" },
-    { label: "Success Rate",      value: "98%", icon: TrendingUp, color: "text-emerald-400", bg: "bg-emerald-500/10", glow: "shadow-emerald-500/10" },
+    { label: "Total Uploads", value: "24", icon: FileUp, color: "text-teal-400", bg: "bg-teal-500/10", glow: "shadow-teal-500/10" },
+    { label: "Designs Generated", value: "18", icon: Boxes, color: "text-violet-400", bg: "bg-violet-500/10", glow: "shadow-violet-500/10" },
+    { label: "Success Rate", value: "98%", icon: TrendingUp, color: "text-emerald-400", bg: "bg-emerald-500/10", glow: "shadow-emerald-500/10" },
   ];
 
   const recentActivity = [
-    { id: 1, name: "Modern Bedroom Layout",   date: "2 hours ago", status: "Completed" },
-    { id: 2, name: "Master Suite Design",     date: "1 day ago",   status: "Completed" },
-    { id: 3, name: "Guest Room Optimization", date: "2 days ago",  status: "Completed" },
+    { id: 1, name: "Modern Bedroom Layout", date: "2 hours ago", status: "Completed" },
+    { id: 2, name: "Master Suite Design", date: "1 day ago", status: "Completed" },
+    { id: 3, name: "Guest Room Optimization", date: "2 days ago", status: "Completed" },
   ];
 
   const previousDesigns = [
-    { id: 1, name: "Modern Bedroom Layout",   date: "Feb 23, 2026", rooms: "Bedroom 1",   score: 92, thumb: "MB" },
-    { id: 2, name: "Master Suite Design",     date: "Feb 22, 2026", rooms: "Bedroom 2",   score: 87, thumb: "MS" },
-    { id: 3, name: "Guest Room Optimization", date: "Feb 20, 2026", rooms: "Guest Room",  score: 78, thumb: "GR" },
-    { id: 4, name: "Living Room Layout",      date: "Feb 18, 2026", rooms: "Living Room", score: 85, thumb: "LR" },
-    { id: 5, name: "Home Office Setup",       date: "Feb 15, 2026", rooms: "Study Room",  score: 91, thumb: "HO" },
-    { id: 6, name: "Kids Bedroom Plan",       date: "Feb 10, 2026", rooms: "Bedroom 3",   score: 74, thumb: "KB" },
+    { id: 1, name: "Modern Bedroom Layout", date: "Feb 23, 2026", rooms: "Bedroom 1", score: 92, thumb: "MB" },
+    { id: 2, name: "Master Suite Design", date: "Feb 22, 2026", rooms: "Bedroom 2", score: 87, thumb: "MS" },
+    { id: 3, name: "Guest Room Optimization", date: "Feb 20, 2026", rooms: "Guest Room", score: 78, thumb: "GR" },
+    { id: 4, name: "Living Room Layout", date: "Feb 18, 2026", rooms: "Living Room", score: 85, thumb: "LR" },
+    { id: 5, name: "Home Office Setup", date: "Feb 15, 2026", rooms: "Study Room", score: 91, thumb: "HO" },
+    { id: 6, name: "Kids Bedroom Plan", date: "Feb 10, 2026", rooms: "Bedroom 3", score: 74, thumb: "KB" },
   ];
 
   const handleSaveProfile = () => {
@@ -337,11 +365,10 @@ export default function Dashboard() {
             className="glass-card rounded-2xl overflow-hidden border border-white/5 hover:bg-white/[0.07] transition-all">
             <div className="h-36 bg-gradient-to-br from-teal-500/10 to-violet-500/10 flex items-center justify-center relative border-b border-white/5">
               <span className="text-5xl font-black text-white/10 select-none">{design.thumb}</span>
-              <span className={`absolute top-3 right-3 px-2.5 py-1 text-xs font-bold rounded-full ${
-                design.score >= 90 ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20" :
+              <span className={`absolute top-3 right-3 px-2.5 py-1 text-xs font-bold rounded-full ${design.score >= 90 ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20" :
                 design.score >= 80 ? "bg-teal-500/15 text-teal-400 border border-teal-500/20" :
-                "bg-amber-500/15 text-amber-400 border border-amber-500/20"
-              }`}>
+                  "bg-amber-500/15 text-amber-400 border border-amber-500/20"
+                }`}>
                 {design.score}/100
               </span>
             </div>
@@ -479,8 +506,8 @@ export default function Dashboard() {
             </h3>
             <div className="space-y-3">
               {([
-                { label: "Current Password", key: "old",  show: showOldPass, setShow: setShowOldPass },
-                { label: "New Password",     key: "newP", show: showNewPass, setShow: setShowNewPass },
+                { label: "Current Password", key: "old", show: showOldPass, setShow: setShowOldPass },
+                { label: "New Password", key: "newP", show: showNewPass, setShow: setShowNewPass },
                 { label: "Confirm New Password", key: "conf", show: showConfPass, setShow: setShowConfPass },
               ] as const).map(({ label, key, show, setShow }) => (
                 <div key={key}>
@@ -518,9 +545,9 @@ export default function Dashboard() {
             </h3>
             <div className="space-y-3">
               {([
-                { key: "email",   label: "Email notifications",   desc: "Receive updates via email" },
+                { key: "email", label: "Email notifications", desc: "Receive updates via email" },
                 { key: "browser", label: "Browser notifications", desc: "Push alerts in browser" },
-                { key: "updates", label: "Product updates",       desc: "News about new AI features" },
+                { key: "updates", label: "Product updates", desc: "News about new AI features" },
               ] as const).map(({ key, label, desc }) => (
                 <div key={key} className="flex items-center justify-between p-3 bg-white/[0.03] rounded-xl border border-white/5">
                   <div>
@@ -551,13 +578,12 @@ export default function Dashboard() {
                   initial={{ opacity: 0, y: -8, scale: 0.97 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -8, scale: 0.97 }}
-                  className={`mb-3 flex items-start gap-2.5 px-4 py-3 rounded-xl border text-xs font-semibold ${
-                    deleteRequestMsg.type === "success"
-                      ? "bg-green-500/10 border-green-500/20 text-green-300"
-                      : deleteRequestMsg.type === "pending"
+                  className={`mb-3 flex items-start gap-2.5 px-4 py-3 rounded-xl border text-xs font-semibold ${deleteRequestMsg.type === "success"
+                    ? "bg-green-500/10 border-green-500/20 text-green-300"
+                    : deleteRequestMsg.type === "pending"
                       ? "bg-amber-500/10 border-amber-500/20 text-amber-300"
                       : "bg-red-500/10 border-red-500/20 text-red-300"
-                  }`}
+                    }`}
                 >
                   {deleteRequestMsg.type === "success" && <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />}
                   {deleteRequestMsg.type === "pending" && <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />}
@@ -578,25 +604,42 @@ export default function Dashboard() {
                   <p className="text-xs text-red-500/70">Submit a request to permanently delete your account.</p>
                 )}
               </div>
-              {hasPendingRequest ? (
-                <span className="flex items-center gap-1.5 px-3 py-2 bg-amber-500/10 text-amber-400/70 border border-amber-500/20 rounded-xl text-sm font-semibold shrink-0">
-                  <ClockAlert className="w-3.5 h-3.5" /> Pending
-                </span>
-              ) : (
-                <motion.button
-                  whileHover={{ scale: 1.04 }}
-                  whileTap={{ scale: 0.96 }}
-                  onClick={() => {
-                    setShowDeleteModal(true);
-                    setDeletePassword("");
-                    setDeletePassError(false);
-                    setDeleteRequestMsg(null);
-                  }}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-500/15 text-red-400 hover:bg-red-500/25 border border-red-500/20 rounded-xl text-sm font-semibold transition-colors shrink-0"
-                >
-                  <Trash2 className="w-3.5 h-3.5" /> Request Deletion
-                </motion.button>
-              )}
+              <div className="flex items-center gap-2 shrink-0">
+                {hasPendingRequest ? (
+                  <>
+                    {/* Pending badge */}
+                    <span className="flex items-center gap-1.5 px-3 py-2 bg-amber-500/10 text-amber-400/70 border border-amber-500/20 rounded-xl text-sm font-semibold">
+                      <ClockAlert className="w-3.5 h-3.5" /> Pending
+                    </span>
+                    {/* Cancel button */}
+                    <motion.button
+                      whileHover={{ scale: cancelSubmitting ? 1 : 1.04 }}
+                      whileTap={{ scale: cancelSubmitting ? 1 : 0.96 }}
+                      onClick={() => void handleCancelRequest()}
+                      disabled={cancelSubmitting}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-zinc-500/10 text-zinc-400 hover:bg-zinc-500/20 hover:text-zinc-200 border border-zinc-500/20 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
+                    >
+                      {cancelSubmitting
+                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Cancelling…</>
+                        : <><X className="w-3.5 h-3.5" /> Cancel Request</>}
+                    </motion.button>
+                  </>
+                ) : (
+                  <motion.button
+                    whileHover={{ scale: 1.04 }}
+                    whileTap={{ scale: 0.96 }}
+                    onClick={() => {
+                      setShowDeleteModal(true);
+                      setDeletePassword("");
+                      setDeletePassError(false);
+                      setDeleteRequestMsg(null);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-500/15 text-red-400 hover:bg-red-500/25 border border-red-500/20 rounded-xl text-sm font-semibold transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Request Deletion
+                  </motion.button>
+                )}
+              </div>
             </div>
           </motion.div>
         </div>
@@ -720,11 +763,10 @@ export default function Dashboard() {
               return (
                 <motion.button key={item.id} whileHover={{ x: 4 }}
                   onClick={() => { setActiveMenu(item.id); if (item.path) navigate(item.path); }}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${
-                    isActive
-                      ? "bg-gradient-to-r from-teal-500/20 to-teal-600/10 text-teal-300 border border-teal-500/20"
-                      : "text-zinc-500 hover:text-zinc-200 hover:bg-white/5"
-                  }`}>
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${isActive
+                    ? "bg-gradient-to-r from-teal-500/20 to-teal-600/10 text-teal-300 border border-teal-500/20"
+                    : "text-zinc-500 hover:text-zinc-200 hover:bg-white/5"
+                    }`}>
                   <Icon className={`w-5 h-5 ${isActive ? "text-teal-400" : ""}`} />
                   {item.label}
                 </motion.button>
@@ -752,11 +794,10 @@ export default function Dashboard() {
                   return (
                     <button key={item.id}
                       onClick={() => { setActiveMenu(item.id); setMobileMenuOpen(false); if (item.path) navigate(item.path); }}
-                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${
-                        isActive
-                          ? "bg-teal-500/15 text-teal-300 border border-teal-500/20"
-                          : "text-zinc-500 hover:text-zinc-200 hover:bg-white/5"
-                      }`}>
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${isActive
+                        ? "bg-teal-500/15 text-teal-300 border border-teal-500/20"
+                        : "text-zinc-500 hover:text-zinc-200 hover:bg-white/5"
+                        }`}>
                       <Icon className={`w-5 h-5 ${isActive ? "text-teal-400" : ""}`} />
                       {item.label}
                     </button>
@@ -781,8 +822,8 @@ export default function Dashboard() {
               <motion.div key={activeMenu} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }}>
                 {activeMenu === "dashboard" && renderDashboard()}
-                {activeMenu === "designs"   && renderDesigns()}
-                {activeMenu === "profile"   && renderProfile()}
+                {activeMenu === "designs" && renderDesigns()}
+                {activeMenu === "profile" && renderProfile()}
               </motion.div>
             </AnimatePresence>
           </div>
