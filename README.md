@@ -9,6 +9,7 @@
 [![Vite](https://img.shields.io/badge/Vite-6-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
 [![MUI](https://img.shields.io/badge/MUI-7-007FFF?style=for-the-badge&logo=mui&logoColor=white)](https://mui.com)
+[![Supabase](https://img.shields.io/badge/Supabase-Backend-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com)
 
 <br/>
 
@@ -29,7 +30,8 @@
 | 📊 | **User Dashboard** | Manage projects, view design history, and configure profile & notifications |
 | 🛡️ | **Admin Panel** | Dedicated interface for user account management |
 | 🌗 | **Dark / Light Theme** | Full theme switching powered by a global `ThemeContext` |
-| 🔐 | **Authentication Flow** | Sign up, sign in & forgot-password with form validation |
+| 🔐 | **Authentication Flow** | Sign up, sign in, forgot-password & full password reset with form validation |
+| ☁️ | **Supabase Backend** | Cloud database, auth, and storage powered by Supabase |
 
 ---
 
@@ -66,6 +68,7 @@
     <tr><td>🖱️ Drag & Drop</td><td><a href="https://react-dnd.github.io/react-dnd/">React DnD</a></td><td>16</td></tr>
     <tr><td>📈 Charts</td><td><a href="https://recharts.org">Recharts</a></td><td>2</td></tr>
     <tr><td>🔔 Notifications</td><td><a href="https://sonner.emilkowal.ski">Sonner</a></td><td>2</td></tr>
+    <tr><td>☁️ Backend</td><td><a href="https://supabase.com">Supabase</a></td><td>2</td></tr>
     <tr><td>🖼️ Icons</td><td><a href="https://lucide.dev">Lucide React</a> + MUI Icons</td><td>latest</td></tr>
   </tbody>
 </table>
@@ -84,19 +87,23 @@
     ┃  ┣ 📂 figma/                ← Figma-generated helper components
     ┃  ┗ 📂 ui/                   ← shadcn/ui component library (30+ components)
     ┣ 📂 context/
-    ┃  ┗ 📄 ThemeContext.tsx      ← Global dark/light theme provider
+    ┃  ┣ 📄 ThemeContext.tsx      ← Global dark/light theme provider
+    ┃  ┗ 📄 UserContext.tsx       ← Authenticated user state provider
+    ┣ 📂 lib/
+    ┃  ┗ 📄 supabaseClient.ts    ← Supabase client initialisation
     ┣ 📂 pages/
     ┃  ┣ 🏠 Welcome.tsx           ← Landing page with features & testimonials
     ┃  ┣ 🔐 SignIn.tsx            ← User login
     ┃  ┣ 📝 SignUp.tsx            ← New user registration
-    ┃  ┣ 🔑 ForgotPassword.tsx   ← Password reset flow
+    ┃  ┣ 🔑 ForgotPassword.tsx   ← Password reset request flow
+    ┃  ┣ 🔏 ResetPassword.tsx    ← Password reset (email link handler)
     ┃  ┣ 📊 Dashboard.tsx         ← Project history, profile & settings
     ┃  ┣ 📤 UploadFloorPlan.tsx   ← Floor plan upload
     ┃  ┣ ⏳ Processing.tsx        ← AI analysis progress screen
     ┃  ┣ 🏷️ SelectRoom.tsx        ← Room selection post-detection
     ┃  ┣ 🗂️ ViewLayouts.tsx       ← AI-scored layout gallery
     ┃  ┣ 🧊 RoomView3D.tsx        ← Interactive isometric 3D viewer
-    ┃  ┗ 🛡️ AdminManageAccounts.tsx
+    ┃  ┗ 🛡️ AdminManageAccounts.tsx ← Admin user management panel
     ┗ 📂 styles/
        ┣ 📄 index.css
        ┣ 📄 tailwind.css
@@ -113,7 +120,8 @@
 | `/` | 🏠 Welcome | Landing page — features, stats & testimonials |
 | `/signup` | 📝 SignUp | New user registration |
 | `/signin` | 🔐 SignIn | User login |
-| `/forgot-password` | 🔑 ForgotPassword | Password reset flow |
+| `/forgot-password` | 🔑 ForgotPassword | Password reset request |
+| `/reset-password` | 🔏 ResetPassword | Password reset via email link |
 | `/dashboard` | 📊 Dashboard | History, profile & account settings |
 | `/upload` | 📤 UploadFloorPlan | Upload a 2D floor plan image |
 | `/processing` | ⏳ Processing | AI analysis progress screen |
@@ -130,6 +138,7 @@
 
 - 🟢 [Node.js](https://nodejs.org/) v18 or later
 - 📦 `npm`, `pnpm`, or `yarn`
+- ☁️ A [Supabase](https://supabase.com) project (for backend features)
 
 ### ⬇️ Installation
 
@@ -142,6 +151,15 @@ cd Interiordesignweb
 npm install
 # or with pnpm
 pnpm install
+```
+
+### 🔧 Environment Variables
+
+Create a `.env` file in the project root:
+
+```env
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
 ### 💻 Development Server
@@ -176,6 +194,6 @@ See [ATTRIBUTIONS.md](ATTRIBUTIONS.md) for third-party attributions and licensin
 
 <div align="center">
 
- ⚛️ Built with React &nbsp;+&nbsp; ⚡ Vite 
+ ⚛️ Built with React &nbsp;+&nbsp; ⚡ Vite &nbsp;+&nbsp; ☁️ Supabase 
 
 </div>
