@@ -69,6 +69,7 @@ export default function Dashboard() {
   // Profile state
   const [profileEdit, setProfileEdit] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [showOldPass, setShowOldPass] = useState(false);
   const [showNewPass, setShowNewPass] = useState(false);
   const [showConfPass, setShowConfPass] = useState(false);
@@ -92,11 +93,14 @@ export default function Dashboard() {
       fullName: currentUser.fullName,
       username: currentUser.username,
       email: currentUser.email,
+      phone: currentUser.phone,
+      location: currentUser.location,
+      bio: currentUser.bio,
     });
 
     setProfile(nextProfile);
     setProfileDraft(nextProfile);
-  }, [currentUser.email, currentUser.fullName, currentUser.username]);
+  }, [currentUser.email, currentUser.fullName, currentUser.username, currentUser.phone, currentUser.location, currentUser.bio]);
 
   // Check if the user already has a pending deletion request
   const checkPendingRequest = useCallback(async () => {
@@ -229,11 +233,44 @@ export default function Dashboard() {
     { id: 6, name: "Kids Bedroom Plan", date: "Feb 10, 2026", rooms: "Bedroom 3", score: 74, thumb: "KB" },
   ];
 
-  const handleSaveProfile = () => {
-    setProfile({ ...profileDraft });
-    setProfileEdit(false);
-    setProfileSaved(true);
-    setTimeout(() => setProfileSaved(false), 3000);
+  const handleSaveProfile = async () => {
+    setIsSaving(true);
+    try {
+      const { data: { user }, error: authErr } = await supabase.auth.getUser();
+      if (authErr || !user) throw new Error("Session expired. Please sign in again.");
+
+      // Persist to the User table
+      const { error: dbErr } = await supabase
+        .from("User")
+        .update({
+          FullName: profileDraft.fullName.trim(),
+          UserName: profileDraft.username.trim(),
+          Phone: profileDraft.phone.trim(),
+          Location: profileDraft.location.trim(),
+          Bio: profileDraft.bio.trim(),
+        })
+        .eq("UserID", user.id);
+
+      if (dbErr) throw new Error(dbErr.message);
+
+      // Also update auth user_metadata so UserContext picks it up on next load
+      await supabase.auth.updateUser({
+        data: {
+          full_name: profileDraft.fullName.trim(),
+          username: profileDraft.username.trim(),
+        },
+      });
+
+      setProfile({ ...profileDraft });
+      setProfileEdit(false);
+      setProfileSaved(true);
+      setTimeout(() => setProfileSaved(false), 3000);
+    } catch (err) {
+      console.error("[Dashboard] Failed to save profile:", err);
+      alert(err instanceof Error ? err.message : "Failed to save profile. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleChangePassword = () => {
@@ -462,11 +499,13 @@ export default function Dashboard() {
                 </motion.button>
               ) : (
                 <div className="flex gap-2">
-                  <button onClick={() => setProfileEdit(false)} className="text-xs font-semibold text-zinc-500 hover:text-zinc-300 px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors">Cancel</button>
-                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                  <button onClick={() => setProfileEdit(false)} disabled={isSaving} className="text-xs font-semibold text-zinc-500 hover:text-zinc-300 px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors disabled:opacity-50">Cancel</button>
+                  <motion.button whileHover={isSaving ? {} : { scale: 1.05 }} whileTap={isSaving ? {} : { scale: 0.95 }}
                     onClick={handleSaveProfile}
-                    className="flex items-center gap-1.5 text-xs font-semibold text-white bg-gradient-to-r from-teal-500 to-teal-600 px-4 py-1.5 rounded-lg shadow-sm">
-                    <Save className="w-3.5 h-3.5" /> Save
+                    disabled={isSaving}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-white bg-gradient-to-r from-teal-500 to-teal-600 px-4 py-1.5 rounded-lg shadow-sm disabled:opacity-70">
+                    {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                    {isSaving ? "Saving…" : "Save"}
                   </motion.button>
                 </div>
               )}

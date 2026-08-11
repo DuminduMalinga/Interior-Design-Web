@@ -1061,7 +1061,7 @@ export default function AdminManageAccounts() {
         <main className="flex-1 p-4 md:p-6 lg:p-7 overflow-x-hidden relative">
           <div className="max-w-7xl mx-auto space-y-5">
 
-            {/* Page Header */}
+            Page Header
             <motion.div initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
               <div>
                 <h2 className="text-2xl md:text-3xl font-extrabold bg-gradient-to-r from-teal-300 to-cyan-400 bg-clip-text text-transparent">
@@ -1075,11 +1075,11 @@ export default function AdminManageAccounts() {
                   className="flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10 text-sm font-semibold transition-all">
                   <RefreshCw className="w-4 h-4" /> Refresh
                 </motion.button>
-                <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
+                {/* <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
                   onClick={handleExportCSV}
                   className="flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10 text-sm font-semibold transition-all">
                   <Download className="w-4 h-4" /> Export CSV
-                </motion.button>
+                </motion.button> */}
               </div>
             </motion.div>
 

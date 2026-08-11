@@ -6,6 +6,9 @@ type UserProfile = {
   username: string;
   email: string;
   role: string;
+  phone: string;
+  location: string;
+  bio: string;
 };
 
 type UserContextValue = {
@@ -18,6 +21,9 @@ const defaultProfile: UserProfile = {
   username: "user",
   email: "",
   role: "Customer",
+  phone: "",
+  location: "",
+  bio: "",
 };
 
 const UserContext = createContext<UserContextValue>({
@@ -80,7 +86,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
       const { data: userRow } = await supabase
         .from("User")
-        .select("FullName, UserName, Email, Role")
+        .select("FullName, UserName, Email, Role, Phone, Location, Bio")
         .eq("UserID", user.id)
         .maybeSingle();
 
@@ -144,6 +150,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         userRow.Role && String(userRow.Role).trim() !== ""
           ? String(userRow.Role)
           : null;
+      const dbPhone = userRow.Phone ? String(userRow.Phone) : "";
+      const dbLocation = userRow.Location ? String(userRow.Location) : "";
+      const dbBio = userRow.Bio ? String(userRow.Bio) : "";
 
       if (isMounted) {
         setProfile({
@@ -151,6 +160,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           username: dbUserName ?? fallbackUsername,
           email: dbEmail,
           role: dbRole ?? "Customer",
+          phone: dbPhone,
+          location: dbLocation,
+          bio: dbBio,
         });
         setIsLoading(false);
       }
