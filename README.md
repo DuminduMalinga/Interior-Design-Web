@@ -9,6 +9,7 @@
 [![Vite](https://img.shields.io/badge/Vite-6-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
 [![MUI](https://img.shields.io/badge/MUI-7-007FFF?style=for-the-badge&logo=mui&logoColor=white)](https://mui.com)
+[![Express](https://img.shields.io/badge/Express-4-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com)
 [![Supabase](https://img.shields.io/badge/Supabase-Backend-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com)
 
 <br/>
@@ -28,9 +29,10 @@
 | 🪑 | **Smart Furniture Placement** | Scores hundreds of layout combinations and surfaces only the best-fit arrangements |
 | 🧊 | **Interactive 3D Viewer** | Real-time isometric 3D viewer — rotate, zoom, and export in one click |
 | 📊 | **User Dashboard** | Manage projects, view design history, and configure profile & notifications |
-| 🛡️ | **Admin Panel** | Dedicated interface for user account management |
+| 🛡️ | **Admin Panel** | Dedicated interface for user account management and approval workflows |
 | 🌗 | **Dark / Light Theme** | Full theme switching powered by a global `ThemeContext` |
 | 🔐 | **Authentication Flow** | Sign up, sign in, forgot-password & full password reset with form validation |
+| 🔒 | **Secure REST API** | Express backend with Helmet, CORS, and rate limiting (200 req / 15 min) |
 | ☁️ | **Supabase Backend** | Cloud database, auth, and storage powered by Supabase |
 
 ---
@@ -47,6 +49,8 @@
 ---
 
 ## 🛠️ Tech Stack
+
+### Frontend
 
 <table>
   <thead>
@@ -67,9 +71,27 @@
     <tr><td>📋 Forms</td><td><a href="https://react-hook-form.com">React Hook Form</a></td><td>7</td></tr>
     <tr><td>🖱️ Drag & Drop</td><td><a href="https://react-dnd.github.io/react-dnd/">React DnD</a></td><td>16</td></tr>
     <tr><td>📈 Charts</td><td><a href="https://recharts.org">Recharts</a></td><td>2</td></tr>
-    <tr><td>🔔 Notifications</td><td><a href="https://sonner.emilkowal.ski">Sonner</a></td><td>2</td></tr>
-    <tr><td>☁️ Backend</td><td><a href="https://supabase.com">Supabase</a></td><td>2</td></tr>
+    <tr><td>🔔 Toasts</td><td><a href="https://sonner.emilkowal.ski">Sonner</a></td><td>2</td></tr>
     <tr><td>🖼️ Icons</td><td><a href="https://lucide.dev">Lucide React</a> + MUI Icons</td><td>latest</td></tr>
+  </tbody>
+</table>
+
+### Backend
+
+<table>
+  <thead>
+    <tr>
+      <th>🏷️ Layer</th>
+      <th>⚙️ Technology</th>
+      <th>📌 Version</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>🚀 Runtime</td><td><a href="https://nodejs.org">Node.js</a> + <a href="https://www.typescriptlang.org/">TypeScript</a></td><td>≥ 18 / 5</td></tr>
+    <tr><td>🌐 Framework</td><td><a href="https://expressjs.com">Express</a></td><td>4</td></tr>
+    <tr><td>🔄 Dev Server</td><td><a href="https://github.com/remy/nodemon">nodemon</a> + <a href="https://typestrong.org/ts-node/">ts-node</a></td><td>3 / 10</td></tr>
+    <tr><td>🔒 Security</td><td><a href="https://helmetjs.github.io">Helmet</a> + <a href="https://github.com/express-rate-limit/express-rate-limit">express-rate-limit</a></td><td>8 / 7</td></tr>
+    <tr><td>☁️ Database & Auth</td><td><a href="https://supabase.com">Supabase</a> (service-role admin client)</td><td>2</td></tr>
   </tbody>
 </table>
 
@@ -78,42 +100,62 @@
 ## 📁 Project Structure
 
 ```
-📦 src/
- ┣ 📄 main.tsx                    ← Application entry point
- ┗ 📂 app/
-    ┣ 📄 App.tsx                  ← Root component
-    ┣ 📄 routes.ts                ← React Router configuration
-    ┣ 📂 components/
-    ┃  ┣ 📂 figma/                ← Figma-generated helper components
-    ┃  ┗ 📂 ui/                   ← shadcn/ui component library (30+ components)
-    ┣ 📂 context/
-    ┃  ┣ 📄 ThemeContext.tsx      ← Global dark/light theme provider
-    ┃  ┗ 📄 UserContext.tsx       ← Authenticated user state provider
-    ┣ 📂 lib/
-    ┃  ┗ 📄 supabaseClient.ts    ← Supabase client initialisation
-    ┣ 📂 pages/
-    ┃  ┣ 🏠 Welcome.tsx           ← Landing page with features & testimonials
-    ┃  ┣ 🔐 SignIn.tsx            ← User login
-    ┃  ┣ 📝 SignUp.tsx            ← New user registration
-    ┃  ┣ 🔑 ForgotPassword.tsx   ← Password reset request flow
-    ┃  ┣ 🔏 ResetPassword.tsx    ← Password reset (email link handler)
-    ┃  ┣ 📊 Dashboard.tsx         ← Project history, profile & settings
-    ┃  ┣ 📤 UploadFloorPlan.tsx   ← Floor plan upload
-    ┃  ┣ ⏳ Processing.tsx        ← AI analysis progress screen
-    ┃  ┣ 🏷️ SelectRoom.tsx        ← Room selection post-detection
-    ┃  ┣ 🗂️ ViewLayouts.tsx       ← AI-scored layout gallery
-    ┃  ┣ 🧊 RoomView3D.tsx        ← Interactive isometric 3D viewer
-    ┃  ┗ 🛡️ AdminManageAccounts.tsx ← Admin user management panel
-    ┗ 📂 styles/
-       ┣ 📄 index.css
-       ┣ 📄 tailwind.css
-       ┣ 📄 theme.css
-       ┗ 📄 fonts.css
+📦 Interiordesignweb/          ← Monorepo root
+ ┣ 📄 package.json             ← Root scripts (dev, install:all, build:frontend)
+ ┣ 📂 backend/                 ← Express REST API
+ ┃  ┗ 📂 src/
+ ┃     ┣ 📄 index.ts           ← Server entry — middleware, routes, error handler
+ ┃     ┣ 📄 supabaseAdmin.ts   ← Supabase service-role admin client
+ ┃     ┣ 📂 middleware/
+ ┃     ┃  ┗ 📄 cors.ts         ← CORS configuration
+ ┃     ┗ 📂 routes/
+ ┃        ┣ 📄 auth.ts         ← POST /api/auth/*
+ ┃        ┣ 📄 profile.ts      ← GET/PATCH /api/profile/*
+ ┃        ┣ 📄 users.ts        ← GET/DELETE /api/users/*
+ ┃        ┣ 📄 projects.ts     ← GET/POST/DELETE /api/projects/*
+ ┃        ┣ 📄 admin.ts        ← GET/POST /api/admin/*
+ ┃        ┗ 📄 deletionRequests.ts ← /api/deletion-requests/*
+ ┗ 📂 frontend/                ← React + Vite SPA
+    ┗ 📂 src/
+       ┣ 📄 main.tsx           ← Application entry point
+       ┗ 📂 app/
+          ┣ 📄 App.tsx         ← Root component
+          ┣ 📄 routes.ts       ← React Router configuration
+          ┣ 📂 api/
+          ┃  ┗ 📄 client.ts   ← Typed fetch wrapper (auto-attaches Supabase JWT)
+          ┣ 📂 components/
+          ┃  ┣ 📂 figma/       ← Figma-generated helper components
+          ┃  ┗ 📂 ui/          ← shadcn/ui component library (30+ components)
+          ┣ 📂 context/
+          ┃  ┣ 📄 ThemeContext.tsx   ← Global dark/light theme provider
+          ┃  ┗ 📄 UserContext.tsx    ← Authenticated user state provider
+          ┣ 📂 lib/
+          ┃  ┗ 📄 supabaseClient.ts ← Supabase browser client initialisation
+          ┣ 📂 pages/
+          ┃  ┣ 🏠 Welcome.tsx           ← Landing page with features & testimonials
+          ┃  ┣ 🔐 SignIn.tsx            ← User login
+          ┃  ┣ 📝 SignUp.tsx            ← New user registration
+          ┃  ┣ 🔑 ForgotPassword.tsx   ← Password reset request flow
+          ┃  ┣ 🔏 ResetPassword.tsx    ← Password reset (email link handler)
+          ┃  ┣ 📊 Dashboard.tsx         ← Project history, profile & settings
+          ┃  ┣ 📤 UploadFloorPlan.tsx   ← Floor plan upload
+          ┃  ┣ ⏳ Processing.tsx        ← AI analysis progress screen
+          ┃  ┣ 🏷️ SelectRoom.tsx        ← Room selection post-detection
+          ┃  ┣ 🗂️ ViewLayouts.tsx       ← AI-scored layout gallery
+          ┃  ┣ 🧊 RoomView3D.tsx        ← Interactive isometric 3D viewer
+          ┃  ┗ 🛡️ AdminManageAccounts.tsx ← Admin user management panel
+          ┗ 📂 styles/
+             ┣ 📄 index.css
+             ┣ 📄 tailwind.css
+             ┣ 📄 theme.css
+             ┗ 📄 fonts.css
 ```
 
 ---
 
 ## 🗺️ Application Routes
+
+### Frontend Pages
 
 | 🔗 Path | 📄 Page | 📝 Description |
 |---------|---------|----------------|
@@ -125,10 +167,22 @@
 | `/dashboard` | 📊 Dashboard | History, profile & account settings |
 | `/upload` | 📤 UploadFloorPlan | Upload a 2D floor plan image |
 | `/processing` | ⏳ Processing | AI analysis progress screen |
-| `/select-room` | 🏷️ SelectRoom | Pick a detected room to optimize |
+| `/select-room` | 🏷️ SelectRoom | Pick a detected room to optimise |
 | `/view-layouts` | 🗂️ ViewLayouts | Browse AI-ranked furniture layouts |
 | `/room-view-3d` | 🧊 RoomView3D | Interactive isometric 3D viewer |
 | `/admin/accounts` | 🛡️ AdminManageAccounts | Admin user management |
+
+### Backend API Endpoints (`http://localhost:4000`)
+
+| 🔗 Route | 📝 Description |
+|----------|----------------|
+| `GET /health` | Health check — returns `{ status: "ok", timestamp }` |
+| `POST /api/auth/*` | Authentication helpers |
+| `GET /PATCH /api/profile/*` | User profile management |
+| `GET /DELETE /api/users/*` | User CRUD (admin-level) |
+| `GET /POST /DELETE /api/projects/*` | Project management |
+| `GET /POST /api/admin/*` | Admin account approval & management |
+| `GET /POST /api/deletion-requests/*` | Account deletion request workflow |
 
 ---
 
@@ -137,8 +191,8 @@
 ### 📋 Prerequisites
 
 - 🟢 [Node.js](https://nodejs.org/) v18 or later
-- 📦 `npm`, `pnpm`, or `yarn`
-- ☁️ A [Supabase](https://supabase.com) project (for backend features)
+- 📦 `npm`
+- ☁️ A [Supabase](https://supabase.com) project (database, auth & storage)
 
 ### ⬇️ Installation
 
@@ -147,36 +201,61 @@
 git clone <repository-url>
 cd Interiordesignweb
 
-# 2. Install dependencies
-npm install
-# or with pnpm
-pnpm install
+# 2. Install all dependencies (root + backend + frontend)
+npm run install:all
 ```
 
 ### 🔧 Environment Variables
 
-Create a `.env` file in the project root:
+#### Backend — `backend/.env`
 
 ```env
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_URL=https://<your-project-ref>.supabase.co
+SUPABASE_SERVICE_KEY=your_service_role_key_here   # Never expose this to the browser!
+SUPABASE_ANON_KEY=your_anon_key_here
+PORT=4000
+FRONTEND_URL=http://localhost:5173
+```
+
+> See `backend/.env.example` for a full template.
+
+#### Frontend — `frontend/.env`
+
+```env
+VITE_SUPABASE_URL=https://<your-project-ref>.supabase.co
+VITE_SUPABASE_ANON_KEY=your_anon_key_here
+VITE_API_URL=http://localhost:4000
 ```
 
 ### 💻 Development Server
+
+Run the **entire monorepo** (backend + frontend) with a single command from the root:
 
 ```bash
 npm run dev
 ```
 
-> 🌐 App runs at **http://localhost:5173**
+| Service | URL |
+|---------|-----|
+| 🌐 Frontend (Vite) | http://localhost:5173 |
+| 🔌 Backend (Express) | http://localhost:4000 |
+| ❤️ Health check | http://localhost:4000/health |
+
+Or run each service independently:
+
+```bash
+npm run dev:backend    # Express API only
+npm run dev:frontend   # Vite dev server only
+```
 
 ### 📦 Production Build
 
 ```bash
-npm run build
+npm run build:frontend
 ```
 
-> 📂 Output lands in the `dist/` directory — ready for any static host.
+> 📂 Output lands in `frontend/dist/` — ready for any static host (Netlify, Vercel, etc.).  
+> Deploy the backend to Railway, Render, or any Node.js host.
 
 ---
 
@@ -194,6 +273,6 @@ See [ATTRIBUTIONS.md](ATTRIBUTIONS.md) for third-party attributions and licensin
 
 <div align="center">
 
- ⚛️ Built with React &nbsp;+&nbsp; ⚡ Vite &nbsp;+&nbsp; ☁️ Supabase 
+⚛️ Built with React &nbsp;+&nbsp; ⚡ Vite &nbsp;+&nbsp; 🌐 Express &nbsp;+&nbsp; ☁️ Supabase
 
 </div>
