@@ -12,23 +12,29 @@ import ViewLayouts from "./pages/ViewLayouts";
 import RoomView3D from "./pages/RoomView3D";
 import AdminManageAccounts from "./pages/AdminManageAccounts";
 import AuthCallback from "./pages/AuthCallback";
+import PublicOnlyRoute from "./components/PublicOnlyRoute";
 
 export const router = createBrowserRouter([
   {
-    path: "/",
-    Component: Welcome,
+    Component: PublicOnlyRoute,
+    children: [
+      {
+        path: "/",
+        Component: Welcome,
+      },
+      {
+        path: "/signup",
+        Component: SignUp,
+      },
+      {
+        path: "/signin",
+        Component: SignIn,
+      },
+    ],
   },
   {
     path: "/auth/callback",
     Component: AuthCallback,
-  },
-  {
-    path: "/signup",
-    Component: SignUp,
-  },
-  {
-    path: "/signin",
-    Component: SignIn,
   },
   {
     path: "/forgot-password",
