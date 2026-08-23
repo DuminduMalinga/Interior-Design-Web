@@ -34,6 +34,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router";
 import { supabase } from "../lib/supabaseClient";
+import { useCurrentUserProfile } from "../context/UserContext";
 
 // ─────────────────────────────────────────────
 // Types
@@ -457,6 +458,14 @@ function ViewUserModal({
 // ─────────────────────────────────────────────
 export default function AdminManageAccounts() {
   const navigate = useNavigate();
+  const { signOut } = useCurrentUserProfile();
+
+  const handleLogout = async () => {
+    const success = await signOut();
+    if (success) {
+      navigate("/");
+    }
+  };
 
   const [users, setUsers] = useState<UserAccount[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -979,7 +988,7 @@ export default function AdminManageAccounts() {
                 </div>
               </div>
               <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                onClick={() => navigate("/")}
+                onClick={handleLogout}
                 className="flex items-center gap-1.5 px-3 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors text-sm font-medium">
                 <LogOut className="w-4 h-4" />
                 <span className="hidden sm:inline">Logout</span>
@@ -1016,7 +1025,7 @@ export default function AdminManageAccounts() {
             })}
           </nav>
           <div className="p-4 border-t border-white/5">
-            <button onClick={() => navigate("/")}
+            <button onClick={handleLogout}
               className="w-full flex items-center gap-2 px-4 py-2.5 text-red-400 hover:bg-red-500/10 rounded-xl text-sm font-medium transition-all">
               <LogOut className="w-4 h-4" /> Sign Out
             </button>
@@ -1052,6 +1061,12 @@ export default function AdminManageAccounts() {
                     );
                   })}
                 </nav>
+                <div className="p-4 border-t border-white/10 mt-auto">
+                  <button onClick={() => { setSidebarOpen(false); void handleLogout(); }}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-red-400 hover:bg-red-500/10 rounded-xl text-sm font-medium transition-all">
+                    <LogOut className="w-4 h-4" /> Sign Out
+                  </button>
+                </div>
               </motion.aside>
             </>
           )}

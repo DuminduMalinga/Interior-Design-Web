@@ -62,7 +62,7 @@ const createProfileState = (overrides: Partial<ProfileState> = {}): ProfileState
 export default function Dashboard() {
   const navigate = useNavigate();
   const { theme, toggle } = useTheme();
-  const { profile: currentUser } = useCurrentUserProfile();
+  const { profile: currentUser, signOut } = useCurrentUserProfile();
   const [activeMenu, setActiveMenu] = useState("dashboard");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -200,7 +200,12 @@ export default function Dashboard() {
     }
   };
 
-  const handleLogout = () => navigate("/");
+  const handleLogout = async () => {
+    const success = await signOut();
+    if (success) {
+      navigate("/");
+    }
+  };
 
   const isAdmin = currentUser.role.trim().toLowerCase() === "admin";
 
@@ -826,7 +831,7 @@ export default function Dashboard() {
             <motion.aside initial={{ x: -300 }} animate={{ x: 0 }} exit={{ x: -300 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
               className="lg:hidden fixed left-0 top-[69px] bottom-0 w-64 glass-sidebar shadow-2xl z-50 border-r border-white/5">
-              <nav className="p-4 space-y-1.5">
+              <nav className="p-4 space-y-1.5 flex-1">
                 {menuItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = activeMenu === item.id;
@@ -843,6 +848,12 @@ export default function Dashboard() {
                   );
                 })}
               </nav>
+              <div className="p-4 border-t border-white/5">
+                <button onClick={() => { setMobileMenuOpen(false); void handleLogout(); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl text-sm font-medium transition-all">
+                  <LogOut className="w-5 h-5" /> Logout
+                </button>
+              </div>
             </motion.aside>
           )}
         </AnimatePresence>

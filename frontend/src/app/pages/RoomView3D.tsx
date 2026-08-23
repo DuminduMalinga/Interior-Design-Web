@@ -779,7 +779,15 @@ function ExportDropdown() {
 // ─────────────────────────────────────────────
 export default function RoomView3D() {
   const navigate = useNavigate();
-  const { profile } = useCurrentUserProfile();
+  const { profile, signOut } = useCurrentUserProfile();
+
+  const handleLogout = async () => {
+    const success = await signOut();
+    if (success) {
+      navigate("/");
+    }
+  };
+
   const username = profile.username;
 
   // Viewer states
@@ -874,7 +882,7 @@ export default function RoomView3D() {
                 <p className="font-semibold text-white text-sm">{username} 👋</p>
               </div>
               <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                onClick={() => navigate("/")}
+                onClick={handleLogout}
                 className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors">
                 <LogOut className="w-4 h-4" />
                 <span className="hidden sm:inline text-sm font-medium">Logout</span>

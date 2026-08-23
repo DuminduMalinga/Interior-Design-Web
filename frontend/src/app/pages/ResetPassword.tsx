@@ -16,11 +16,6 @@ type ResetProfile = {
   email: string;
 };
 
-type UserPasswordRow = {
-  UserID: string;
-  Password: string;
-};
-
 const validatePassword = (value: string) => {
   if (value.length < 8) return false;
   if (!/[a-z]/.test(value)) return false;
@@ -55,59 +50,91 @@ export default function ResetPassword() {
   useEffect(() => {
     let isMounted = true;
 
-    const loadRecoveryUser = async () => {
-      setProfileError(null);
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (!isMounted) {
-        return;
-      }
-
-      if (userError) {
-        setProfileError(userError.message);
-        setIsLoadingProfile(false);
-        return;
-      }
-
+    const setupRecoverySession = async (user: { id: string; email?: string; user_metadata?: Record<string, unknown> } | null) => {
       if (!user) {
-        setProfileError("This password reset link is invalid or expired. Please request a new reset link.");
-        setIsLoadingProfile(false);
+        if (isMounted) {
+          setProfile(null);
+          setProfileError("This password reset link is invalid or expired. Please request a new reset link.");
+          setIsLoadingProfile(false);
+        }
         return;
+      }
+
+      if (isMounted) {
+        setProfileError(null);
       }
 
       const metadata = user.user_metadata as Record<string, unknown> | undefined;
       const fallbackUsername =
         typeof metadata?.username === "string" ? metadata.username : user.email?.split("@")[0] ?? "user";
 
-      const { data: userRow, error: userRowError } = await supabase
-        .from("User")
-        .select("UserName, Email")
-        .eq("UserID", user.id)
-        .maybeSingle();
+      try {
+        const { data: userRow, error: userRowError } = await supabase
+          .from("User")
+          .select("UserName, Email")
+          .eq("UserID", user.id)
+          .maybeSingle();
 
-      if (!isMounted) {
-        return;
+        if (!isMounted) return;
+
+        if (userRowError) {
+          console.warn("Profile lookup failed:", userRowError.message);
+        }
+
+        setProfile({
+          userId: user.id,
+          username: userRow?.UserName ?? fallbackUsername,
+          email: userRow?.Email ?? user.email ?? "",
+        });
+      } catch {
+        if (!isMounted) return;
+        setProfile({
+          userId: user.id,
+          username: fallbackUsername,
+          email: user.email ?? "",
+        });
+      } finally {
+        if (isMounted) {
+          setIsLoadingProfile(false);
+        }
       }
-
-      if (userRowError) {
-        setProfileError(`Profile lookup failed: ${userRowError.message}`);
-      }
-
-      setProfile({
-        userId: user.id,
-        username: userRow?.UserName ?? fallbackUsername,
-        email: userRow?.Email ?? user.email ?? "",
-      });
-      setIsLoadingProfile(false);
     };
 
-    void loadRecoveryUser();
+    // 1. Initial check
+    supabase.auth.getUser().then(({ data: { user }, error }) => {
+      if (!isMounted) return;
+      if (!error && user) {
+        void setupRecoverySession(user);
+      }
+    });
+
+    // 2. Listen for auth state changes (e.g. PASSWORD_RECOVERY event)
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!isMounted) return;
+      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
+        if (session?.user) {
+          void setupRecoverySession(session.user);
+        }
+      } else if (event === "SIGNED_OUT") {
+        setProfile(null);
+        setProfileError("This password reset link is invalid or expired. Please request a new reset link.");
+        setIsLoadingProfile(false);
+      }
+    });
+
+    const timer = setTimeout(async () => {
+      if (!isMounted) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session && isMounted) {
+        setIsLoadingProfile(false);
+        setProfileError((prev) => prev || "This password reset link is invalid or expired. Please request a new reset link.");
+      }
+    }, 1500);
 
     return () => {
       isMounted = false;
+      clearTimeout(timer);
+      authListener.subscription.unsubscribe();
     };
   }, []);
 
@@ -120,105 +147,21 @@ export default function ResetPassword() {
     }
 
     setIsSubmitting(true);
-    const { error: authError } = await supabase.auth.updateUser({
-      password: data.newPassword,
-    });
-
-    if (authError) {
-      setSubmitError(authError.message);
-      setIsSubmitting(false);
-      return;
-    }
-
-    // IMPORTANT: updateUser() can rotate the session token. Re-sync the
-    // client's session before making any further authenticated requests,
-    // otherwise RLS may silently treat subsequent queries as anon and
-    // return zero rows (no error, just empty data).
-    const { data: refreshedSession, error: refreshError } = await supabase.auth.refreshSession();
-
-    if (refreshError || !refreshedSession?.session) {
-      setSubmitError(
-        "Password was updated, but your session could not be refreshed to sync the database record. Please sign in with your new password."
-      );
-      setIsSubmitting(false);
-      return;
-    }
-
-    const currentUserId = refreshedSession.session.user.id;
-
-    // Try to locate the user row in the `User` table by UserID first, then by Email
     try {
-      let foundRow: UserPasswordRow | null = null;
+      const { error: authError } = await supabase.auth.updateUser({
+        password: data.newPassword,
+      });
 
-      if (currentUserId) {
-        const { data: byId, error: byIdError } = await supabase
-          .from("User")
-          .select("UserID, Password")
-          .eq("UserID", currentUserId)
-          .maybeSingle();
-
-        if (byIdError) {
-          setSubmitError(`Password was updated, but lookup by UserID failed: ${byIdError.message}`);
-          setIsSubmitting(false);
-          return;
-        }
-
-        foundRow = (byId ?? null) as UserPasswordRow | null;
-      }
-
-      if (!foundRow && profile?.email) {
-        const { data: byEmail, error: byEmailError } = await supabase
-          .from("User")
-          .select("UserID, Password")
-          .eq("Email", profile.email)
-          .maybeSingle();
-
-        if (byEmailError) {
-          setSubmitError(`Password was updated, but lookup by Email failed: ${byEmailError.message}`);
-          setIsSubmitting(false);
-          return;
-        }
-
-        foundRow = (byEmail ?? null) as UserPasswordRow | null;
-      }
-
-      if (!foundRow) {
-        setSubmitError("Password was updated, but no matching database user row was found to sync.");
-        setIsSubmitting(false);
-        return;
-      }
-
-      const { data: updatedRows, error: updateError } = await supabase
-        .from("User")
-        .update({ Password: data.newPassword })
-        .eq("UserID", foundRow.UserID)
-        .select("UserID, Password");
-
-      if (updateError) {
-        setSubmitError(`Password was updated, but database sync failed: ${updateError.message}`);
-        setIsSubmitting(false);
-        return;
-      }
-
-      const rows = (updatedRows ?? []) as UserPasswordRow[];
-      if (rows.length === 0) {
-        setSubmitError("Password was updated, but database verification failed. Please try again.");
-        setIsSubmitting(false);
-        return;
-      }
-
-      if (rows.some((row) => row.Password !== data.newPassword)) {
-        setSubmitError("Password was updated, but database verification failed. Please try again.");
-        setIsSubmitting(false);
+      if (authError) {
+        setSubmitError(authError.message);
         return;
       }
 
       setIsSubmitted(true);
-      setIsSubmitting(false);
     } catch (err: unknown) {
-      setSubmitError(typeof err === "string" ? err : "An unexpected error occurred while syncing the password.");
+      setSubmitError(err instanceof Error ? err.message : "An unexpected error occurred while updating the password.");
+    } finally {
       setIsSubmitting(false);
-      return;
     }
   };
 

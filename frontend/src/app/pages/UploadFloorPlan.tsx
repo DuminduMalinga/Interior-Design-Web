@@ -29,7 +29,14 @@ export default function UploadFloorPlan() {
   const [success, setSuccess] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const { profile } = useCurrentUserProfile();
+  const { profile, signOut } = useCurrentUserProfile();
+
+  const handleLogout = async () => {
+    const success = await signOut();
+    if (success) {
+      navigate("/");
+    }
+  };
 
   const username = profile.username;
   const SUPPORTED_FORMATS = ["image/png", "image/jpeg", "image/jpg"];
@@ -187,7 +194,7 @@ export default function UploadFloorPlan() {
               <p className="font-semibold text-white text-sm">{username} 👋</p>
             </div>
             <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-              onClick={() => navigate("/")}
+              onClick={handleLogout}
               className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors">
               <LogOut className="w-4 h-4" />
               <span className="hidden sm:inline text-sm font-medium">Logout</span>

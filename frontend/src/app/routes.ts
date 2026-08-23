@@ -11,11 +11,16 @@ import SelectRoom from "./pages/SelectRoom";
 import ViewLayouts from "./pages/ViewLayouts";
 import RoomView3D from "./pages/RoomView3D";
 import AdminManageAccounts from "./pages/AdminManageAccounts";
+import AuthCallback from "./pages/AuthCallback";
 
 export const router = createBrowserRouter([
   {
     path: "/",
     Component: Welcome,
+  },
+  {
+    path: "/auth/callback",
+    Component: AuthCallback,
   },
   {
     path: "/signup",

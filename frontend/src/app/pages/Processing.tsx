@@ -7,7 +7,15 @@ import { useCurrentUserProfile } from "../context/UserContext";
 export default function Processing() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
-  const { profile } = useCurrentUserProfile();
+  const { profile, signOut } = useCurrentUserProfile();
+
+  const handleLogout = async () => {
+    const success = await signOut();
+    if (success) {
+      navigate("/");
+    }
+  };
+
   const username = profile.username;
 
   const processingSteps = [
@@ -29,39 +37,37 @@ export default function Processing() {
         navigate("/select-room");
       }, 1500);
     }
-  }, [currentStep, navigate]);
+  }, [currentStep, processingSteps, navigate]);
 
   return (
-    <div className="min-h-screen w-full bg-[#0a0a0f] relative" style={{ fontFamily: "'Inter', sans-serif" }}>
-      {/* Top Navigation Bar */}
-      <nav className="relative glass-nav z-10">
-        <div className="px-4 md:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="bg-gradient-to-br from-teal-400 to-teal-600 p-2 rounded-xl shadow-lg shadow-teal-500/20">
-                <Box className="w-8 h-8 text-white" strokeWidth={1.5} />
-              </div>
-              <div className="hidden md:block">
-                <h1 className="text-lg font-bold text-white">3D Layout System</h1>
-                <p className="text-xs text-zinc-500">AI-Powered Design</p>
-              </div>
+    <div className="min-h-screen w-full bg-[#0a0a0f] relative overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
+      {/* Navigation */}
+      <nav className="relative glass-nav z-20">
+        <div className="px-4 md:px-8 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="bg-gradient-to-br from-teal-400 to-teal-600 p-2.5 rounded-xl shadow-lg shadow-teal-500/20">
+              <Box className="w-6 h-6 text-white" strokeWidth={1.5} />
             </div>
+            <div>
+              <h1 className="text-lg font-bold text-white">3D Layout System</h1>
+              <p className="text-xs text-zinc-500">AI-Powered Design</p>
+            </div>
+          </div>
 
-            <div className="flex items-center gap-4">
-              <div className="hidden md:block text-right">
-                <p className="text-sm text-zinc-500">Welcome back,</p>
-                <p className="font-semibold text-white">{username} 👋</p>
-              </div>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => navigate("/")}
-                className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors duration-200"
-              >
-                <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline">Logout</span>
-              </motion.button>
+          <div className="flex items-center gap-4">
+            <div className="hidden md:block text-right">
+              <p className="text-sm text-zinc-500">Welcome back,</p>
+              <p className="font-semibold text-white">{username} 👋</p>
             </div>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors duration-200"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">Logout</span>
+            </motion.button>
           </div>
         </div>
       </nav>
