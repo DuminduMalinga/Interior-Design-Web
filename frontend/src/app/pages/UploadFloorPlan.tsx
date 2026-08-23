@@ -38,7 +38,7 @@ export default function UploadFloorPlan() {
     }
   };
 
-  const username = profile.username;
+  const displayName = profile.fullName?.trim() ? profile.fullName : profile.username;
   const SUPPORTED_FORMATS = ["image/png", "image/jpeg", "image/jpg"];
   const SUPPORTED_EXTENSIONS = ["png", "jpg", "jpeg"];
   const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -191,7 +191,7 @@ export default function UploadFloorPlan() {
           <div className="flex items-center gap-4">
             <div className="hidden md:block text-right">
               <p className="text-xs text-zinc-500">Welcome back,</p>
-              <p className="font-semibold text-white text-sm">{username} 👋</p>
+              <p className="font-semibold text-white text-sm">{displayName} 👋</p>
             </div>
             <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
               onClick={handleLogout}

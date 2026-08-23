@@ -16,7 +16,7 @@ export default function Processing() {
     }
   };
 
-  const username = profile.username;
+  const displayName = profile.fullName?.trim() ? profile.fullName : profile.username;
 
   const processingSteps = [
     { label: "Analyzing floor plan image", duration: 2000 },
@@ -57,7 +57,7 @@ export default function Processing() {
           <div className="flex items-center gap-4">
             <div className="hidden md:block text-right">
               <p className="text-sm text-zinc-500">Welcome back,</p>
-              <p className="font-semibold text-white">{username} 👋</p>
+              <p className="font-semibold text-white">{displayName} 👋</p>
             </div>
             <motion.button
               whileHover={{ scale: 1.05 }}

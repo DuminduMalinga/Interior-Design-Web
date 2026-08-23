@@ -863,7 +863,7 @@ export default function ViewLayouts() {
     }
   };
 
-  const username = profile.username;
+  const displayName = profile.fullName?.trim() ? profile.fullName : profile.username;
 
   const bestId = MOCK_LAYOUTS.reduce((best, l) => (l.score > best.score ? l : best), MOCK_LAYOUTS[0])?.id;
   const [selectedId, setSelectedId] = useState<string>(bestId ?? "");
@@ -910,7 +910,7 @@ export default function ViewLayouts() {
             <div className="flex items-center gap-4">
               <div className="hidden md:block text-right">
                 <p className="text-xs text-zinc-500">Welcome back,</p>
-                <p className="font-semibold text-white text-sm">{username} 👋</p>
+                <p className="font-semibold text-white text-sm">{displayName} 👋</p>
               </div>
               <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                 onClick={handleLogout}

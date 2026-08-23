@@ -146,7 +146,7 @@ export default function Dashboard() {
     void checkPendingRequest();
   }, [checkPendingRequest]);
 
-  const username = profile.username;
+  const displayName = profile.fullName?.trim() ? profile.fullName : profile.username;
 
   const handleDeleteAccount = async () => {
     if (deletePassword.trim() === "") { setDeletePassError(true); return; }
@@ -790,7 +790,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-3">
               <div className="hidden md:block text-right">
                 <p className="text-xs text-zinc-500">Welcome back,</p>
-                <p className="font-semibold text-white text-sm">{username} 👋</p>
+                <p className="font-semibold text-white text-sm">{displayName} 👋</p>
               </div>
             </div>
           </div>
@@ -864,7 +864,7 @@ export default function Dashboard() {
             {/* Mobile greeting */}
             <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }}
               className="md:hidden mb-6 glass-card rounded-2xl p-5 border border-white/5">
-              <h2 className="text-xl font-bold text-white">Welcome back, {username} 👋</h2>
+              <h2 className="text-xl font-bold text-white">Welcome back, {displayName} 👋</h2>
               <p className="text-zinc-500 text-sm mt-1">Ready to create amazing 3D layouts?</p>
             </motion.div>
 
