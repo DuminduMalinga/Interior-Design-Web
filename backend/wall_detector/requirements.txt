@@ -1,0 +1,18 @@
+# Wall Detector inference service
+# Python 3.11+ (tested on 3.13). Install into a dedicated venv:
+#   python -m venv venv && venv\Scripts\activate && pip install -r requirements.txt
+
+fastapi==0.141.1
+uvicorn==0.52.4
+python-multipart==0.0.20
+python-dotenv==1.0.1
+
+# Model runtime — versions match the model's training environment
+ultralytics==8.4.137
+torch==2.13.0
+torchvision==0.28.0
+pillow==12.3.0
+numpy==2.5.2
+
+# OCR — reads the printed room label inside each detected room box
+easyocr==1.7.2

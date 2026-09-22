@@ -1,0 +1,43 @@
+{
+  "name": "small_apartment_lounge",
+  "description": "Test case 1 - small living room, door near a corner, one window",
+  "room": {
+    "width": 3800,
+    "length": 3300,
+    "height": 2700
+  },
+  "doors": [
+    {
+      "id": "door_1",
+      "wall": "south",
+      "position": 300,
+      "width": 850,
+      "swing": "inward",
+      "hinge": "left",
+      "is_main": true
+    }
+  ],
+  "windows": [
+    {
+      "id": "window_1",
+      "wall": "east",
+      "position": 1100,
+      "width": 1200,
+      "height": 1400,
+      "sill_height": 950
+    }
+  ],
+  "user_requirements": {
+    "purpose": "family_social",
+    "preferred_layout": null,
+    "required_furniture": [
+      "l_sofa",
+      "coffee_table",
+      "tv",
+      "tv_console"
+    ],
+    "optional_furniture": [
+      "side_table"
+    ]
+  }
+}

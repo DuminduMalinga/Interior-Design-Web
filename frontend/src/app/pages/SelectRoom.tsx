@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Box,
   LogOut,
@@ -9,53 +9,100 @@ import {
   CheckCircle2,
   Check,
   AlertCircle,
-  BedDouble,
-  Sofa,
-  BookOpen,
-  Utensils,
-  Bath,
   Home,
   Maximize2,
+  ScanText,
+  Download,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { useCurrentUserProfile } from "../context/UserContext";
+import type { DetectionResult } from "../lib/wallDetector";
 
-type RoomType = "Bedroom" | "Living Room" | "Study Room" | "Kitchen" | "Bathroom" | "Other";
+type RoomType = "Room";
 
 interface DetectedRoom {
   id: string;
   name: string;
   type: RoomType;
+  /** true when the name came from OCR of the printed label (not a fallback) */
+  labelDetected: boolean;
+  /** width / height in source-image pixels */
   width: number;
   height: number;
+  /** real-world size when a scale could be recovered from the plan's own
+   * printed areas — null when nothing on the whole plan gave a usable scale */
+  widthM: number | null;
+  heightM: number | null;
+  areaM2: number | null;
+  areaSource: "ocr" | "estimated" | null;
+  confidence: number;
+  /** bbox as % of the floor-plan image, for overlays */
+  bboxPct: { x: number; y: number; w: number; h: number };
+  /** thumbnail polygon in a 0-100 box, preserving aspect ratio */
   shape: [number, number][];
 }
 
-const DETECTED_ROOMS: DetectedRoom[] = [
-  { id: "r1", name: "Bedroom 1",   type: "Bedroom",     width: 14, height: 12, shape: [[10,10],[90,10],[90,90],[10,90]] },
-  { id: "r2", name: "Bedroom 2",   type: "Bedroom",     width: 11, height: 10, shape: [[15,15],[85,15],[85,85],[15,85]] },
-  { id: "r3", name: "Living Room", type: "Living Room", width: 18, height: 14, shape: [[5,20],[95,20],[95,80],[5,80]] },
-  { id: "r4", name: "Study Room",  type: "Study Room",  width: 10, height:  9, shape: [[20,15],[80,15],[80,85],[20,85]] },
-  { id: "r5", name: "Kitchen",     type: "Kitchen",     width: 12, height: 10, shape: [[10,10],[90,10],[90,60],[60,90],[10,90]] },
-  { id: "r6", name: "Bathroom",    type: "Bathroom",    width:  8, height:  6, shape: [[15,15],[85,15],[85,85],[15,85]] },
-];
+/** Fit a w×h rectangle into a padded 0-100 viewBox, keeping aspect ratio. */
+function rectShape(wPx: number, hPx: number): [number, number][] {
+  const pad = 12;
+  const span = 100 - pad * 2;
+  const scale = span / Math.max(wPx, hPx, 1);
+  const w = Math.max(wPx * scale, 6);
+  const h = Math.max(hPx * scale, 6);
+  const x = (100 - w) / 2;
+  const y = (100 - h) / 2;
+  return [
+    [x, y],
+    [x + w, y],
+    [x + w, y + h],
+    [x, y + h],
+  ];
+}
+
+function roomsFromDetection(detection: DetectionResult): DetectedRoom[] {
+  return detection.rooms.map((r) => ({
+    id: r.id,
+    name: r.name,
+    type: "Room" as const,
+    labelDetected: r.labelDetected,
+    width: Math.round(r.widthPx),
+    height: Math.round(r.heightPx),
+    widthM: r.widthM,
+    heightM: r.heightM,
+    areaM2: r.areaM2,
+    areaSource: r.areaSource,
+    confidence: r.confidence,
+    bboxPct: r.bboxPct,
+    shape: rectShape(r.widthPx, r.heightPx),
+  }));
+}
 
 const ROOM_ICON: Record<RoomType, React.ElementType> = {
-  Bedroom: BedDouble, "Living Room": Sofa, "Study Room": BookOpen,
-  Kitchen: Utensils, Bathroom: Bath, Other: Home,
+  Room: Home,
 };
 
 const ROOM_COLOR: Record<RoomType, { text: string; bg: string; border: string; fill: string; stroke: string }> = {
-  "Bedroom":     { text: "text-teal-400",   bg: "bg-teal-500/10",   border: "border-teal-500/20",   fill: "#134e4a", stroke: "#14b8a6" },
-  "Living Room": { text: "text-violet-400", bg: "bg-violet-500/10", border: "border-violet-500/20", fill: "#2e1065", stroke: "#8b5cf6" },
-  "Study Room":  { text: "text-emerald-400",bg: "bg-emerald-500/10",border: "border-emerald-500/20",fill: "#064e3b", stroke: "#10b981" },
-  "Kitchen":     { text: "text-amber-400",  bg: "bg-amber-500/10",  border: "border-amber-500/20",  fill: "#451a03", stroke: "#f59e0b" },
-  "Bathroom":    { text: "text-cyan-400",   bg: "bg-cyan-500/10",   border: "border-cyan-500/20",   fill: "#083344", stroke: "#06b6d4" },
-  "Other":       { text: "text-zinc-400",   bg: "bg-zinc-500/10",   border: "border-zinc-500/20",   fill: "#18181b", stroke: "#71717a" },
+  Room: { text: "text-teal-400", bg: "bg-teal-500/10", border: "border-teal-500/20", fill: "#134e4a", stroke: "#14b8a6" },
 };
 
-const sqFt = (w: number, h: number) => w * h;
+const areaPx = (w: number, h: number) => w * h;
+
+/** Real-world size when the plan's scale is known, otherwise pixels. */
+function formatSize(room: DetectedRoom): { dims: string; area: string; note: string | null } {
+  if (room.widthM != null && room.heightM != null && room.areaM2 != null) {
+    return {
+      dims: `${room.widthM.toFixed(2)} × ${room.heightM.toFixed(2)} m`,
+      area: `${room.areaM2.toFixed(1)} m²`,
+      note: room.areaSource === "ocr" ? "from the plan's printed area" : "estimated from the plan's scale",
+    };
+  }
+  return {
+    dims: `${room.width} × ${room.height} px`,
+    area: `${areaPx(room.width, room.height).toLocaleString()} px²`,
+    note: null,
+  };
+}
 
 const STEPS = [
   { label: "Upload", step: 1 }, { label: "Detect", step: 2 }, { label: "Select Room", step: 3 },
@@ -116,7 +163,8 @@ function RoomThumbnail({ shape, selected, roomType }: { shape: [number, number][
 function RoomCard({ room, selected, onClick }: { room: DetectedRoom; selected: boolean; onClick: () => void }) {
   const Icon = ROOM_ICON[room.type];
   const c = ROOM_COLOR[room.type];
-  const area = sqFt(room.width, room.height);
+  const size = formatSize(room);
+  const confidencePct = Math.round(room.confidence * 100);
 
   return (
     <motion.div whileHover={{ y: -4, scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={onClick}
@@ -139,15 +187,26 @@ function RoomCard({ room, selected, onClick }: { room: DetectedRoom; selected: b
             <Icon className={`w-4 h-4 ${selected ? c.text : "text-zinc-500"}`} />
           </div>
         </div>
-        <span className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
-          selected ? `${c.bg} ${c.text} ${c.border}` : "bg-white/5 text-zinc-500 border-white/10"
-        }`}>{room.type}</span>
-        <div className="flex items-center justify-between mt-1">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
+            selected ? `${c.bg} ${c.text} ${c.border}` : "bg-white/5 text-zinc-500 border-white/10"
+          }`}>{confidencePct}% confidence</span>
+          {room.labelDetected ? (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">
+              <ScanText className="w-3 h-3" /> OCR label
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border border-white/10 bg-white/5 text-zinc-500">
+              auto-named
+            </span>
+          )}
+        </div>
+        <div className="flex items-center justify-between mt-1" title={size.note ?? undefined}>
           <div className="flex items-center gap-1 text-zinc-600 text-xs">
             <Maximize2 className="w-3 h-3" />
-            <span>{room.width}ft × {room.height}ft</span>
+            <span>{size.dims}</span>
           </div>
-          <span className={`text-xs font-medium ${selected ? c.text : "text-zinc-600"}`}>{area} sq ft</span>
+          <span className={`text-xs font-medium ${selected ? c.text : "text-zinc-600"}`}>{size.area}</span>
         </div>
       </div>
     </motion.div>
@@ -156,9 +215,17 @@ function RoomCard({ room, selected, onClick }: { room: DetectedRoom; selected: b
 
 export default function SelectRoom() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const detection = (location.state as { detection?: DetectionResult } | null)
+    ?.detection;
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { profile, signOut } = useCurrentUserProfile();
+
+  // Reached without a detection payload (e.g. deep link / reload) — restart.
+  useEffect(() => {
+    if (!detection) navigate("/upload", { replace: true });
+  }, [detection, navigate]);
 
   const handleLogout = async () => {
     const success = await signOut();
@@ -168,13 +235,36 @@ export default function SelectRoom() {
   };
 
   const displayName = profile.fullName?.trim() ? profile.fullName : profile.username;
-  const rooms = DETECTED_ROOMS;
+  const rooms = useMemo(
+    () => (detection ? roomsFromDetection(detection) : []),
+    [detection],
+  );
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId) ?? null;
+  const counts = detection?.counts ?? {};
 
   const handleContinue = () => {
-    if (!selectedRoomId) return;
-    navigate("/view-layouts");
+    if (!selectedRoom) return;
+    navigate("/view-layouts", {
+      state: { floorPlanId: detection.floorPlanId, room: selectedRoom, detection },
+    });
   };
+
+  const downloadRoomsJson = () => {
+    if (!detection) return;
+    const blob = new Blob([JSON.stringify(detection.roomsJson, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${detection.roomsJson?.floorPlanId || detection.floorPlanId || "rooms"}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  if (!detection) return null;
 
   return (
     <div className="min-h-screen w-full bg-[#0a0a0f] relative" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -247,14 +337,21 @@ export default function SelectRoom() {
               {/* Room Cards */}
               <div className="xl:col-span-2">
                 <div className="glass-card rounded-3xl border border-white/5 p-6">
-                  <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center justify-between gap-3 mb-5">
                     <div>
                       <h3 className="font-bold text-zinc-200 text-base">Detected Rooms</h3>
                       <p className="text-xs text-zinc-600 mt-0.5">{rooms.length} room{rooms.length !== 1 ? "s" : ""} found · Select one to continue</p>
                     </div>
-                    <span className="bg-teal-500/10 text-teal-400 text-xs font-semibold px-3 py-1.5 rounded-full border border-teal-500/20">
-                      {rooms.length} rooms
-                    </span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                        onClick={downloadRoomsJson} title="Download room names & dimensions as JSON"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:border-white/20 transition-colors">
+                        <Download className="w-3.5 h-3.5" /> JSON
+                      </motion.button>
+                      <span className="bg-teal-500/10 text-teal-400 text-xs font-semibold px-3 py-1.5 rounded-full border border-teal-500/20">
+                        {rooms.length} rooms
+                      </span>
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {rooms.map((room, i) => (
@@ -274,30 +371,43 @@ export default function SelectRoom() {
                   <h4 className="text-sm font-semibold text-zinc-400 mb-3 flex items-center gap-2">
                     <Home className="w-4 h-4 text-teal-400" /> Floor Plan Preview
                   </h4>
-                  <div className="w-full rounded-xl overflow-hidden bg-white/[0.02] border border-white/5 flex items-center justify-center" style={{ height: 160 }}>
-                    <svg viewBox="0 0 200 160" width="100%" height="100%">
-                      {Array.from({ length: 10 }).map((_, i) => (
-                        <g key={i}>
-                          <line x1={i * 20} y1="0" x2={i * 20} y2="160" stroke="rgba(255,255,255,0.05)" strokeWidth="0.5" />
-                          <line x1="0" y1={i * 16} x2="200" y2={i * 16} stroke="rgba(255,255,255,0.05)" strokeWidth="0.5" />
-                        </g>
-                      ))}
-                      <rect x="10" y="10" width="180" height="140" fill="none" stroke="#14b8a6" strokeWidth="2" rx="2" />
-                      <line x1="100" y1="10" x2="100" y2="90" stroke="#14b8a6" strokeWidth="1.5" />
-                      <line x1="10" y1="90" x2="200" y2="90" stroke="#14b8a6" strokeWidth="1.5" />
-                      <line x1="130" y1="90" x2="130" y2="150" stroke="#14b8a6" strokeWidth="1.5" />
-                      <text x="55" y="55" textAnchor="middle" fill="#2dd4bf" fontSize="8" fontFamily="sans-serif">Bedroom 1</text>
-                      <text x="150" y="55" textAnchor="middle" fill="#2dd4bf" fontSize="8" fontFamily="sans-serif">Bedroom 2</text>
-                      <text x="70" y="120" textAnchor="middle" fill="#2dd4bf" fontSize="8" fontFamily="sans-serif">Living Room</text>
-                      <text x="162" y="120" textAnchor="middle" fill="#2dd4bf" fontSize="8" fontFamily="sans-serif">Study</text>
-                      {selectedRoom?.name === "Bedroom 1" && <rect x="10" y="10" width="90" height="80" fill="#14b8a6" fillOpacity="0.12" stroke="#14b8a6" strokeWidth="2" />}
-                      {selectedRoom?.name === "Bedroom 2" && <rect x="100" y="10" width="90" height="80" fill="#14b8a6" fillOpacity="0.12" stroke="#14b8a6" strokeWidth="2" />}
-                      {selectedRoom?.name === "Living Room" && <rect x="10" y="90" width="120" height="60" fill="#14b8a6" fillOpacity="0.12" stroke="#14b8a6" strokeWidth="2" />}
-                      {selectedRoom?.name === "Study Room" && <rect x="130" y="90" width="60" height="60" fill="#14b8a6" fillOpacity="0.12" stroke="#14b8a6" strokeWidth="2" />}
-                    </svg>
+                  <div className="relative w-full rounded-xl overflow-hidden bg-white/[0.02] border border-white/5">
+                    {detection.annotatedImage ? (
+                      <>
+                        <img
+                          src={detection.annotatedImage}
+                          alt="Floor plan with detected walls, rooms, doors and windows"
+                          className="block w-full h-auto"
+                        />
+                        {selectedRoom && (
+                          <div
+                            className="pointer-events-none absolute rounded-sm border-2 border-teal-300 bg-teal-400/20 transition-all duration-300"
+                            style={{
+                              left: `${selectedRoom.bboxPct.x}%`,
+                              top: `${selectedRoom.bboxPct.y}%`,
+                              width: `${selectedRoom.bboxPct.w}%`,
+                              height: `${selectedRoom.bboxPct.h}%`,
+                            }}
+                          />
+                        )}
+                      </>
+                    ) : (
+                      <div className="flex items-center justify-center text-xs text-zinc-600" style={{ height: 160 }}>
+                        No annotated preview available
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {(["Wall", "Room", "Door", "Window"] as const).map((k) => (
+                      <span key={k} className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-zinc-400">
+                        {k}: {counts[k] ?? 0}
+                      </span>
+                    ))}
                   </div>
                   <p className="text-[11px] text-zinc-600 mt-2 text-center">
-                    {selectedRoom ? `Selected: ${selectedRoom.name}` : "No room selected"}
+                    {selectedRoom
+                      ? `Selected: ${selectedRoom.name}`
+                      : `${detection.imageWidth}×${detection.imageHeight}px · ${detection.inferenceMs}ms`}
                   </p>
                 </div>
 
@@ -318,9 +428,9 @@ export default function SelectRoom() {
                       </div>
                       <div className="space-y-2 text-sm">
                         {[
-                          { label: "Type", value: selectedRoom.type },
-                          { label: "Dimensions", value: `${selectedRoom.width}ft × ${selectedRoom.height}ft` },
-                          { label: "Area", value: `${sqFt(selectedRoom.width, selectedRoom.height)} sq ft` },
+                          { label: "Confidence", value: `${Math.round(selectedRoom.confidence * 100)}%` },
+                          { label: "Dimensions", value: formatSize(selectedRoom).dims },
+                          { label: "Area", value: formatSize(selectedRoom).area },
                         ].map(({ label, value }) => (
                           <div key={label} className="flex justify-between items-center bg-white/[0.03] rounded-lg px-3 py-2 border border-white/5">
                             <span className="text-zinc-500">{label}</span>
@@ -328,6 +438,9 @@ export default function SelectRoom() {
                           </div>
                         ))}
                       </div>
+                      {formatSize(selectedRoom).note && (
+                        <p className="text-[11px] text-zinc-600 mt-2 text-center">{formatSize(selectedRoom).note}</p>
+                      )}
                     </motion.div>
                   ) : (
                     <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}

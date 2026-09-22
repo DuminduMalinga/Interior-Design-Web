@@ -1,0 +1,25 @@
+{
+  "name": "reading_room_many_windows",
+  "description": "Multiple windows - a bright reading room with four windows",
+  "room": { "width": 4800, "length": 4400, "height": 2900 },
+  "doors": [
+    { "id": "door_1", "wall": "south", "position": 1900, "width": 900,
+      "swing": "inward", "hinge": "left", "is_main": true }
+  ],
+  "windows": [
+    { "id": "window_n1", "wall": "north", "position": 600, "width": 1200,
+      "height": 1400, "sill_height": 900 },
+    { "id": "window_n2", "wall": "north", "position": 2800, "width": 1200,
+      "height": 1400, "sill_height": 900 },
+    { "id": "window_w1", "wall": "west", "position": 700, "width": 1100,
+      "height": 1400, "sill_height": 900 },
+    { "id": "window_e1", "wall": "east", "position": 2400, "width": 1300,
+      "height": 1600, "sill_height": 400 }
+  ],
+  "user_requirements": {
+    "purpose": "reading",
+    "preferred_layout": null,
+    "required_furniture": ["bookshelf", "reading_chair", "side_table", "sofa", "coffee_table"],
+    "optional_furniture": ["lamp"]
+  }
+}

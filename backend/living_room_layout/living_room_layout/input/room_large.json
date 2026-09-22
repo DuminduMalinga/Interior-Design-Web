@@ -1,0 +1,66 @@
+{
+  "name": "large_open_plan_living",
+  "description": "Test case 3 - large open-plan living room, two doors and three windows",
+  "room": {
+    "width": 7000,
+    "length": 5500,
+    "height": 3000
+  },
+  "doors": [
+    {
+      "id": "door_main",
+      "wall": "south",
+      "position": 2600,
+      "width": 1000,
+      "swing": "inward",
+      "hinge": "left",
+      "is_main": true
+    },
+    {
+      "id": "door_kitchen",
+      "wall": "west",
+      "position": 3900,
+      "width": 900,
+      "swing": "inward",
+      "hinge": "right"
+    }
+  ],
+  "windows": [
+    {
+      "id": "window_n1",
+      "wall": "north",
+      "position": 800,
+      "width": 1800,
+      "height": 1500,
+      "sill_height": 900
+    },
+    {
+      "id": "window_n2",
+      "wall": "north",
+      "position": 3600,
+      "width": 1800,
+      "height": 1500,
+      "sill_height": 900
+    },
+    {
+      "id": "window_e1",
+      "wall": "east",
+      "position": 1600,
+      "width": 1500,
+      "height": 1600,
+      "sill_height": 850
+    }
+  ],
+  "user_requirements": {
+    "purpose": "entertaining",
+    "preferred_layout": null,
+    "required_furniture": [
+      "sofa",
+      "coffee_table",
+      "chair",
+      "tv",
+      "tv_console",
+      "side_table"
+    ]
+  }
+}

@@ -22,8 +22,20 @@ import {
   Layers,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { useCurrentUserProfile } from "../context/UserContext";
+import type { DetectionResult } from "../lib/wallDetector";
+import {
+  generateAllLivingRoomLayouts,
+  isLayoutError,
+  type GenerateAllLivingRoomLayoutsResponse,
+} from "../lib/livingRoomLayout";
+import LivingRoomLayoutGrid from "../components/LivingRoomLayoutGrid";
+import LivingRoomPlan from "../components/LivingRoomPlan";
+import {
+  saveLivingRoomAnalysis,
+  saveSelectedLivingRoomLayout,
+} from "../lib/floorPlanAnalysis";
 
 // ─────────────────────────────────────────────
 // Types
@@ -854,7 +866,69 @@ function LayoutCard({
 // ─────────────────────────────────────────────
 export default function ViewLayouts() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { profile, signOut } = useCurrentUserProfile();
+
+  // ── Real living-room generation ──────────────────────────────────────
+  // SelectRoom navigates here with { room, detection } in router state.
+  // Only rooms whose OCR'd name looks like a living room get the real
+  // rule-based engine for now; everything else keeps the placeholder below.
+  const navState = location.state as
+    | { floorPlanId?: string; room?: { id: string; name: string }; detection?: DetectionResult }
+    | null;
+  const apiRoom = navState?.detection?.rooms.find((r) => r.id === navState.room?.id);
+  const isLivingRoom = !!apiRoom && /living/i.test(apiRoom.name);
+
+  const [livingAll, setLivingAll] = useState<GenerateAllLivingRoomLayoutsResponse | null>(null);
+  const [selectedLayoutType, setSelectedLayoutType] = useState<string | null>(null);
+  const [livingError, setLivingError] = useState<string | null>(null);
+  const [livingLoading, setLivingLoading] = useState(false);
+  const [livingRetry, setLivingRetry] = useState(0);
+
+  useEffect(() => {
+    if (!isLivingRoom || !apiRoom || !navState?.detection) return;
+    let cancelled = false;
+    setLivingLoading(true);
+    setLivingError(null);
+    setLivingAll(null);
+    setSelectedLayoutType(null);
+    const openings = navState.detection.detections.filter(
+      (d) => d.class === "Door" || d.class === "Window",
+    );
+    // Prefer the real-world scale recovered from the plan's own printed
+    // room areas over the engine's own guess from a detected door.
+    const scaleMPerPx = navState.detection.scaleMmPerPx
+      ? navState.detection.scaleMmPerPx / 1000
+      : undefined;
+    generateAllLivingRoomLayouts({
+      room: { id: apiRoom.id, name: apiRoom.name, bbox: apiRoom.bbox },
+      detections: openings.map((d) => ({ id: d.id, class: d.class, bbox: d.bbox })),
+      scaleMPerPx,
+    })
+      .then(async (res) => {
+        if (cancelled) return;
+        setLivingAll(res);
+        const selectedType = res.bestLayout ?? res.layouts.find((l) => !("error" in l))?.layout.type ?? null;
+        setSelectedLayoutType(selectedType);
+        const selected = res.layouts.find((l) => l.layout.type === selectedType);
+        if (navState.floorPlanId && selected && !isLayoutError(selected)) {
+          await saveLivingRoomAnalysis(navState.floorPlanId, apiRoom.id, res, selected);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setLivingError(err instanceof Error ? err.message : "Layout generation failed.");
+      })
+      .finally(() => {
+        if (!cancelled) setLivingLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLivingRoom, apiRoom?.id, navState?.detection, livingRetry]);
+
+  const rawSelectedLayout = livingAll?.layouts.find((l) => l.layout.type === selectedLayoutType) ?? null;
+  const selectedLayoutEntry = rawSelectedLayout && !isLayoutError(rawSelectedLayout) ? rawSelectedLayout : null;
 
   const handleLogout = async () => {
     const success = await signOut();
@@ -884,6 +958,149 @@ export default function ViewLayouts() {
   };
 
   const selectedLayout = MOCK_LAYOUTS.find((l) => l.id === selectedId);
+
+  // ── Living room: real structure + layout from the rule-based engine ────
+  if (isLivingRoom && apiRoom) {
+    return (
+      <div className="min-h-screen w-full bg-[#0a0a0f] relative" style={{ fontFamily: "'Inter', sans-serif" }}>
+        <div className="absolute inset-0 dot-grid pointer-events-none" />
+        <div className="absolute top-1/4 right-1/4 w-[400px] h-[400px] bg-teal-500/5 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute bottom-1/4 left-1/4 w-[300px] h-[300px] bg-violet-500/5 rounded-full blur-[100px] pointer-events-none" />
+
+        {/* Nav */}
+        <nav className="relative glass-nav z-30">
+          <div className="px-4 md:px-8 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/dashboard")}>
+              <div className="bg-gradient-to-br from-teal-400 to-teal-600 p-2 rounded-xl shadow-lg shadow-teal-500/20">
+                <Box className="w-8 h-8 text-white" strokeWidth={1.5} />
+              </div>
+              <div className="hidden md:block">
+                <h1 className="text-base font-bold text-white">3D Layout System</h1>
+                <p className="text-xs text-zinc-500">AI-Powered Design</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="hidden md:block text-right">
+                <p className="text-xs text-zinc-500">Welcome back,</p>
+                <p className="font-semibold text-white text-sm">{displayName} 👋</p>
+              </div>
+              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                onClick={handleLogout}
+                className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors">
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline text-sm font-medium">Logout</span>
+              </motion.button>
+            </div>
+          </div>
+        </nav>
+
+        <main className="relative px-4 md:px-8 py-8 md:py-10 max-w-6xl mx-auto">
+          <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+            <div className="glass-card rounded-2xl border border-white/5 px-6 py-4 flex justify-center">
+              <StepIndicator current={4} />
+            </div>
+          </motion.div>
+
+          <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mb-8">
+            <h2 className="text-3xl md:text-4xl font-extrabold bg-gradient-to-r from-teal-300 to-cyan-400 bg-clip-text text-transparent">
+              Living Room Structure &amp; Layout
+            </h2>
+            <p className="text-zinc-500 mt-1.5 text-sm md:text-base">
+              All six layout types generated by the rule-based engine for "{apiRoom.name}" — pick one to see the full structure and every placement's reasoning.
+            </p>
+          </motion.div>
+
+          {livingLoading && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              className="glass-card rounded-3xl border border-white/5 p-12 flex flex-col items-center gap-4 text-center">
+              <Loader2 className="w-10 h-10 text-teal-400 animate-spin" />
+              <p className="text-zinc-200 font-semibold">Generating all six layouts…</p>
+              <p className="text-zinc-600 text-sm max-w-sm">Running hard-constraint checks, candidate generation and beam-search optimisation for each layout type — this can take up to 20 seconds.</p>
+            </motion.div>
+          )}
+
+          {!livingLoading && livingError && (
+            <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}
+              className="glass-card rounded-3xl border border-red-500/20 p-12 flex flex-col items-center gap-4 text-center">
+              <div className="bg-red-500/10 p-5 rounded-2xl border border-red-500/20">
+                <AlertCircle className="w-12 h-12 text-red-400" />
+              </div>
+              <h3 className="text-xl font-bold text-white">Layout Generation Failed</h3>
+              <p className="text-zinc-500 max-w-md">{livingError}</p>
+              <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
+                onClick={() => setLivingRetry((n) => n + 1)}
+                className="mt-2 flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-xl font-semibold shadow-md shadow-teal-500/20">
+                <RefreshCw className="w-4 h-4" /> Retry
+              </motion.button>
+            </motion.div>
+          )}
+
+          {!livingLoading && !livingError && livingAll && (
+            <>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }} className="mb-8">
+                <LivingRoomLayoutGrid
+                  layouts={livingAll.layouts}
+                  bestLayout={livingAll.bestLayout}
+                  selectedType={selectedLayoutType}
+                  onSelectType={setSelectedLayoutType}
+                />
+              </motion.div>
+
+              {selectedLayoutEntry && (
+                <motion.div key={selectedLayoutType} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+                  <LivingRoomPlan
+                    data={{
+                      roomId: livingAll.roomId,
+                      scaleSource: livingAll.scaleSource,
+                      doorsUsed: livingAll.doorsUsed,
+                      windowsUsed: livingAll.windowsUsed,
+                      notes: livingAll.notes,
+                      layout: selectedLayoutEntry,
+                    }}
+                  />
+                </motion.div>
+              )}
+
+              <div className="flex flex-col sm:flex-row gap-3 mt-8">
+                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                  onClick={() => navigate("/select-room")}
+                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm bg-white/5 text-zinc-400 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all">
+                  <ArrowLeft className="w-4 h-4" /> Back to Room Selection
+                </motion.button>
+                <motion.button whileHover={selectedLayoutEntry ? { scale: 1.03, y: -1 } : {}} whileTap={selectedLayoutEntry ? { scale: 0.97 } : {}}
+                  onClick={async () => {
+                    if (!selectedLayoutEntry) return;
+                    if (navState?.floorPlanId && apiRoom) {
+                      try {
+                        await saveSelectedLivingRoomLayout(
+                          navState.floorPlanId,
+                          apiRoom.id,
+                          selectedLayoutEntry,
+                        );
+                      } catch (err) {
+                        setLivingError(err instanceof Error ? err.message : "Could not save the selected layout.");
+                        return;
+                      }
+                    }
+                    navigate("/room-view-3d", {
+                      state: { ...navState, livingRoomLayout: selectedLayoutEntry },
+                    });
+                  }}
+                  disabled={!selectedLayoutEntry}
+                  className={`flex-1 flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl font-semibold text-sm transition-all ${
+                    selectedLayoutEntry
+                      ? "bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-lg shadow-teal-500/20 hover:shadow-teal-500/30"
+                      : "bg-white/5 text-zinc-600 cursor-not-allowed border border-white/5"
+                  }`}>
+                  Continue with Selected Layout <ArrowRight className="w-4 h-4" />
+                </motion.button>
+              </div>
+            </>
+          )}
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen w-full bg-[#0a0a0f] relative" style={{ fontFamily: "'Inter', sans-serif" }}>

@@ -248,6 +248,26 @@ npm run dev:backend    # Express API only
 npm run dev:frontend   # Vite dev server only
 ```
 
+### 🧱 Wall Detector service (AI room/wall detection)
+
+The Upload → Processing → Select Room flow calls a local Python service that runs
+the YOLO floor-plan model (`Wall`, `Room`, `Door`, `Window`), then **OCRs the
+printed label inside each room box** (EasyOCR) to recover the room name. It reads
+an image and returns detections as JSON, and writes a per-floor-plan
+`output/<id>.json` of room names + pixel dimensions. It does **not** touch the database.
+
+```bash
+cd backend/wall_detector
+python -m venv venv
+source venv/Scripts/activate     # Git Bash  (venv\Scripts\activate in PowerShell; venv/bin/activate on POSIX)
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+```
+
+Weights live at `backend/wall_detector/models/best.pt` (git-ignored). The frontend
+reads `VITE_DETECTOR_URL` (default `http://localhost:8000`). See
+[`backend/wall_detector/README.md`](backend/wall_detector/README.md) for details.
+
 ### 📦 Production Build
 
 ```bash

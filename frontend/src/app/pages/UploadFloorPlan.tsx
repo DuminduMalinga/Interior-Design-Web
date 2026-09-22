@@ -17,6 +17,8 @@ import { motion, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router";
 import { useCurrentUserProfile } from "../context/UserContext";
 import { supabase } from "../lib/supabaseClient";
+import { detectFloorPlan } from "../lib/wallDetector";
+import { saveDetectionAnalysis } from "../lib/floorPlanAnalysis";
 
 export default function UploadFloorPlan() {
   const navigate = useNavigate();
@@ -140,14 +142,27 @@ export default function UploadFloorPlan() {
 
       if (dbErr) throw new Error(`Database insert failed: ${dbErr.message}`);
 
+      setUploadProgress(90);
+
+      // ── 6. Run wall / room detection + label OCR -------------------------
+      setSuccess("Detecting walls and rooms, reading room labels...");
+      const detection = await detectFloorPlan(selectedFile, {
+        conf: 0.25,
+        floorPlanId,
+      });
+      await saveDetectionAnalysis(floorPlanId, detection);
+
       setUploadProgress(100);
 
-      // ── 6. Navigate to processing page ───────────────────────────────────
+      // ── 7. Navigate to processing, carrying results in router state ──────
       setTimeout(() => {
         setIsUploading(false);
-        setSuccess("File uploaded successfully! Processing floor plan...");
-        setTimeout(() => navigate("/processing", { state: { floorPlanId } }), 1500);
-      }, 400);
+        setSuccess("Analysis complete! Opening results...");
+        setTimeout(
+          () => navigate("/processing", { state: { floorPlanId, detection } }),
+          900,
+        );
+      }, 300);
 
     } catch (err: unknown) {
       setIsUploading(false);
