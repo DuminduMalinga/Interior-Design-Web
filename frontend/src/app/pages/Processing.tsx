@@ -1,13 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Box, CheckCircle2, Loader2, LogOut, Sparkles } from "lucide-react";
 import { motion } from "motion/react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { useCurrentUserProfile } from "../context/UserContext";
+import type { DetectionResult } from "../lib/wallDetector";
 
 export default function Processing() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const detection = (location.state as { detection?: DetectionResult } | null)
+    ?.detection;
   const [currentStep, setCurrentStep] = useState(0);
   const { profile, signOut } = useCurrentUserProfile();
+
+  // Landed here without a detection payload (e.g. page reload) — start over.
+  useEffect(() => {
+    if (!detection) navigate("/upload", { replace: true });
+  }, [detection, navigate]);
 
   const handleLogout = async () => {
     const success = await signOut();
@@ -18,26 +27,42 @@ export default function Processing() {
 
   const displayName = profile.fullName?.trim() ? profile.fullName : profile.username;
 
-  const processingSteps = [
-    { label: "Analyzing floor plan image", duration: 2000 },
-    { label: "Detecting room boundaries", duration: 2000 },
-    { label: "Identifying walls, doors, and windows", duration: 2000 },
-    { label: "Calculating optimal furniture placement", duration: 2000 },
-    { label: "Generating 3D visualization", duration: 2000 },
-  ];
+  const processingSteps = useMemo(() => {
+    const c = detection?.counts ?? {};
+    return [
+      { label: "Analyzing floor plan image", duration: 900 },
+      {
+        label: `Detecting room boundaries${c.Room ? ` — ${c.Room} found` : ""}`,
+        duration: 900,
+      },
+      {
+        label: `Identifying walls, doors and windows${
+          c.Wall || c.Door || c.Window
+            ? ` — ${c.Wall ?? 0} walls, ${c.Door ?? 0} doors, ${c.Window ?? 0} windows`
+            : ""
+        }`,
+        duration: 900,
+      },
+      { label: "Preparing layout candidates", duration: 900 },
+      { label: "Generating 3D visualization", duration: 900 },
+    ];
+  }, [detection]);
 
   useEffect(() => {
+    if (!detection) return;
     if (currentStep < processingSteps.length) {
       const timer = setTimeout(() => {
         setCurrentStep(currentStep + 1);
       }, processingSteps[currentStep].duration);
       return () => clearTimeout(timer);
-    } else {
-      setTimeout(() => {
-        navigate("/select-room");
-      }, 1500);
     }
-  }, [currentStep, processingSteps, navigate]);
+    const done = setTimeout(() => {
+      navigate("/select-room", { state: location.state });
+    }, 1000);
+    return () => clearTimeout(done);
+  }, [currentStep, processingSteps, navigate, detection, location.state]);
+
+  if (!detection) return null;
 
   return (
     <div className="min-h-screen w-full bg-[#0a0a0f] relative overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>

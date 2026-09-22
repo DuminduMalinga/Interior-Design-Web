@@ -1,0 +1,20 @@
+{
+  "name": "glass_wall_living",
+  "description": "A window occupying most of one wall, plus a floor-level sill",
+  "room": { "width": 5200, "length": 4000, "height": 3000 },
+  "doors": [
+    { "id": "door_1", "wall": "west", "position": 2600, "width": 900,
+      "swing": "inward", "hinge": "left", "is_main": true }
+  ],
+  "windows": [
+    { "id": "window_glass_wall", "wall": "north", "position": 300, "width": 4600,
+      "height": 2200, "sill_height": 200 },
+    { "id": "window_small", "wall": "east", "position": 2600, "width": 900,
+      "height": 1200, "sill_height": 1000 }
+  ],
+  "user_requirements": {
+    "purpose": "entertainment",
+    "preferred_layout": null,
+    "required_furniture": ["sofa", "coffee_table", "tv", "tv_console", "chair"]
+  }
+}

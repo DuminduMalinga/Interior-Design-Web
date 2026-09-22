@@ -24,3 +24,18 @@ backend/supabase/.temp
 # Editor / OS files
 .DS_Store
 Thumbs.db
+
+# Python virtual environment & cache
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# ML model weights (large binaries — distribute out of band)
+*.pt
+*.onnx
+backend/wall_detector/models/
+backend/wall_detector/output/
+runs/

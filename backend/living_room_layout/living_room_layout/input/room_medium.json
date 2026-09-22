@@ -1,0 +1,42 @@
+{
+  "name": "medium_family_room",
+  "description": "Test case 2 - medium living room, one door and one window",
+  "room": {
+    "width": 5000,
+    "length": 4000,
+    "height": 2800
+  },
+  "doors": [
+    {
+      "id": "door_1",
+      "wall": "south",
+      "position": 1000,
+      "width": 900,
+      "swing": "inward",
+      "hinge": "left",
+      "is_main": true
+    }
+  ],
+  "windows": [
+    {
+      "id": "window_1",
+      "wall": "north",
+      "position": 1500,
+      "width": 1800,
+      "height": 1500,
+      "sill_height": 900
+    }
+  ],
+  "user_requirements": {
+    "purpose": "family_social",
+    "preferred_layout": null,
+    "required_furniture": [
+      "sofa",
+      "coffee_table",
+      "tv",
+      "tv_console",
+      "chair",
+      "side_table"
+    ]
+  }
+}

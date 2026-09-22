@@ -1,0 +1,22 @@
+{
+  "name": "three_door_through_room",
+  "description": "Multiple doors - a through-room with three openings to keep clear",
+  "room": { "width": 5600, "length": 4200, "height": 2800 },
+  "doors": [
+    { "id": "door_hall", "wall": "south", "position": 400, "width": 900,
+      "swing": "inward", "hinge": "left", "is_main": true },
+    { "id": "door_kitchen", "wall": "north", "position": 4200, "width": 850,
+      "swing": "inward", "hinge": "right" },
+    { "id": "door_terrace", "wall": "east", "position": 1400, "width": 1600,
+      "swing": "sliding" }
+  ],
+  "windows": [
+    { "id": "window_1", "wall": "west", "position": 1200, "width": 1400,
+      "height": 1400, "sill_height": 900 }
+  ],
+  "user_requirements": {
+    "purpose": "entertainment",
+    "preferred_layout": null,
+    "required_furniture": ["sofa", "coffee_table", "tv", "tv_console", "chair"]
+  }
+}
