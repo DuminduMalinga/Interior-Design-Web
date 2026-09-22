@@ -243,7 +243,7 @@ export default function SelectRoom() {
   const counts = detection?.counts ?? {};
 
   const handleContinue = () => {
-    if (!selectedRoom) return;
+    if (!detection || !selectedRoom) return;
     navigate("/view-layouts", {
       state: { floorPlanId: detection.floorPlanId, room: selectedRoom, detection },
     });
