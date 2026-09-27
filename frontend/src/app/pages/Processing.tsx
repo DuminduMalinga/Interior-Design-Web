@@ -3,6 +3,7 @@ import { Box, CheckCircle2, Loader2, LogOut, Sparkles } from "lucide-react";
 import { motion } from "motion/react";
 import { useLocation, useNavigate } from "react-router";
 import { useCurrentUserProfile } from "../context/UserContext";
+import ThemeToggle from "../components/ThemeToggle";
 import type { DetectionResult } from "../lib/wallDetector";
 
 export default function Processing() {
@@ -65,7 +66,7 @@ export default function Processing() {
   if (!detection) return null;
 
   return (
-    <div className="min-h-screen w-full bg-[#0a0a0f] relative overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="min-h-screen w-full bg-background relative overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
       {/* Navigation */}
       <nav className="relative glass-nav z-20">
         <div className="px-4 md:px-8 py-4 flex items-center justify-between">
@@ -84,6 +85,7 @@ export default function Processing() {
               <p className="text-sm text-zinc-500">Welcome back,</p>
               <p className="font-semibold text-white">{displayName} 👋</p>
             </div>
+            <ThemeToggle />
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}

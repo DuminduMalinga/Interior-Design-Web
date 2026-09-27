@@ -24,6 +24,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { useLocation, useNavigate } from "react-router";
 import { useCurrentUserProfile } from "../context/UserContext";
+import ThemeToggle from "../components/ThemeToggle";
 import type { DetectionResult } from "../lib/wallDetector";
 import {
   generateAllLivingRoomLayouts,
@@ -962,7 +963,7 @@ export default function ViewLayouts() {
   // ── Living room: real structure + layout from the rule-based engine ────
   if (isLivingRoom && apiRoom) {
     return (
-      <div className="min-h-screen w-full bg-[#0a0a0f] relative" style={{ fontFamily: "'Inter', sans-serif" }}>
+      <div className="min-h-screen w-full bg-background relative" style={{ fontFamily: "'Inter', sans-serif" }}>
         <div className="absolute inset-0 dot-grid pointer-events-none" />
         <div className="absolute top-1/4 right-1/4 w-[400px] h-[400px] bg-teal-500/5 rounded-full blur-[100px] pointer-events-none" />
         <div className="absolute bottom-1/4 left-1/4 w-[300px] h-[300px] bg-violet-500/5 rounded-full blur-[100px] pointer-events-none" />
@@ -984,6 +985,7 @@ export default function ViewLayouts() {
                 <p className="text-xs text-zinc-500">Welcome back,</p>
                 <p className="font-semibold text-white text-sm">{displayName} 👋</p>
               </div>
+              <ThemeToggle />
               <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                 onClick={handleLogout}
                 className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors">
@@ -1103,7 +1105,7 @@ export default function ViewLayouts() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-[#0a0a0f] relative" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="min-h-screen w-full bg-background relative" style={{ fontFamily: "'Inter', sans-serif" }}>
       <div className="absolute inset-0 dot-grid pointer-events-none" />
       <div className="absolute top-1/4 right-1/4 w-[400px] h-[400px] bg-teal-500/5 rounded-full blur-[100px] pointer-events-none" />
       <div className="absolute bottom-1/4 left-1/4 w-[300px] h-[300px] bg-violet-500/5 rounded-full blur-[100px] pointer-events-none" />
@@ -1129,6 +1131,7 @@ export default function ViewLayouts() {
                 <p className="text-xs text-zinc-500">Welcome back,</p>
                 <p className="font-semibold text-white text-sm">{displayName} 👋</p>
               </div>
+              <ThemeToggle />
               <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                 onClick={handleLogout}
                 className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors">
@@ -1325,7 +1328,7 @@ export default function ViewLayouts() {
                             initial={{ width: 0 }}
                             animate={{ width: `${value}%` }}
                             transition={{ duration: 0.7, ease: "easeOut" }}
-                            className="h-full bg-white rounded-full"
+                            className="h-full bg-zinc-100 rounded-full"
                           />
                         </div>
                         <span className="text-teal-300 text-[11px] font-bold w-8 text-right">{value}%</span>

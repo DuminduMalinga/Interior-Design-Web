@@ -28,17 +28,15 @@ import {
   Trash2,
   Download,
   ExternalLink,
-  Moon,
-  Sun,
   AlertTriangle,
   Loader2,
   ClockAlert,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router";
-import { useTheme } from "../context/ThemeContext";
 import { useCurrentUserProfile } from "../context/UserContext";
 import { supabase } from "../lib/supabaseClient";
+import ThemeToggle from "../components/ThemeToggle";
 
 type ProfileState = {
   fullName: string;
@@ -61,7 +59,6 @@ const createProfileState = (overrides: Partial<ProfileState> = {}): ProfileState
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { theme, toggle } = useTheme();
   const { profile: currentUser, signOut } = useCurrentUserProfile();
   const [activeMenu, setActiveMenu] = useState("dashboard");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -463,7 +460,7 @@ export default function Dashboard() {
             <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white text-3xl font-black shadow-lg shadow-teal-500/20">
               {profile.fullName.split(" ").map(w => w[0]).join("").slice(0, 2)}
             </div>
-            <button className="absolute -bottom-2 -right-2 w-8 h-8 bg-[#141419] border border-white/10 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors">
+            <button className="absolute -bottom-2 -right-2 w-8 h-8 bg-popover border border-white/10 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors">
               <Camera className="w-3.5 h-3.5 text-teal-400" />
             </button>
           </div>
@@ -692,7 +689,7 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="min-h-screen w-full bg-[#0a0a0f] relative" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="min-h-screen w-full bg-background relative" style={{ fontFamily: "'Inter', sans-serif" }}>
 
       {/* Delete Account Modal */}
       <AnimatePresence>
@@ -703,7 +700,7 @@ export default function Dashboard() {
             <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }} transition={{ type: "spring", stiffness: 320, damping: 26 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md bg-[#141419] rounded-3xl shadow-2xl overflow-hidden border border-white/10">
+              className="w-full max-w-md bg-popover rounded-3xl shadow-2xl overflow-hidden border border-white/10">
               <div className="bg-gradient-to-r from-red-500 to-rose-600 px-6 py-5 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="bg-white/20 p-2.5 rounded-xl"><Shield className="w-5 h-5 text-white" /></div>
@@ -792,6 +789,7 @@ export default function Dashboard() {
                 <p className="text-xs text-zinc-500">Welcome back,</p>
                 <p className="font-semibold text-white text-sm">{displayName} 👋</p>
               </div>
+              <ThemeToggle />
             </div>
           </div>
         </div>
