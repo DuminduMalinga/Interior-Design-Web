@@ -27,6 +27,19 @@ const COMPONENT_LABELS: Record<string, string> = {
   tall_furniture: "10 · Tall furniture clear of windows",
   room_fit: "11 · Fit to room and occupants",
   reach_and_height: "12 · Convenient heights and reach",
+  // kitchen engine: one component per rule
+  sink_location: "1 · Sink in a convenient place",
+  prep_by_sink: "2 · Preparation worktop by the sink",
+  safe_workflow: "3 · Safe sink-to-stove workflow",
+  work_triangle: "4 · Work triangle",
+  stove_counter: "5 · Worktop beside the stove",
+  fridge_door: "6 · Refrigerator door opens fully",
+  opened_units: "7 · Open cupboards off the path",
+  utensils: "8 · Utensils by the cooking area",
+  working_route: "9 · Clear working route",
+  dining: "10 · Dining clear of the cooking",
+  food_separation: "11 · Raw and ready-to-eat apart",
+  appliances_and_space: "12 · Appliances, doors and floor space",
 };
 
 function ScoreBreakdown({ components }: { components: Record<string, number> }) {

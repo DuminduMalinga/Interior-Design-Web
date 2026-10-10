@@ -72,6 +72,13 @@ export const FURNITURE_COLORS: Record<string, { fill: string; stroke: string }> 
   bedside_table: { fill: "#5b3a12", stroke: "#fbbf24" },
   wardrobe: { fill: "#312e6e", stroke: "#a78bfa" },
   dresser: { fill: "#312e6e", stroke: "#a78bfa" },
+  sink: { fill: "#1e3a5f", stroke: "#60a5fa" },
+  stove: { fill: "#4c1d1d", stroke: "#f87171" },
+  fridge: { fill: "#312e6e", stroke: "#a78bfa" },
+  counter: { fill: "#27272a", stroke: "#a1a1aa" },
+  utensil_drawers: { fill: "#5b3a12", stroke: "#fbbf24" },
+  dining_table: { fill: "#0d4a3d", stroke: "#34d399" },
+  dining_chair: { fill: "#134e4a", stroke: "#2dd4bf" },
 };
 export const DEFAULT_FURNITURE_COLOR = { fill: "#27272a", stroke: "#a1a1aa" };
 
@@ -121,6 +128,8 @@ export default function RoomSvg({
 
   const doors = layout.openings.doors;
   const windows = layout.openings.windows;
+  // Kitchen engine only: the work triangle between sink, stove and refrigerator.
+  const trianglePoints = (layout.work_triangle as { points?: Vec[] } | undefined)?.points;
 
   const wallSegments = (["north", "south", "east", "west"] as Wall[]).map((wall) => {
     const length = wallLength(wall, room);
@@ -269,6 +278,18 @@ export default function RoomSvg({
           </g>
         );
       })}
+
+      {/* work triangle */}
+      {trianglePoints && trianglePoints.length === 3 && (
+        <polygon
+          points={trianglePoints.map((p) => toScreen(p).join(",")).join(" ")}
+          fill="#f87171" fillOpacity={0.06} stroke="#f87171" strokeOpacity={0.8}
+          strokeWidth={compact ? 1 : 1.5} strokeDasharray="6 4" vectorEffect="non-scaling-stroke"
+          style={{ pointerEvents: "none" }}
+        >
+          {!compact && <title>Work triangle: sink, stove, refrigerator</title>}
+        </polygon>
+      )}
     </svg>
   );
 }

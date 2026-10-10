@@ -286,6 +286,24 @@ uvicorn api:app --port 8200
 The frontend reads `VITE_BEDROOM_LAYOUT_URL` (default `http://localhost:8200`). See
 [`backend/bedroom_layout/README.md`](backend/bedroom_layout/README.md) for the rules and the API.
 
+### 🍳 Kitchen Layout service (rule-based kitchen layouts)
+
+When the room picked is a kitchen, View Layouts calls a third local Python
+service that lays out the kitchen shapes the room allows (one-wall, L, U,
+galley) and places sink, stove, refrigerator, worktops and a dining table by
+twelve kitchen-arrangement rules. Same setup as the bedroom service:
+
+```bash
+cd backend/kitchen_layout
+python -m venv venv
+source venv/Scripts/activate
+pip install -r requirements.txt
+uvicorn api:app --port 8300
+```
+
+The frontend reads `VITE_KITCHEN_LAYOUT_URL` (default `http://localhost:8300`). See
+[`backend/kitchen_layout/README.md`](backend/kitchen_layout/README.md).
+
 ### 📦 Production Build
 
 ```bash
