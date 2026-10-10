@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef, type ReactElement } from "react";
 import {
-  Box,
-  LogOut,
   ArrowLeft,
   ArrowRight,
   Check,
@@ -19,12 +17,11 @@ import {
   Sparkles,
   TrendingUp,
   ShieldCheck,
-  Layers,
+  Layers
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useLocation, useNavigate } from "react-router";
-import { useCurrentUserProfile } from "../context/UserContext";
-import ThemeToggle from "../components/ThemeToggle";
+import AppNavbar from "../components/AppNavbar";
 import type { DetectionResult } from "../lib/wallDetector";
 import {
   generateAllLivingRoomLayouts,
@@ -880,8 +877,6 @@ function LayoutCard({
 export default function ViewLayouts() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { profile, signOut } = useCurrentUserProfile();
-
   // ── Real layout generation ───────────────────────────────────────────
   // SelectRoom navigates here with { room, detection } in router state.
   // Rooms whose OCR'd name looks like a living room, a bathroom, a bedroom or a kitchen get
@@ -969,14 +964,6 @@ export default function ViewLayouts() {
   const rawSelectedLayout = livingAll?.layouts.find((l) => l.layout.type === selectedLayoutType) ?? null;
   const selectedLayoutEntry = rawSelectedLayout && !isLayoutError(rawSelectedLayout) ? rawSelectedLayout : null;
 
-  const handleLogout = async () => {
-    const success = await signOut();
-    if (success) {
-      navigate("/");
-    }
-  };
-
-  const displayName = profile.fullName?.trim() ? profile.fullName : profile.username;
 
   const bestId = MOCK_LAYOUTS.reduce((best, l) => (l.score > best.score ? l : best), MOCK_LAYOUTS[0])?.id;
   const [selectedId, setSelectedId] = useState<string>(bestId ?? "");
@@ -1007,32 +994,7 @@ export default function ViewLayouts() {
         <div className="absolute bottom-1/4 left-1/4 w-[300px] h-[300px] bg-violet-500/5 rounded-full blur-[100px] pointer-events-none" />
 
         {/* Nav */}
-        <nav className="relative glass-nav z-30">
-          <div className="px-4 md:px-8 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/dashboard")}>
-              <div className="bg-gradient-to-br from-teal-400 to-teal-600 p-2 rounded-xl shadow-lg shadow-teal-500/20">
-                <Box className="w-8 h-8 text-white" strokeWidth={1.5} />
-              </div>
-              <div className="hidden md:block">
-                <h1 className="text-base font-bold text-white">3D Layout System</h1>
-                <p className="text-xs text-zinc-500">AI-Powered Design</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="hidden md:block text-right">
-                <p className="text-xs text-zinc-500">Welcome back,</p>
-                <p className="font-semibold text-white text-sm">{displayName} 👋</p>
-              </div>
-              <ThemeToggle />
-              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                onClick={handleLogout}
-                className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors">
-                <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline text-sm font-medium">Logout</span>
-              </motion.button>
-            </div>
-          </div>
-        </nav>
+        <AppNavbar />
 
         <main className="relative px-4 md:px-8 py-8 md:py-10 max-w-6xl mx-auto">
           <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
@@ -1229,34 +1191,7 @@ export default function ViewLayouts() {
       <CompareModal layouts={MOCK_LAYOUTS} open={compareOpen} onClose={() => setCompareOpen(false)} />
 
       {/* ── Navigation ── */}
-      <nav className="relative glass-nav z-30">
-        <div className="px-4 md:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/dashboard")}>
-              <div className="bg-gradient-to-br from-teal-400 to-teal-600 p-2 rounded-xl shadow-lg shadow-teal-500/20">
-                <Box className="w-8 h-8 text-white" strokeWidth={1.5} />
-              </div>
-              <div className="hidden md:block">
-                <h1 className="text-base font-bold text-white">3D Layout System</h1>
-                <p className="text-xs text-zinc-500">AI-Powered Design</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="hidden md:block text-right">
-                <p className="text-xs text-zinc-500">Welcome back,</p>
-                <p className="font-semibold text-white text-sm">{displayName} 👋</p>
-              </div>
-              <ThemeToggle />
-              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                onClick={handleLogout}
-                className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors">
-                <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline text-sm font-medium">Logout</span>
-              </motion.button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <AppNavbar />
 
       {/* ── Main ── */}
       <main className="relative px-4 md:px-8 py-8 md:py-10 max-w-7xl mx-auto">

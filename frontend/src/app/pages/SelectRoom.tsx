@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Box,
-  LogOut,
   Menu,
   X,
   ArrowLeft,
@@ -12,12 +10,11 @@ import {
   Home,
   Maximize2,
   ScanText,
-  Download,
+  Download
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useLocation, useNavigate } from "react-router";
-import { useCurrentUserProfile } from "../context/UserContext";
-import ThemeToggle from "../components/ThemeToggle";
+import AppNavbar from "../components/AppNavbar";
 import type { DetectionResult } from "../lib/wallDetector";
 
 type RoomType = "Room";
@@ -221,21 +218,12 @@ export default function SelectRoom() {
     ?.detection;
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { profile, signOut } = useCurrentUserProfile();
-
   // Reached without a detection payload (e.g. deep link / reload) — restart.
   useEffect(() => {
     if (!detection) navigate("/upload", { replace: true });
   }, [detection, navigate]);
 
-  const handleLogout = async () => {
-    const success = await signOut();
-    if (success) {
-      navigate("/");
-    }
-  };
 
-  const displayName = profile.fullName?.trim() ? profile.fullName : profile.username;
   const rooms = useMemo(
     () => (detection ? roomsFromDetection(detection) : []),
     [detection],
@@ -273,37 +261,13 @@ export default function SelectRoom() {
       <div className="absolute top-1/4 left-1/4 w-[400px] h-[400px] bg-teal-500/5 rounded-full blur-[100px] pointer-events-none" />
 
       {/* Nav */}
-      <nav className="relative glass-nav z-30">
-        <div className="px-4 md:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="lg:hidden text-zinc-400 hover:text-white">
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
-            <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/dashboard")}>
-              <div className="bg-gradient-to-br from-teal-400 to-teal-600 p-2 rounded-xl shadow-lg shadow-teal-500/20">
-                <Box className="w-8 h-8 text-white" strokeWidth={1.5} />
-              </div>
-              <div className="hidden md:block">
-                <h1 className="text-base font-bold text-white">3D Layout System</h1>
-                <p className="text-xs text-zinc-500">AI-Powered Design</p>
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="hidden md:block text-right">
-              <p className="text-xs text-zinc-500">Welcome back,</p>
-              <p className="font-semibold text-white text-sm">{displayName} 👋</p>
-            </div>
-            <ThemeToggle />
-            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors">
-              <LogOut className="w-4 h-4" />
-              <span className="hidden sm:inline text-sm font-medium">Logout</span>
-            </motion.button>
-          </div>
-        </div>
-      </nav>
+      <AppNavbar
+        leading={
+          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="lg:hidden text-zinc-400 hover:text-white">
+            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
+        }
+      />
 
       <main className="relative px-4 md:px-8 py-8 md:py-10 max-w-6xl mx-auto">
         {/* Step Indicator */}

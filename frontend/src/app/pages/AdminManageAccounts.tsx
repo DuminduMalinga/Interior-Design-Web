@@ -1,6 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import {
-  Box,
   LogOut,
   LayoutDashboard,
   Users,
@@ -29,13 +28,13 @@ import {
   Loader2,
   UserX,
   UserCheck,
-  Inbox,
+  Inbox
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router";
 import { supabase } from "../lib/supabaseClient";
 import { useCurrentUserProfile } from "../context/UserContext";
-import ThemeToggle from "../components/ThemeToggle";
+import AppNavbar from "../components/AppNavbar";
 
 // ─────────────────────────────────────────────
 // Types
@@ -843,162 +842,121 @@ export default function AdminManageAccounts() {
       </AnimatePresence>
 
       {/* ── Top Navigation ── */}
-      <nav className="relative glass-nav z-30">
-        <div className="px-4 md:px-6 py-4">
-          <div className="flex items-center justify-between">
-            {/* Logo + hamburger */}
-            <div className="flex items-center gap-3">
+      <AppNavbar
+        leading={
+          <button
+            onClick={() => setSidebarOpen((p) => !p)}
+            className="lg:hidden text-zinc-400 hover:text-white"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+        }
+        badge={
+          <span className="hidden sm:flex items-center gap-1 bg-teal-500/10 text-teal-400 text-[11px] font-bold px-2.5 py-1 rounded-full border border-teal-500/20">
+            <ShieldCheck className="w-3 h-3" />
+            Admin Panel
+          </span>
+        }
+        actions={
+            <div ref={notifRef} className="relative">
               <button
-                onClick={() => setSidebarOpen((p) => !p)}
-                className="lg:hidden text-gray-600 hover:text-gray-800 p-1"
+                onClick={() => setShowNotifications((p) => !p)}
+                className="relative p-2 rounded-xl border border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10 transition-colors"
               >
-                <Menu className="w-5 h-5" />
+                <Bell className="w-4 h-4" />
+                {stats.pendingDeletions > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center animate-pulse">
+                    {stats.pendingDeletions}
+                  </span>
+                )}
               </button>
-              <div
-                className="flex items-center gap-3 cursor-pointer"
-                onClick={() => navigate("/dashboard")}
-              >
-                <div className="bg-gradient-to-br from-teal-400 to-teal-600 p-2 rounded-xl shadow-lg shadow-teal-500/20">
-                  <Box className="w-7 h-7 text-white" strokeWidth={1.5} />
-                </div>
-                <div className="hidden md:block">
-                  <h1 className="text-base font-bold text-white">3D Layout System</h1>
-                  <p className="text-[11px] text-zinc-500">AI-Powered Design</p>
-                </div>
-              </div>
-              {/* Admin badge */}
-              <span className="hidden sm:flex items-center gap-1 bg-teal-500/10 text-teal-400 text-[11px] font-bold px-2.5 py-1 rounded-full border border-teal-500/20">
-                <ShieldCheck className="w-3 h-3" />
-                Admin Panel
-              </span>
-            </div>
 
-            {/* Right */}
-            <div className="flex items-center gap-3">
-              <ThemeToggle />
-              {/* Notification bell */}
-              <div ref={notifRef} className="relative">
-                <button
-                  onClick={() => setShowNotifications((p) => !p)}
-                  className="relative p-2 rounded-xl border border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10 transition-colors"
-                >
-                  <Bell className="w-4 h-4" />
-                  {stats.pendingDeletions > 0 && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center animate-pulse">
-                      {stats.pendingDeletions}
-                    </span>
-                  )}
-                </button>
+              {/* Dropdown panel */}
+              <AnimatePresence>
+                {showNotifications && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 top-full mt-2 w-80 z-50 rounded-2xl border border-white/10 bg-popover shadow-2xl overflow-hidden"
+                  >
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-white/8 bg-white/3">
+                      <div className="flex items-center gap-2">
+                        <Bell className="w-3.5 h-3.5 text-teal-400" />
+                        <span className="text-xs font-bold text-zinc-200">Notifications</span>
+                      </div>
+                      {stats.pendingDeletions > 0 && (
+                        <span className="text-[10px] bg-red-500/15 text-red-400 border border-red-500/20 px-2 py-0.5 rounded-full font-bold">
+                          {stats.pendingDeletions} pending
+                        </span>
+                      )}
+                    </div>
 
-                {/* Dropdown panel */}
-                <AnimatePresence>
-                  {showNotifications && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -8, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -8, scale: 0.95 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute right-0 top-full mt-2 w-80 z-50 rounded-2xl border border-white/10 bg-popover shadow-2xl overflow-hidden"
-                    >
-                      {/* Header */}
-                      <div className="flex items-center justify-between px-4 py-3 border-b border-white/8 bg-white/3">
-                        <div className="flex items-center gap-2">
-                          <Bell className="w-3.5 h-3.5 text-teal-400" />
-                          <span className="text-xs font-bold text-zinc-200">Notifications</span>
+                    {/* List */}
+                    <div className="max-h-72 overflow-y-auto divide-y divide-white/5">
+                      {deletionRequests.length === 0 ? (
+                        <div className="flex flex-col items-center gap-2 py-8 text-zinc-500">
+                          <Inbox className="w-7 h-7 opacity-40" />
+                          <p className="text-xs">No pending requests</p>
                         </div>
-                        {stats.pendingDeletions > 0 && (
-                          <span className="text-[10px] bg-red-500/15 text-red-400 border border-red-500/20 px-2 py-0.5 rounded-full font-bold">
-                            {stats.pendingDeletions} pending
-                          </span>
-                        )}
-                      </div>
-
-                      {/* List */}
-                      <div className="max-h-72 overflow-y-auto divide-y divide-white/5">
-                        {deletionRequests.length === 0 ? (
-                          <div className="flex flex-col items-center gap-2 py-8 text-zinc-500">
-                            <Inbox className="w-7 h-7 opacity-40" />
-                            <p className="text-xs">No pending requests</p>
-                          </div>
-                        ) : (
-                          deletionRequests.map((req) => {
-                            const initials = req.fullName
-                              .trim()
-                              .split(/\s+/)
-                              .slice(0, 2)
-                              .map((p) => p[0]?.toUpperCase() ?? "")
-                              .join("");
-                            const minsAgo = Math.round(
-                              (Date.now() - new Date(req.requestedAt).getTime()) / 60_000
-                            );
-                            const timeLabel =
-                              minsAgo < 60
-                                ? `${minsAgo}m ago`
-                                : minsAgo < 1440
-                                  ? `${Math.floor(minsAgo / 60)}h ago`
-                                  : `${Math.floor(minsAgo / 1440)}d ago`;
-                            return (
-                              <div
-                                key={req.requestId}
-                                className="flex items-start gap-3 px-4 py-3 hover:bg-white/3 transition-colors"
-                              >
-                                {/* Avatar */}
-                                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center text-white text-[11px] font-bold shrink-0 mt-0.5">
-                                  {initials || "?"}
-                                </div>
-                                {/* Info */}
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-semibold text-zinc-200 truncate">{req.fullName}</p>
-                                  <p className="text-[10px] text-zinc-500 truncate">{req.email}</p>
-                                  <p className="text-[10px] text-amber-400/70 mt-0.5 flex items-center gap-1">
-                                    <ClockAlert className="w-2.5 h-2.5" />
-                                    Requested deletion · {timeLabel}
-                                  </p>
-                                </div>
-                                {/* Action */}
-                                <button
-                                  onClick={() => {
-                                    setApproveTarget(req);
-                                    setShowNotifications(false);
-                                  }}
-                                  className="shrink-0 text-[10px] font-bold px-2.5 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/15 transition-colors"
-                                >
-                                  Review
-                                </button>
+                      ) : (
+                        deletionRequests.map((req) => {
+                          const initials = req.fullName
+                            .trim()
+                            .split(/\s+/)
+                            .slice(0, 2)
+                            .map((p) => p[0]?.toUpperCase() ?? "")
+                            .join("");
+                          const minsAgo = Math.round(
+                            (Date.now() - new Date(req.requestedAt).getTime()) / 60_000
+                          );
+                          const timeLabel =
+                            minsAgo < 60
+                              ? `${minsAgo}m ago`
+                              : minsAgo < 1440
+                                ? `${Math.floor(minsAgo / 60)}h ago`
+                                : `${Math.floor(minsAgo / 1440)}d ago`;
+                          return (
+                            <div
+                              key={req.requestId}
+                              className="flex items-start gap-3 px-4 py-3 hover:bg-white/3 transition-colors"
+                            >
+                              {/* Avatar */}
+                              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center text-white text-[11px] font-bold shrink-0 mt-0.5">
+                                {initials || "?"}
                               </div>
-                            );
-                          })
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-              <div className="hidden md:flex items-center gap-2.5 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
-                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white text-[11px] font-bold">
-                  {currentAdminName
-                    .split(" ")
-                    .filter(Boolean)
-                    .slice(0, 2)
-                    .map((part) => part[0]?.toUpperCase() ?? "A")
-                    .join("")
-                    .slice(0, 2) || "AD"}
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-zinc-200">{currentAdminUsername}</p>
-                  <p className="text-[10px] text-teal-400 font-semibold">Administrator</p>
-                </div>
-              </div>
-              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                onClick={handleLogout}
-                className="flex items-center gap-1.5 px-3 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors text-sm font-medium">
-                <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline">Logout</span>
-              </motion.button>
+                              {/* Info */}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-semibold text-zinc-200 truncate">{req.fullName}</p>
+                                <p className="text-[10px] text-zinc-500 truncate">{req.email}</p>
+                                <p className="text-[10px] text-amber-400/70 mt-0.5 flex items-center gap-1">
+                                  <ClockAlert className="w-2.5 h-2.5" />
+                                  Requested deletion · {timeLabel}
+                                </p>
+                              </div>
+                              {/* Action */}
+                              <button
+                                onClick={() => {
+                                  setApproveTarget(req);
+                                  setShowNotifications(false);
+                                }}
+                                className="shrink-0 text-[10px] font-bold px-2.5 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/15 transition-colors"
+                              >
+                                Review
+                              </button>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
-          </div>
-        </div>
-      </nav>
+        }
+      />
 
       <div className="flex flex-1 relative">
 

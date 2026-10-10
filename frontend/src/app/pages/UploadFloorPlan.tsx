@@ -10,13 +10,11 @@ import {
   ArrowRight,
   Image as ImageIcon,
   FileText,
-  LogOut,
   LayoutDashboard,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router";
-import { useCurrentUserProfile } from "../context/UserContext";
-import ThemeToggle from "../components/ThemeToggle";
+import AppNavbar from "../components/AppNavbar";
 import { supabase } from "../lib/supabaseClient";
 import { detectFloorPlan } from "../lib/wallDetector";
 import { saveDetectionAnalysis } from "../lib/floorPlanAnalysis";
@@ -32,16 +30,6 @@ export default function UploadFloorPlan() {
   const [success, setSuccess] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const { profile, signOut } = useCurrentUserProfile();
-
-  const handleLogout = async () => {
-    const success = await signOut();
-    if (success) {
-      navigate("/");
-    }
-  };
-
-  const displayName = profile.fullName?.trim() ? profile.fullName : profile.username;
   const SUPPORTED_FORMATS = ["image/png", "image/jpeg", "image/jpg"];
   const SUPPORTED_EXTENSIONS = ["png", "jpg", "jpeg"];
   const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -193,32 +181,7 @@ export default function UploadFloorPlan() {
       <div className="absolute top-1/4 left-1/3 w-[400px] h-[400px] bg-teal-500/5 rounded-full blur-[100px] pointer-events-none" />
 
       {/* Nav */}
-      <nav className="relative glass-nav z-10">
-        <div className="px-4 md:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/dashboard")}>
-            <div className="bg-gradient-to-br from-teal-400 to-teal-600 p-2 rounded-xl shadow-lg shadow-teal-500/20">
-              <Box className="w-8 h-8 text-white" strokeWidth={1.5} />
-            </div>
-            <div className="hidden md:block">
-              <h1 className="text-base font-bold text-white">3D Layout System</h1>
-              <p className="text-xs text-zinc-500">AI-Powered Design</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="hidden md:block text-right">
-              <p className="text-xs text-zinc-500">Welcome back,</p>
-              <p className="font-semibold text-white text-sm">{displayName} 👋</p>
-            </div>
-            <ThemeToggle />
-            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors">
-              <LogOut className="w-4 h-4" />
-              <span className="hidden sm:inline text-sm font-medium">Logout</span>
-            </motion.button>
-          </div>
-        </div>
-      </nav>
+      <AppNavbar />
 
       <main className="relative p-4 md:p-8">
         <div className="max-w-4xl mx-auto">

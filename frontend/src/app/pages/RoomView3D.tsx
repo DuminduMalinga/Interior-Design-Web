@@ -7,7 +7,6 @@ import {
 } from "react";
 import {
   Box,
-  LogOut,
   Check,
   ZoomIn,
   ZoomOut,
@@ -26,12 +25,11 @@ import {
   CheckCircle2,
   AlertCircle,
   Cpu,
-  ArrowLeft,
+  ArrowLeft
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router";
-import { useCurrentUserProfile } from "../context/UserContext";
-import ThemeToggle from "../components/ThemeToggle";
+import AppNavbar from "../components/AppNavbar";
 
 // ─────────────────────────────────────────────
 // Types
@@ -780,16 +778,6 @@ function ExportDropdown() {
 // ─────────────────────────────────────────────
 export default function RoomView3D() {
   const navigate = useNavigate();
-  const { profile, signOut } = useCurrentUserProfile();
-
-  const handleLogout = async () => {
-    const success = await signOut();
-    if (success) {
-      navigate("/");
-    }
-  };
-
-  const displayName = profile.fullName?.trim() ? profile.fullName : profile.username;
 
   // Viewer states
   const [isLoading, setIsLoading] = useState(true);
@@ -865,34 +853,7 @@ export default function RoomView3D() {
       <div className="absolute inset-0 dot-grid pointer-events-none" />
 
       {/* ── Navigation ── */}
-      <nav className="relative glass-nav z-30">
-        <div className="px-4 md:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/dashboard")}>
-              <div className="bg-gradient-to-br from-teal-400 to-teal-600 p-2 rounded-xl shadow-lg shadow-teal-500/20">
-                <Box className="w-8 h-8 text-white" strokeWidth={1.5} />
-              </div>
-              <div className="hidden md:block">
-                <h1 className="text-base font-bold text-white">3D Layout System</h1>
-                <p className="text-xs text-zinc-500">AI-Powered Design</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="hidden md:block text-right">
-                <p className="text-xs text-zinc-500">Welcome back,</p>
-                <p className="font-semibold text-white text-sm">{displayName} 👋</p>
-              </div>
-              <ThemeToggle />
-              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                onClick={handleLogout}
-                className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors">
-                <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline text-sm font-medium">Logout</span>
-              </motion.button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <AppNavbar />
 
       {/* ── Main ── */}
       <main className="relative px-4 md:px-8 py-6 md:py-8 max-w-[1400px] mx-auto">
