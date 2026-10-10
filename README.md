@@ -304,6 +304,25 @@ uvicorn api:app --port 8300
 The frontend reads `VITE_KITCHEN_LAYOUT_URL` (default `http://localhost:8300`). See
 [`backend/kitchen_layout/README.md`](backend/kitchen_layout/README.md).
 
+### 🚿 Bathroom Layout service (rule-based bathroom layouts)
+
+When the room picked is a bathroom (its name contains "bath", "toilet", "WC",
+"washroom" or "shower"), View Layouts calls a fourth local Python service that
+arranges the shower, toilet, washbasin and storage cabinet, fixes the mirror,
+towel rails, floor drain and — when the user has mobility needs — wheelchair
+space and grab bars, by fifteen bathroom-arrangement rules. Same setup again:
+
+```bash
+cd backend/bathroom_layout
+python -m venv venv
+source venv/Scripts/activate
+pip install -r requirements.txt
+uvicorn api:app --port 8400
+```
+
+The frontend reads `VITE_BATHROOM_LAYOUT_URL` (default `http://localhost:8400`). See
+[`backend/bathroom_layout/README.md`](backend/bathroom_layout/README.md).
+
 ### 📦 Production Build
 
 ```bash

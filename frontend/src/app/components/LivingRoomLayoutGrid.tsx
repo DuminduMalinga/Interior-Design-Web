@@ -40,6 +40,22 @@ const COMPONENT_LABELS: Record<string, string> = {
   dining: "10 · Dining clear of the cooking",
   food_separation: "11 · Raw and ready-to-eat apart",
   appliances_and_space: "12 · Appliances, doors and floor space",
+  // bathroom engine: one component per rule
+  basin_entrance: "1 · Basin near the entrance",
+  toilet_space: "2 · Space at the toilet",
+  shower_entry: "3 · Safe way in and out of the shower",
+  walking_paths: "4 · Clear walking paths",
+  basin_standing: "5 · Standing room at the basin",
+  cabinet_position: "6 · Cabinets out of the way",
+  cabinet_doors: "7 · Cabinet doors clear of the path",
+  towel_reach: "8 · Towels within reach",
+  mirror: "9 · Mirror at the basin",
+  toiletries_reach: "10 · Toiletries within reach",
+  splash_control: "11 · Water kept off the walking area",
+  clear_floor: "12 · Unobstructed floor",
+  wheelchair_access: "13 · Wheelchair access",
+  floor_and_drainage: "14 · Non-slip floor and drainage",
+  grab_bars: "15 · Grab bars",
 };
 
 function ScoreBreakdown({ components }: { components: Record<string, number> }) {
