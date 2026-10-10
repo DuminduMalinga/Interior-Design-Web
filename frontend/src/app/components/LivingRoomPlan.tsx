@@ -9,7 +9,39 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import type { GenerateLivingRoomLayoutResponse, LayoutFurnitureItem } from "../lib/livingRoomLayout";
+import type { BedroomRuleResult } from "../lib/bedroomLayout";
 import RoomSvg, { DEFAULT_FURNITURE_COLOR, FURNITURE_COLORS, fmtMm, scoreTone } from "./RoomSvg";
+
+// ─────────────────────────────────────────────
+// Rule-by-rule report (bedroom engine)
+// ─────────────────────────────────────────────
+const RULE_TONE: Record<BedroomRuleResult["status"], string> = {
+  satisfied: "bg-emerald-400",
+  partly_satisfied: "bg-amber-400",
+  not_satisfied: "bg-red-400",
+  not_applicable: "bg-zinc-600",
+};
+
+function RuleCheck({ rules }: { rules: BedroomRuleResult[] }) {
+  return (
+    <div className="glass-card rounded-2xl border border-white/5 p-5">
+      <h4 className="text-sm font-bold text-zinc-300 mb-3 flex items-center gap-2">
+        <CheckCircle2 className="w-4 h-4 text-teal-400" /> Rule check
+      </h4>
+      <ul className="space-y-1.5">
+        {rules.map((r, i) => (
+          <li key={r.id} title={`${r.rule}\n\n${r.detail}`} className="flex items-center gap-2 text-xs">
+            <span className={`w-2 h-2 rounded-full shrink-0 ${RULE_TONE[r.status]}`} />
+            <span className="text-zinc-400 flex-1 min-w-0 truncate">{i + 1}. {r.title}</span>
+            <span className="text-zinc-200 font-semibold shrink-0">
+              {r.status === "not_applicable" ? "n/a" : `${r.points.toFixed(1)} / ${r.max_points.toFixed(0)}`}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 // ─────────────────────────────────────────────
 // Furniture detail (explainability) panel
@@ -86,6 +118,7 @@ export default function LivingRoomPlan({ data }: { data: GenerateLivingRoomLayou
 
   const circulation = layout.validation.circulation;
   const missingRequired = layout.unplaced_furniture.filter((f) => f.required);
+  const rules = Array.isArray(layout.rules) ? (layout.rules as BedroomRuleResult[]) : null;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -148,6 +181,8 @@ export default function LivingRoomPlan({ data }: { data: GenerateLivingRoomLayou
             ))}
           </ul>
         </div>
+
+        {rules && <RuleCheck rules={rules} />}
 
         {circulation && (
           <div className="glass-card rounded-2xl border border-white/5 p-5">

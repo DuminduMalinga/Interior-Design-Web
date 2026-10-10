@@ -268,6 +268,24 @@ Weights live at `backend/wall_detector/models/best.pt` (git-ignored). The fronte
 reads `VITE_DETECTOR_URL` (default `http://localhost:8000`). See
 [`backend/wall_detector/README.md`](backend/wall_detector/README.md) for details.
 
+### 🛏️ Bedroom Layout service (rule-based furniture layouts)
+
+When the room picked on Select Room is a bedroom, View Layouts calls a second
+local Python service that arranges a bed, bedside tables, wardrobe, drawers and
+a study desk according to twelve furniture-arrangement rules, and scores every
+layout against each rule. Pure Python — no model, no database.
+
+```bash
+cd backend/bedroom_layout
+python -m venv venv
+source venv/Scripts/activate     # Git Bash  (venv\Scripts\activate in PowerShell; venv/bin/activate on POSIX)
+pip install -r requirements.txt
+uvicorn api:app --port 8200
+```
+
+The frontend reads `VITE_BEDROOM_LAYOUT_URL` (default `http://localhost:8200`). See
+[`backend/bedroom_layout/README.md`](backend/bedroom_layout/README.md) for the rules and the API.
+
 ### 📦 Production Build
 
 ```bash

@@ -14,6 +14,19 @@ const COMPONENT_LABELS: Record<string, string> = {
   usability: "Usability",
   completeness: "Completeness",
   layout_specific: "Layout-specific",
+  // bedroom engine: one component per rule
+  entrance_view: "1 · Bed sees the entrance",
+  door_distance: "2 · Distance from the doorway",
+  door_swing: "3 · Door opening direction",
+  bed_windows: "4 · Bed and windows",
+  bed_access: "5 · Space beside the bed",
+  bedside_tables: "6 · Bedside tables in reach",
+  storage_clearance: "7 · Clearance at wardrobe and drawers",
+  walking_path: "8 · Clear walking path",
+  desk_and_chair: "9 · Desk and chair off the path",
+  tall_furniture: "10 · Tall furniture clear of windows",
+  room_fit: "11 · Fit to room and occupants",
+  reach_and_height: "12 · Convenient heights and reach",
 };
 
 function ScoreBreakdown({ components }: { components: Record<string, number> }) {

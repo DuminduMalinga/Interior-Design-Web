@@ -12,7 +12,9 @@ ultralytics==8.4.137
 torch==2.13.0
 torchvision==0.28.0
 pillow==12.3.0
-numpy==2.5.2
+# numpy 2.5 needs Python 3.12+; 2.4.6 is the newest release for 3.11
+numpy==2.5.2; python_version >= "3.12"
+numpy==2.4.6; python_version < "3.12"
 
 # OCR — reads the printed room label inside each detected room box
 easyocr==1.7.2

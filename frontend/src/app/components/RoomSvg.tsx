@@ -68,6 +68,10 @@ export const FURNITURE_COLORS: Record<string, { fill: string; stroke: string }> 
   desk: { fill: "#0d4a3d", stroke: "#34d399" },
   lamp: { fill: "#5a4008", stroke: "#fde047" },
   rug: { fill: "#4c0519", stroke: "#fb7185" },
+  bed: { fill: "#1e3a5f", stroke: "#60a5fa" },
+  bedside_table: { fill: "#5b3a12", stroke: "#fbbf24" },
+  wardrobe: { fill: "#312e6e", stroke: "#a78bfa" },
+  dresser: { fill: "#312e6e", stroke: "#a78bfa" },
 };
 export const DEFAULT_FURNITURE_COLOR = { fill: "#27272a", stroke: "#a1a1aa" };
 
