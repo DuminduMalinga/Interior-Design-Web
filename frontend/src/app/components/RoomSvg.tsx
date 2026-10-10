@@ -88,6 +88,14 @@ export const FURNITURE_COLORS: Record<string, { fill: string; stroke: string }> 
   towel_ring: { fill: "#7c2d12", stroke: "#fb923c" },
   grab_bar: { fill: "#7f1d1d", stroke: "#f87171" },
   floor_drain: { fill: "#18181b", stroke: "#a1a1aa" },
+  sideboard: { fill: "#312e6e", stroke: "#a78bfa" },
+  pendant_light: { fill: "#5a4008", stroke: "#fde047" },
+  dressing_table: { fill: "#0d4a3d", stroke: "#34d399" },
+  stool: { fill: "#1e3a5f", stroke: "#60a5fa" },
+  bedside_lamp: { fill: "#5a4008", stroke: "#fde047" },
+  ceiling_light: { fill: "#5a4008", stroke: "#fde047" },
+  desk_lamp: { fill: "#5a4008", stroke: "#fde047" },
+  mirror_light: { fill: "#5a4008", stroke: "#fde047" },
 };
 export const DEFAULT_FURNITURE_COLOR = { fill: "#27272a", stroke: "#a1a1aa" };
 
@@ -233,7 +241,7 @@ export default function RoomSvg({
       {layout.furniture.map((item) => {
         const color = FURNITURE_COLORS[item.type] ?? DEFAULT_FURNITURE_COLOR;
         const isRug = item.type === "rug";
-        // Bathroom wall fittings and the floor drain are thin markers: no label, no facing notch.
+        // Wall fittings, the floor drain and lights are markers: no label, no facing notch.
         const isFitting = !!item.mounted && item.mounted !== "floor";
         const selected = item.id === selectedId;
         const parts = item.shape === "l" && item.parts ? item.parts : [item.bbox];

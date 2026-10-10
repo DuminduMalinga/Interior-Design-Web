@@ -8,6 +8,8 @@ interface ImportMetaEnv {
   readonly VITE_BEDROOM_LAYOUT_URL?: string;
   readonly VITE_KITCHEN_LAYOUT_URL?: string;
   readonly VITE_BATHROOM_LAYOUT_URL?: string;
+  readonly VITE_DINING_LAYOUT_URL?: string;
+  readonly VITE_MASTER_BEDROOM_LAYOUT_URL?: string;
 }
 
 interface ImportMeta {

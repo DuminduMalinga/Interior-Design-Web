@@ -56,8 +56,8 @@ export interface LayoutFurnitureItem {
   shape?: "l";
   variant?: "left" | "right";
   parts?: [number, number, number, number][];
-  /** Bathroom engine only: "wall" fittings and the floor "drain" take up no floor. */
-  mounted?: "floor" | "wall" | "drain";
+  /** Bathroom "wall" fittings and floor "drain", "ceiling" / "table" lights: they take up no floor. */
+  mounted?: "floor" | "wall" | "drain" | "ceiling" | "table";
 }
 
 export interface LivingRoomLayoutResult {

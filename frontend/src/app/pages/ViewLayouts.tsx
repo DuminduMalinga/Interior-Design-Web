@@ -40,6 +40,12 @@ import {
   generateAllBathroomLayouts,
   type GenerateAllBathroomLayoutsResponse,
 } from "../lib/bathroomLayout";
+import {
+  generateAllDiningLayouts,
+  type DiningSeats,
+  type GenerateAllDiningLayoutsResponse,
+} from "../lib/diningLayout";
+import { generateAllMasterBedroomLayouts } from "../lib/masterBedroomLayout";
 import LivingRoomLayoutGrid from "../components/LivingRoomLayoutGrid";
 import LivingRoomPlan from "../components/LivingRoomPlan";
 import {
@@ -879,7 +885,8 @@ export default function ViewLayouts() {
   const location = useLocation();
   // ── Real layout generation ───────────────────────────────────────────
   // SelectRoom navigates here with { room, detection } in router state.
-  // Rooms whose OCR'd name looks like a living room, a bathroom, a bedroom or a kitchen get
+  // Rooms whose OCR'd name looks like a living room, a bathroom, a bedroom, a kitchen or a
+  // dining area get
   // their rule-based engine; everything else keeps the placeholder below.
   const navState = location.state as
     | { floorPlanId?: string; room?: { id: string; name: string }; detection?: DetectionResult }
@@ -890,8 +897,13 @@ export default function ViewLayouts() {
   const isBathroom =
     !!apiRoom && !isLivingRoom && /bath|toilet|w\.?c|wash\s*room|shower|rest\s*room|lavatory/i.test(apiRoom.name);
   const isBedroom = !!apiRoom && !isLivingRoom && !isBathroom && /bed/i.test(apiRoom.name);
+  // A master bedroom is a bedroom with its own, fuller rule set (dressing table, lighting, en-suite route).
+  const isMasterBedroom = isBedroom && /master|primary|main|\bm\.?\s*bed/i.test(apiRoom.name);
   const isKitchen = !!apiRoom && !isLivingRoom && !isBathroom && !isBedroom && /kitchen/i.test(apiRoom.name);
-  const hasEngine = isLivingRoom || isBathroom || isBedroom || isKitchen;
+  // Checked last: a "Kitchen / Dining" room keeps the kitchen engine, which seats a table itself.
+  const isDining =
+    !!apiRoom && !isLivingRoom && !isBathroom && !isBedroom && !isKitchen && /din/i.test(apiRoom.name);
+  const hasEngine = isLivingRoom || isBathroom || isBedroom || isKitchen || isDining;
 
   const [livingAll, setLivingAll] = useState<GenerateAllLivingRoomLayoutsResponse | null>(null);
   const [selectedLayoutType, setSelectedLayoutType] = useState<string | null>(null);
@@ -907,7 +919,20 @@ export default function ViewLayouts() {
   // Bathroom rules 13 and 15 apply only when the user has mobility needs.
   const [bathroomAccessible, setBathroomAccessible] = useState(false);
   const bathroomAll = isBathroom ? (livingAll as GenerateAllBathroomLayoutsResponse | null) : null;
-  const roomLabel = isBathroom ? "Bathroom" : isBedroom ? "Bedroom" : isKitchen ? "Kitchen" : "Living Room";
+  // Dining rule 12 needs a seat count; null lets the engine decide from the room size.
+  const [diningSeats, setDiningSeats] = useState<DiningSeats | null>(null);
+  const diningAll = isDining ? (livingAll as GenerateAllDiningLayoutsResponse | null) : null;
+  const roomLabel = isBathroom
+    ? "Bathroom"
+    : isMasterBedroom
+      ? "Master Bedroom"
+      : isBedroom
+        ? "Bedroom"
+        : isKitchen
+        ? "Kitchen"
+        : isDining
+          ? "Dining Area"
+          : "Living Room";
 
   useEffect(() => {
     if (!hasEngine || !apiRoom || !navState?.detection) return;
@@ -933,10 +958,16 @@ export default function ViewLayouts() {
     const generated: Promise<GenerateAllLivingRoomLayoutsResponse> = isBathroom
       ? generateAllBathroomLayouts({ ...request, rooms, accessible: bathroomAccessible })
       : isBedroom
-        ? generateAllBedroomLayouts({ ...request, rooms, occupants: bedroomOccupants ?? undefined })
+        ? (isMasterBedroom ? generateAllMasterBedroomLayouts : generateAllBedroomLayouts)({
+            ...request,
+            rooms,
+            occupants: bedroomOccupants ?? undefined,
+          })
         : isKitchen
           ? generateAllKitchenLayouts({ ...request, rooms, diningTable: kitchenTable ?? undefined })
-          : generateAllLivingRoomLayouts(request);
+          : isDining
+            ? generateAllDiningLayouts({ ...request, rooms, seats: diningSeats ?? undefined })
+            : generateAllLivingRoomLayouts(request);
     generated
       .then(async (res) => {
         if (cancelled) return;
@@ -958,8 +989,8 @@ export default function ViewLayouts() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasEngine, isBathroom, isBedroom, isKitchen, apiRoom?.id, navState?.detection, livingRetry, bedroomOccupants,
-    kitchenTable, bathroomAccessible]);
+  }, [hasEngine, isBathroom, isBedroom, isMasterBedroom, isKitchen, isDining, apiRoom?.id, navState?.detection, livingRetry,
+    bedroomOccupants, kitchenTable, bathroomAccessible, diningSeats]);
 
   const rawSelectedLayout = livingAll?.layouts.find((l) => l.layout.type === selectedLayoutType) ?? null;
   const selectedLayoutEntry = rawSelectedLayout && !isLayoutError(rawSelectedLayout) ? rawSelectedLayout : null;
@@ -1011,9 +1042,11 @@ export default function ViewLayouts() {
               {isBathroom
                 ? `Layouts generated by the rule-based engine for "${apiRoom.name}", one per shower position and scored against the fifteen bathroom rules`
                 : isBedroom
-                ? `Layouts generated by the rule-based engine for "${apiRoom.name}", one per bed position and scored against the twelve bedroom rules`
+                ? `Layouts generated by the rule-based engine for "${apiRoom.name}", one per bed position and scored against the ${isMasterBedroom ? "fifteen master-bedroom" : "twelve bedroom"} rules`
                 : isKitchen
                   ? `Layouts generated by the rule-based engine for "${apiRoom.name}", the best of each kitchen shape and scored against the twelve kitchen rules`
+                  : isDining
+                  ? `Layouts generated by the rule-based engine for "${apiRoom.name}", one per table position and scored against the twelve dining-area rules`
                   : `All six layout types generated by the rule-based engine for "${apiRoom.name}"`}
               {" "}— pick one to see the full structure and every placement's reasoning.
             </p>
@@ -1034,7 +1067,7 @@ export default function ViewLayouts() {
                 {bedroomAll && (
                   <span className="text-xs text-zinc-500">
                     {bedroomAll.occupantsSource === "inferred"
-                      ? `Planned for ${bedroomAll.occupants} from the room size`
+                      ? `Planned for ${bedroomAll.occupants} ${isMasterBedroom ? "by default" : "from the room size"}`
                       : `Planned for ${bedroomAll.occupants}`}
                     : {bedroomAll.programme.summary}
                   </span>
@@ -1057,6 +1090,30 @@ export default function ViewLayouts() {
                 ))}
                 {bathroomAll && (
                   <span className="text-xs text-zinc-500">Planned with: {bathroomAll.programme.summary}</span>
+                )}
+              </div>
+            )}
+            {isDining && (
+              <div className="flex flex-wrap items-center gap-2 mt-4">
+                <span className="text-xs text-zinc-500">Seats</span>
+                {([null, 2, 4, 6, 8] as const).map((count) => (
+                  <button key={count ?? "auto"} disabled={livingLoading}
+                    onClick={() => setDiningSeats(count)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                      diningSeats === count
+                        ? "bg-teal-500/10 text-teal-300 border-teal-500/30"
+                        : "bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10"
+                    }`}>
+                    {count ?? "Auto"}
+                  </button>
+                ))}
+                {diningAll && (
+                  <span className="text-xs text-zinc-500">
+                    {diningAll.seatsSource === "inferred"
+                      ? `Planned for ${diningAll.seats} from the room size`
+                      : `Planned for ${diningAll.seats}`}
+                    : {diningAll.programme.summary}
+                  </span>
                 )}
               </div>
             )}
@@ -1085,14 +1142,16 @@ export default function ViewLayouts() {
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
               className="glass-card rounded-3xl border border-white/5 p-12 flex flex-col items-center gap-4 text-center">
               <Loader2 className="w-10 h-10 text-teal-400 animate-spin" />
-              <p className="text-zinc-200 font-semibold">{isBathroom ? "Generating bathroom layouts…" : isBedroom ? "Generating bedroom layouts…" : isKitchen ? "Generating kitchen layouts…" : "Generating all six layouts…"}</p>
+              <p className="text-zinc-200 font-semibold">{isBathroom ? "Generating bathroom layouts…" : isMasterBedroom ? "Generating master bedroom layouts…" : isBedroom ? "Generating bedroom layouts…" : isKitchen ? "Generating kitchen layouts…" : isDining ? "Generating dining layouts…" : "Generating all six layouts…"}</p>
               <p className="text-zinc-600 text-sm max-w-sm">
                 {isBathroom
                   ? "Trying the shower in every corner with the toilet and the basin on every wall, and checking each arrangement against the fifteen rules — this takes about a second."
                   : isBedroom
-                  ? "Trying the bed on every wall and checking each arrangement against the twelve rules — this takes about a second."
+                  ? `Trying the bed on every wall and checking each arrangement against the ${isMasterBedroom ? "fifteen" : "twelve"} rules — this takes about a second.`
                   : isKitchen
                     ? "Trying every kitchen shape the walls allow and checking each against the twelve rules — this takes about a second."
+                    : isDining
+                    ? "Trying the table across the whole floor, both ways round, and checking each position against the twelve rules — this takes under a second."
                     : "Running hard-constraint checks, candidate generation and beam-search optimisation for each layout type — this can take up to 20 seconds."}
               </p>
             </motion.div>

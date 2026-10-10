@@ -323,6 +323,42 @@ uvicorn api:app --port 8400
 The frontend reads `VITE_BATHROOM_LAYOUT_URL` (default `http://localhost:8400`). See
 [`backend/bathroom_layout/README.md`](backend/bathroom_layout/README.md).
 
+### 🍽️ Dining Layout service (rule-based dining-area layouts)
+
+When the room picked is a dining room or dining area, View Layouts calls a
+fifth local Python service that places the dining table and chairs, a sideboard
+and the pendant light by twelve dining-area rules. Same setup again:
+
+```bash
+cd backend/dining_layout
+python -m venv venv
+source venv/Scripts/activate
+pip install -r requirements.txt
+uvicorn api:app --port 8500
+```
+
+The frontend reads `VITE_DINING_LAYOUT_URL` (default `http://localhost:8500`). See
+[`backend/dining_layout/README.md`](backend/dining_layout/README.md).
+
+### 🛏️ Master Bedroom Layout service (rule-based master-bedroom layouts)
+
+When the room picked is a master bedroom (its name contains "master", "main" or
+"primary"), View Layouts calls a sixth local Python service instead of the
+bedroom one. It adds a dressing table, the lighting, both-sides bed access and
+the route to an en-suite bathroom, scored against fifteen master-bedroom rules.
+Same setup again:
+
+```bash
+cd backend/master_bedroom_layout
+python -m venv venv
+source venv/Scripts/activate
+pip install -r requirements.txt
+uvicorn api:app --port 8600
+```
+
+The frontend reads `VITE_MASTER_BEDROOM_LAYOUT_URL` (default `http://localhost:8600`). See
+[`backend/master_bedroom_layout/README.md`](backend/master_bedroom_layout/README.md).
+
 ### 📦 Production Build
 
 ```bash
