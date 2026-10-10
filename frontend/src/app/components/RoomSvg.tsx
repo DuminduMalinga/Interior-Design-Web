@@ -68,6 +68,26 @@ export const FURNITURE_COLORS: Record<string, { fill: string; stroke: string }> 
   desk: { fill: "#0d4a3d", stroke: "#34d399" },
   lamp: { fill: "#5a4008", stroke: "#fde047" },
   rug: { fill: "#4c0519", stroke: "#fb7185" },
+  bed: { fill: "#1e3a5f", stroke: "#60a5fa" },
+  bedside_table: { fill: "#5b3a12", stroke: "#fbbf24" },
+  wardrobe: { fill: "#312e6e", stroke: "#a78bfa" },
+  dresser: { fill: "#312e6e", stroke: "#a78bfa" },
+  sink: { fill: "#1e3a5f", stroke: "#60a5fa" },
+  stove: { fill: "#4c1d1d", stroke: "#f87171" },
+  fridge: { fill: "#312e6e", stroke: "#a78bfa" },
+  counter: { fill: "#27272a", stroke: "#a1a1aa" },
+  utensil_drawers: { fill: "#5b3a12", stroke: "#fbbf24" },
+  dining_table: { fill: "#0d4a3d", stroke: "#34d399" },
+  dining_chair: { fill: "#134e4a", stroke: "#2dd4bf" },
+  shower: { fill: "#1e3a5f", stroke: "#60a5fa" },
+  toilet: { fill: "#5b3a12", stroke: "#fbbf24" },
+  washbasin: { fill: "#134e4a", stroke: "#2dd4bf" },
+  bathroom_cabinet: { fill: "#312e6e", stroke: "#a78bfa" },
+  mirror: { fill: "#0c4a6e", stroke: "#7dd3fc" },
+  towel_rail: { fill: "#7c2d12", stroke: "#fb923c" },
+  towel_ring: { fill: "#7c2d12", stroke: "#fb923c" },
+  grab_bar: { fill: "#7f1d1d", stroke: "#f87171" },
+  floor_drain: { fill: "#18181b", stroke: "#a1a1aa" },
 };
 export const DEFAULT_FURNITURE_COLOR = { fill: "#27272a", stroke: "#a1a1aa" };
 
@@ -117,6 +137,8 @@ export default function RoomSvg({
 
   const doors = layout.openings.doors;
   const windows = layout.openings.windows;
+  // Kitchen engine only: the work triangle between sink, stove and refrigerator.
+  const trianglePoints = (layout.work_triangle as { points?: Vec[] } | undefined)?.points;
 
   const wallSegments = (["north", "south", "east", "west"] as Wall[]).map((wall) => {
     const length = wallLength(wall, room);
@@ -211,6 +233,8 @@ export default function RoomSvg({
       {layout.furniture.map((item) => {
         const color = FURNITURE_COLORS[item.type] ?? DEFAULT_FURNITURE_COLOR;
         const isRug = item.type === "rug";
+        // Bathroom wall fittings and the floor drain are thin markers: no label, no facing notch.
+        const isFitting = !!item.mounted && item.mounted !== "floor";
         const selected = item.id === selectedId;
         const parts = item.shape === "l" && item.parts ? item.parts : [item.bbox];
 
@@ -243,12 +267,12 @@ export default function RoomSvg({
                 />
               );
             })}
-            {!isRug && !compact && (
+            {!isRug && !isFitting && !compact && (
               <line x1={fp0[0]} y1={fp0[1]} x2={fp1[0]} y2={fp1[1]}
                 stroke={selected ? "#ffffff" : color.stroke} strokeWidth={2.5}
                 vectorEffect="non-scaling-stroke" />
             )}
-            {!isRug && !compact && (
+            {!isRug && !isFitting && !compact && (
               <text
                 x={toScreen([(item.bbox[0] + item.bbox[2]) / 2, (item.bbox[1] + item.bbox[3]) / 2])[0]}
                 y={toScreen([(item.bbox[0] + item.bbox[2]) / 2, (item.bbox[1] + item.bbox[3]) / 2])[1]}
@@ -265,6 +289,18 @@ export default function RoomSvg({
           </g>
         );
       })}
+
+      {/* work triangle */}
+      {trianglePoints && trianglePoints.length === 3 && (
+        <polygon
+          points={trianglePoints.map((p) => toScreen(p).join(",")).join(" ")}
+          fill="#f87171" fillOpacity={0.06} stroke="#f87171" strokeOpacity={0.8}
+          strokeWidth={compact ? 1 : 1.5} strokeDasharray="6 4" vectorEffect="non-scaling-stroke"
+          style={{ pointerEvents: "none" }}
+        >
+          {!compact && <title>Work triangle: sink, stove, refrigerator</title>}
+        </polygon>
+      )}
     </svg>
   );
 }

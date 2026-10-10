@@ -116,7 +116,7 @@ export default function AuthCallback() {
 
   return (
     <div
-      className="min-h-screen w-full bg-[#0a0a0f] flex items-center justify-center p-4 relative overflow-hidden"
+      className="min-h-screen w-full bg-background flex items-center justify-center p-4 relative overflow-hidden"
       style={{ fontFamily: "'Inter', sans-serif" }}
     >
       {/* Ambient orbs */}

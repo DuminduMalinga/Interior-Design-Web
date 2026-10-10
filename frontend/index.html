@@ -5,6 +5,18 @@
       <meta charset="UTF-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       <title>Untitled</title>
+      <script>
+        // Apply the saved theme before first paint to avoid a dark/light flash.
+        // Keep the storage key in sync with src/app/context/ThemeContext.tsx.
+        (function () {
+          var theme = "dark";
+          try {
+            if (localStorage.getItem("theme-preference") === "light") theme = "light";
+          } catch (e) {}
+          document.documentElement.classList.add(theme);
+          document.documentElement.style.colorScheme = theme;
+        })();
+      </script>
     </head>
 
     <body>

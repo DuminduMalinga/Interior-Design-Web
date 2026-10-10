@@ -35,6 +35,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router";
 import { supabase } from "../lib/supabaseClient";
 import { useCurrentUserProfile } from "../context/UserContext";
+import ThemeToggle from "../components/ThemeToggle";
 
 // ─────────────────────────────────────────────
 // Types
@@ -178,7 +179,7 @@ function ApproveDeletionModal({
         exit={{ scale: 0.9, opacity: 0, y: 20 }}
         transition={{ type: "spring", stiffness: 320, damping: 26 }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md bg-[#0f0f17] border border-white/10 rounded-3xl shadow-2xl overflow-hidden"
+        className="w-full max-w-md bg-popover border border-white/10 rounded-3xl shadow-2xl overflow-hidden"
       >
         <div className="bg-gradient-to-r from-red-500 to-rose-600 px-6 py-5">
           <div className="flex items-center gap-3">
@@ -290,7 +291,7 @@ function DeleteModal({
         exit={{ scale: 0.9, opacity: 0, y: 20 }}
         transition={{ type: "spring", stiffness: 320, damping: 26 }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md bg-[#0f0f17] border border-white/10 rounded-3xl shadow-2xl overflow-hidden"
+        className="w-full max-w-md bg-popover border border-white/10 rounded-3xl shadow-2xl overflow-hidden"
       >
         {/* Red header */}
         <div className="bg-gradient-to-r from-red-500 to-rose-600 px-6 py-5">
@@ -412,7 +413,7 @@ function ViewUserModal({
         exit={{ scale: 0.92, opacity: 0, y: 16 }}
         transition={{ type: "spring", stiffness: 300, damping: 24 }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm bg-[#0f0f17] border border-white/10 rounded-3xl shadow-2xl overflow-hidden"
+        className="w-full max-w-sm bg-popover border border-white/10 rounded-3xl shadow-2xl overflow-hidden"
       >
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-700 px-6 py-5 flex items-center justify-between">
@@ -789,7 +790,7 @@ export default function AdminManageAccounts() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#0a0a0f] flex flex-col" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="min-h-screen w-full bg-background flex flex-col" style={{ fontFamily: "'Inter', sans-serif" }}>
       <div className="absolute inset-0 dot-grid pointer-events-none" />
       <div className="absolute top-1/4 right-1/3 w-[500px] h-[500px] bg-teal-500/5 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-1/4 left-1/4 w-[400px] h-[400px] bg-violet-500/5 rounded-full blur-[120px] pointer-events-none" />
@@ -874,6 +875,7 @@ export default function AdminManageAccounts() {
 
             {/* Right */}
             <div className="flex items-center gap-3">
+              <ThemeToggle />
               {/* Notification bell */}
               <div ref={notifRef} className="relative">
                 <button
@@ -896,7 +898,7 @@ export default function AdminManageAccounts() {
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -8, scale: 0.95 }}
                       transition={{ duration: 0.15 }}
-                      className="absolute right-0 top-full mt-2 w-80 z-50 rounded-2xl border border-white/10 bg-[#13131a] shadow-2xl overflow-hidden"
+                      className="absolute right-0 top-full mt-2 w-80 z-50 rounded-2xl border border-white/10 bg-popover shadow-2xl overflow-hidden"
                     >
                       {/* Header */}
                       <div className="flex items-center justify-between px-4 py-3 border-b border-white/8 bg-white/3">
@@ -1045,7 +1047,7 @@ export default function AdminManageAccounts() {
               />
               <motion.aside initial={{ x: -280 }} animate={{ x: 0 }} exit={{ x: -280 }}
                 transition={{ type: "spring", stiffness: 300, damping: 28 }}
-                className="lg:hidden fixed left-0 top-[69px] bottom-0 w-60 bg-[#0f0f1a] border-r border-white/10 z-50 flex flex-col shadow-2xl">
+                className="lg:hidden fixed left-0 top-[69px] bottom-0 w-60 bg-sidebar border-r border-white/10 z-50 flex flex-col shadow-2xl">
                 <nav className="p-4 space-y-1 flex-1 overflow-y-auto">
                   {ADMIN_NAV.map((item) => {
                     const Icon = item.icon;
@@ -1170,7 +1172,7 @@ export default function AdminManageAccounts() {
               </div>
 
               {/* Body */}
-              <div className="bg-[#0f0f1a]">
+              <div className="bg-sidebar">
                 {requestsLoading ? (
                   <div className="flex items-center justify-center gap-3 py-10 text-zinc-500">
                     <Loader2 className="w-5 h-5 animate-spin text-red-400" />
@@ -1188,7 +1190,7 @@ export default function AdminManageAccounts() {
                         Run the SQL below in your Supabase SQL Editor to grant admin access.
                       </p>
                     </div>
-                    <div className="w-full max-w-xl bg-[#0a0a0f] border border-amber-500/20 rounded-xl p-4 text-left">
+                    <div className="w-full max-w-xl bg-background border border-amber-500/20 rounded-xl p-4 text-left">
                       <p className="text-amber-400 text-[11px] font-bold mb-2 flex items-center gap-1.5">
                         <AlertTriangle className="w-3 h-3" /> Supabase SQL Editor → run this:
                       </p>
@@ -1316,7 +1318,7 @@ USING (
                   <select
                     value={roleFilter}
                     onChange={(e) => { setRoleFilter(e.target.value as "All" | Role); setPage(1); }}
-                    className="pl-9 pr-8 py-2.5 border border-white/10 bg-[#0f0f1a] rounded-xl text-sm outline-none focus:border-teal-500/50 appearance-none cursor-pointer font-medium text-zinc-300 min-w-[130px]"
+                    className="pl-9 pr-8 py-2.5 border border-white/10 bg-sidebar rounded-xl text-sm outline-none focus:border-teal-500/50 appearance-none cursor-pointer font-medium text-zinc-300 min-w-[130px]"
                   >
                     <option value="All">All Roles</option>
                     <option value="Admin">Admin</option>

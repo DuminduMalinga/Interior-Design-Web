@@ -31,6 +31,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router";
 import { useCurrentUserProfile } from "../context/UserContext";
+import ThemeToggle from "../components/ThemeToggle";
 
 // ─────────────────────────────────────────────
 // Types
@@ -734,7 +735,7 @@ function ExportDropdown() {
             initial={{ opacity: 0, y: 6, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 6, scale: 0.95 }}
-            className="absolute right-0 top-12 z-50 w-52 bg-[#111827] border border-white/10 rounded-2xl shadow-xl overflow-hidden"
+            className="absolute right-0 top-12 z-50 w-52 bg-popover border border-white/10 rounded-2xl shadow-xl overflow-hidden"
           >
             {[
               { icon: "🖼️", label: "Download as PNG", sub: "High-res image" },
@@ -857,7 +858,7 @@ export default function RoomView3D() {
 
   return (
     <div
-      className="min-h-screen w-full relative transition-colors duration-500 bg-[#0a0a0f]"
+      className="min-h-screen w-full relative transition-colors duration-500 bg-background"
       style={{ fontFamily: "'Inter', sans-serif" }}
     >
       {/* Dot grid / blueprint grid */}
@@ -881,6 +882,7 @@ export default function RoomView3D() {
                 <p className="text-xs text-zinc-500">Welcome back,</p>
                 <p className="font-semibold text-white text-sm">{displayName} 👋</p>
               </div>
+              <ThemeToggle />
               <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                 onClick={handleLogout}
                 className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors">
@@ -967,7 +969,7 @@ export default function RoomView3D() {
               style={{ minHeight: isFullscreen ? "80vh" : 480 }}
             >
               {/* Viewer header bar */}
-              <div className="flex items-center justify-between px-4 py-3 border-b bg-[#0f172a]/90 border-white/5 backdrop-blur-sm">
+              <div className="flex items-center justify-between px-4 py-3 border-b bg-popover/90 border-white/5 backdrop-blur-sm">
                 <div className="flex items-center gap-3">
                   <div className="flex gap-1.5">
                     <span className="w-3 h-3 rounded-full bg-red-400" />
@@ -1017,7 +1019,7 @@ export default function RoomView3D() {
                     <motion.div
                       initial={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
-                      className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-[#0a0a0f]"
+                      className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-background"
                     >
                       {/* Spinning cube loader */}
                       <div className="relative w-20 h-20">
@@ -1060,7 +1062,7 @@ export default function RoomView3D() {
 
                 {/* Error state */}
                 {hasError && (
-                  <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-[#0a0a0f]">
+                  <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-background">
                     <div className="bg-red-100 p-4 rounded-2xl">
                       <AlertCircle className="w-10 h-10 text-red-500" />
                     </div>

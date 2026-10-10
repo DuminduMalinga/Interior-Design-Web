@@ -24,12 +24,25 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { useLocation, useNavigate } from "react-router";
 import { useCurrentUserProfile } from "../context/UserContext";
+import ThemeToggle from "../components/ThemeToggle";
 import type { DetectionResult } from "../lib/wallDetector";
 import {
   generateAllLivingRoomLayouts,
   isLayoutError,
   type GenerateAllLivingRoomLayoutsResponse,
 } from "../lib/livingRoomLayout";
+import {
+  generateAllBedroomLayouts,
+  type GenerateAllBedroomLayoutsResponse,
+} from "../lib/bedroomLayout";
+import {
+  generateAllKitchenLayouts,
+  type GenerateAllKitchenLayoutsResponse,
+} from "../lib/kitchenLayout";
+import {
+  generateAllBathroomLayouts,
+  type GenerateAllBathroomLayoutsResponse,
+} from "../lib/bathroomLayout";
 import LivingRoomLayoutGrid from "../components/LivingRoomLayoutGrid";
 import LivingRoomPlan from "../components/LivingRoomPlan";
 import {
@@ -869,24 +882,40 @@ export default function ViewLayouts() {
   const location = useLocation();
   const { profile, signOut } = useCurrentUserProfile();
 
-  // ── Real living-room generation ──────────────────────────────────────
+  // ── Real layout generation ───────────────────────────────────────────
   // SelectRoom navigates here with { room, detection } in router state.
-  // Only rooms whose OCR'd name looks like a living room get the real
-  // rule-based engine for now; everything else keeps the placeholder below.
+  // Rooms whose OCR'd name looks like a living room, a bathroom, a bedroom or a kitchen get
+  // their rule-based engine; everything else keeps the placeholder below.
   const navState = location.state as
     | { floorPlanId?: string; room?: { id: string; name: string }; detection?: DetectionResult }
     | null;
   const apiRoom = navState?.detection?.rooms.find((r) => r.id === navState.room?.id);
   const isLivingRoom = !!apiRoom && /living/i.test(apiRoom.name);
+  // Checked before the bedroom so an en-suite ("Bedroom 1 Bath") gets the bathroom engine.
+  const isBathroom =
+    !!apiRoom && !isLivingRoom && /bath|toilet|w\.?c|wash\s*room|shower|rest\s*room|lavatory/i.test(apiRoom.name);
+  const isBedroom = !!apiRoom && !isLivingRoom && !isBathroom && /bed/i.test(apiRoom.name);
+  const isKitchen = !!apiRoom && !isLivingRoom && !isBathroom && !isBedroom && /kitchen/i.test(apiRoom.name);
+  const hasEngine = isLivingRoom || isBathroom || isBedroom || isKitchen;
 
   const [livingAll, setLivingAll] = useState<GenerateAllLivingRoomLayoutsResponse | null>(null);
   const [selectedLayoutType, setSelectedLayoutType] = useState<string | null>(null);
   const [livingError, setLivingError] = useState<string | null>(null);
   const [livingLoading, setLivingLoading] = useState(false);
   const [livingRetry, setLivingRetry] = useState(0);
+  // Bedroom rule 11 needs a head count; null lets the engine infer it from the room size.
+  const [bedroomOccupants, setBedroomOccupants] = useState<1 | 2 | null>(null);
+  const bedroomAll = isBedroom ? (livingAll as GenerateAllBedroomLayoutsResponse | null) : null;
+  // Kitchen rule 10 concerns a dining table; null lets the engine decide from the room size.
+  const [kitchenTable, setKitchenTable] = useState<boolean | null>(null);
+  const kitchenAll = isKitchen ? (livingAll as GenerateAllKitchenLayoutsResponse | null) : null;
+  // Bathroom rules 13 and 15 apply only when the user has mobility needs.
+  const [bathroomAccessible, setBathroomAccessible] = useState(false);
+  const bathroomAll = isBathroom ? (livingAll as GenerateAllBathroomLayoutsResponse | null) : null;
+  const roomLabel = isBathroom ? "Bathroom" : isBedroom ? "Bedroom" : isKitchen ? "Kitchen" : "Living Room";
 
   useEffect(() => {
-    if (!isLivingRoom || !apiRoom || !navState?.detection) return;
+    if (!hasEngine || !apiRoom || !navState?.detection) return;
     let cancelled = false;
     setLivingLoading(true);
     setLivingError(null);
@@ -900,11 +929,20 @@ export default function ViewLayouts() {
     const scaleMPerPx = navState.detection.scaleMmPerPx
       ? navState.detection.scaleMmPerPx / 1000
       : undefined;
-    generateAllLivingRoomLayouts({
+    const request = {
       room: { id: apiRoom.id, name: apiRoom.name, bbox: apiRoom.bbox },
       detections: openings.map((d) => ({ id: d.id, class: d.class, bbox: d.bbox })),
       scaleMPerPx,
-    })
+    };
+    const rooms = navState.detection.rooms.map((r) => ({ id: r.id, name: r.name, bbox: r.bbox }));
+    const generated: Promise<GenerateAllLivingRoomLayoutsResponse> = isBathroom
+      ? generateAllBathroomLayouts({ ...request, rooms, accessible: bathroomAccessible })
+      : isBedroom
+        ? generateAllBedroomLayouts({ ...request, rooms, occupants: bedroomOccupants ?? undefined })
+        : isKitchen
+          ? generateAllKitchenLayouts({ ...request, rooms, diningTable: kitchenTable ?? undefined })
+          : generateAllLivingRoomLayouts(request);
+    generated
       .then(async (res) => {
         if (cancelled) return;
         setLivingAll(res);
@@ -925,7 +963,8 @@ export default function ViewLayouts() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLivingRoom, apiRoom?.id, navState?.detection, livingRetry]);
+  }, [hasEngine, isBathroom, isBedroom, isKitchen, apiRoom?.id, navState?.detection, livingRetry, bedroomOccupants,
+    kitchenTable, bathroomAccessible]);
 
   const rawSelectedLayout = livingAll?.layouts.find((l) => l.layout.type === selectedLayoutType) ?? null;
   const selectedLayoutEntry = rawSelectedLayout && !isLayoutError(rawSelectedLayout) ? rawSelectedLayout : null;
@@ -959,10 +998,10 @@ export default function ViewLayouts() {
 
   const selectedLayout = MOCK_LAYOUTS.find((l) => l.id === selectedId);
 
-  // ── Living room: real structure + layout from the rule-based engine ────
-  if (isLivingRoom && apiRoom) {
+  // ── Living room / bedroom: real structure + layout from the rule-based engine ────
+  if (hasEngine && apiRoom) {
     return (
-      <div className="min-h-screen w-full bg-[#0a0a0f] relative" style={{ fontFamily: "'Inter', sans-serif" }}>
+      <div className="min-h-screen w-full bg-background relative" style={{ fontFamily: "'Inter', sans-serif" }}>
         <div className="absolute inset-0 dot-grid pointer-events-none" />
         <div className="absolute top-1/4 right-1/4 w-[400px] h-[400px] bg-teal-500/5 rounded-full blur-[100px] pointer-events-none" />
         <div className="absolute bottom-1/4 left-1/4 w-[300px] h-[300px] bg-violet-500/5 rounded-full blur-[100px] pointer-events-none" />
@@ -984,6 +1023,7 @@ export default function ViewLayouts() {
                 <p className="text-xs text-zinc-500">Welcome back,</p>
                 <p className="font-semibold text-white text-sm">{displayName} 👋</p>
               </div>
+              <ThemeToggle />
               <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                 onClick={handleLogout}
                 className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors">
@@ -1003,19 +1043,96 @@ export default function ViewLayouts() {
 
           <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mb-8">
             <h2 className="text-3xl md:text-4xl font-extrabold bg-gradient-to-r from-teal-300 to-cyan-400 bg-clip-text text-transparent">
-              Living Room Structure &amp; Layout
+              {roomLabel} Structure &amp; Layout
             </h2>
             <p className="text-zinc-500 mt-1.5 text-sm md:text-base">
-              All six layout types generated by the rule-based engine for "{apiRoom.name}" — pick one to see the full structure and every placement's reasoning.
+              {isBathroom
+                ? `Layouts generated by the rule-based engine for "${apiRoom.name}", one per shower position and scored against the fifteen bathroom rules`
+                : isBedroom
+                ? `Layouts generated by the rule-based engine for "${apiRoom.name}", one per bed position and scored against the twelve bedroom rules`
+                : isKitchen
+                  ? `Layouts generated by the rule-based engine for "${apiRoom.name}", the best of each kitchen shape and scored against the twelve kitchen rules`
+                  : `All six layout types generated by the rule-based engine for "${apiRoom.name}"`}
+              {" "}— pick one to see the full structure and every placement's reasoning.
             </p>
+            {isBedroom && (
+              <div className="flex flex-wrap items-center gap-2 mt-4">
+                <span className="text-xs text-zinc-500">Occupants</span>
+                {([null, 1, 2] as const).map((count) => (
+                  <button key={count ?? "auto"} disabled={livingLoading}
+                    onClick={() => setBedroomOccupants(count)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                      bedroomOccupants === count
+                        ? "bg-teal-500/10 text-teal-300 border-teal-500/30"
+                        : "bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10"
+                    }`}>
+                    {count ?? "Auto"}
+                  </button>
+                ))}
+                {bedroomAll && (
+                  <span className="text-xs text-zinc-500">
+                    {bedroomAll.occupantsSource === "inferred"
+                      ? `Planned for ${bedroomAll.occupants} from the room size`
+                      : `Planned for ${bedroomAll.occupants}`}
+                    : {bedroomAll.programme.summary}
+                  </span>
+                )}
+              </div>
+            )}
+            {isBathroom && (
+              <div className="flex flex-wrap items-center gap-2 mt-4">
+                <span className="text-xs text-zinc-500">Mobility needs</span>
+                {([false, true] as const).map((choice) => (
+                  <button key={String(choice)} disabled={livingLoading}
+                    onClick={() => setBathroomAccessible(choice)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                      bathroomAccessible === choice
+                        ? "bg-teal-500/10 text-teal-300 border-teal-500/30"
+                        : "bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10"
+                    }`}>
+                    {choice ? "Wheelchair & grab bars" : "None"}
+                  </button>
+                ))}
+                {bathroomAll && (
+                  <span className="text-xs text-zinc-500">Planned with: {bathroomAll.programme.summary}</span>
+                )}
+              </div>
+            )}
+            {isKitchen && (
+              <div className="flex flex-wrap items-center gap-2 mt-4">
+                <span className="text-xs text-zinc-500">Dining table</span>
+                {([null, true, false] as const).map((choice) => (
+                  <button key={String(choice)} disabled={livingLoading}
+                    onClick={() => setKitchenTable(choice)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                      kitchenTable === choice
+                        ? "bg-teal-500/10 text-teal-300 border-teal-500/30"
+                        : "bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10"
+                    }`}>
+                    {choice === null ? "Auto" : choice ? "With" : "Without"}
+                  </button>
+                ))}
+                {kitchenAll && (
+                  <span className="text-xs text-zinc-500">Planned with: {kitchenAll.programme.summary}</span>
+                )}
+              </div>
+            )}
           </motion.div>
 
           {livingLoading && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
               className="glass-card rounded-3xl border border-white/5 p-12 flex flex-col items-center gap-4 text-center">
               <Loader2 className="w-10 h-10 text-teal-400 animate-spin" />
-              <p className="text-zinc-200 font-semibold">Generating all six layouts…</p>
-              <p className="text-zinc-600 text-sm max-w-sm">Running hard-constraint checks, candidate generation and beam-search optimisation for each layout type — this can take up to 20 seconds.</p>
+              <p className="text-zinc-200 font-semibold">{isBathroom ? "Generating bathroom layouts…" : isBedroom ? "Generating bedroom layouts…" : isKitchen ? "Generating kitchen layouts…" : "Generating all six layouts…"}</p>
+              <p className="text-zinc-600 text-sm max-w-sm">
+                {isBathroom
+                  ? "Trying the shower in every corner with the toilet and the basin on every wall, and checking each arrangement against the fifteen rules — this takes about a second."
+                  : isBedroom
+                  ? "Trying the bed on every wall and checking each arrangement against the twelve rules — this takes about a second."
+                  : isKitchen
+                    ? "Trying every kitchen shape the walls allow and checking each against the twelve rules — this takes about a second."
+                    : "Running hard-constraint checks, candidate generation and beam-search optimisation for each layout type — this can take up to 20 seconds."}
+              </p>
             </motion.div>
           )}
 
@@ -1103,7 +1220,7 @@ export default function ViewLayouts() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-[#0a0a0f] relative" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="min-h-screen w-full bg-background relative" style={{ fontFamily: "'Inter', sans-serif" }}>
       <div className="absolute inset-0 dot-grid pointer-events-none" />
       <div className="absolute top-1/4 right-1/4 w-[400px] h-[400px] bg-teal-500/5 rounded-full blur-[100px] pointer-events-none" />
       <div className="absolute bottom-1/4 left-1/4 w-[300px] h-[300px] bg-violet-500/5 rounded-full blur-[100px] pointer-events-none" />
@@ -1129,6 +1246,7 @@ export default function ViewLayouts() {
                 <p className="text-xs text-zinc-500">Welcome back,</p>
                 <p className="font-semibold text-white text-sm">{displayName} 👋</p>
               </div>
+              <ThemeToggle />
               <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                 onClick={handleLogout}
                 className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors">
@@ -1325,7 +1443,7 @@ export default function ViewLayouts() {
                             initial={{ width: 0 }}
                             animate={{ width: `${value}%` }}
                             transition={{ duration: 0.7, ease: "easeOut" }}
-                            className="h-full bg-white rounded-full"
+                            className="h-full bg-zinc-100 rounded-full"
                           />
                         </div>
                         <span className="text-teal-300 text-[11px] font-bold w-8 text-right">{value}%</span>

@@ -16,6 +16,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router";
 import { useCurrentUserProfile } from "../context/UserContext";
+import ThemeToggle from "../components/ThemeToggle";
 import { supabase } from "../lib/supabaseClient";
 import { detectFloorPlan } from "../lib/wallDetector";
 import { saveDetectionAnalysis } from "../lib/floorPlanAnalysis";
@@ -187,7 +188,7 @@ export default function UploadFloorPlan() {
   ];
 
   return (
-    <div className="min-h-screen w-full bg-[#0a0a0f] relative" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="min-h-screen w-full bg-background relative" style={{ fontFamily: "'Inter', sans-serif" }}>
       <div className="absolute inset-0 dot-grid pointer-events-none" />
       <div className="absolute top-1/4 left-1/3 w-[400px] h-[400px] bg-teal-500/5 rounded-full blur-[100px] pointer-events-none" />
 
@@ -208,6 +209,7 @@ export default function UploadFloorPlan() {
               <p className="text-xs text-zinc-500">Welcome back,</p>
               <p className="font-semibold text-white text-sm">{displayName} 👋</p>
             </div>
+            <ThemeToggle />
             <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
               onClick={handleLogout}
               className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors">

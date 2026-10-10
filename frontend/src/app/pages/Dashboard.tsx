@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   Box,
   LayoutDashboard,
@@ -28,18 +28,16 @@ import {
   Trash2,
   Download,
   ExternalLink,
-  Moon,
-  Sun,
   AlertTriangle,
   Loader2,
   ClockAlert,
+  ChevronDown,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router";
-import { useTheme } from "../context/ThemeContext";
 import { useCurrentUserProfile } from "../context/UserContext";
 import { supabase } from "../lib/supabaseClient";
-
+import ThemeToggle from "../components/ThemeToggle";
 type ProfileState = {
   fullName: string;
   username: string;
@@ -48,7 +46,6 @@ type ProfileState = {
   location: string;
   bio: string;
 };
-
 const createProfileState = (overrides: Partial<ProfileState> = {}): ProfileState => ({
   fullName: "User",
   username: "user",
@@ -58,13 +55,38 @@ const createProfileState = (overrides: Partial<ProfileState> = {}): ProfileState
   bio: "Interior design enthusiast. Using AI to bring floor plans to life.",
   ...overrides,
 });
-
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { theme, toggle } = useTheme();
   const { profile: currentUser, signOut } = useCurrentUserProfile();
   const [activeMenu, setActiveMenu] = useState("dashboard");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (
+        profileMenuRef.current &&
+        !profileMenuRef.current.contains(event.target as Node)
+      ) {
+        setProfileMenuOpen(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setProfileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
 
   // Profile state
   const [profileEdit, setProfileEdit] = useState(false);
@@ -78,7 +100,6 @@ export default function Dashboard() {
   const [passwords, setPasswords] = useState({ old: "", newP: "", conf: "" });
   const [passMsg, setPassMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [notifications, setNotifications] = useState({ email: true, browser: false, updates: true });
-
   // Delete account modal state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
@@ -87,7 +108,6 @@ export default function Dashboard() {
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
   const [deleteRequestMsg, setDeleteRequestMsg] = useState<{ type: "success" | "error" | "pending"; text: string } | null>(null);
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
-
   useEffect(() => {
     const nextProfile = createProfileState({
       fullName: currentUser.fullName,
@@ -97,11 +117,9 @@ export default function Dashboard() {
       location: currentUser.location,
       bio: currentUser.bio,
     });
-
     setProfile(nextProfile);
     setProfileDraft(nextProfile);
   }, [currentUser.email, currentUser.fullName, currentUser.username, currentUser.phone, currentUser.location, currentUser.bio]);
-
   // Check if the user already has a pending deletion request
   const checkPendingRequest = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -114,7 +132,6 @@ export default function Dashboard() {
       .maybeSingle();
     setHasPendingRequest(!!data);
   }, []);
-
   const handleCancelRequest = async () => {
     setCancelSubmitting(true);
     setDeleteRequestMsg(null);
@@ -141,13 +158,10 @@ export default function Dashboard() {
       setCancelSubmitting(false);
     }
   };
-
   useEffect(() => {
     void checkPendingRequest();
   }, [checkPendingRequest]);
-
   const displayName = profile.fullName?.trim() ? profile.fullName : profile.username;
-
   const handleDeleteAccount = async () => {
     if (deletePassword.trim() === "") { setDeletePassError(true); return; }
     setDeleteSubmitting(true);
@@ -159,7 +173,6 @@ export default function Dashboard() {
         setDeleteSubmitting(false);
         return;
       }
-
       // Prevent duplicate requests
       const { data: existing } = await supabase
         .from("DeletionRequest")
@@ -167,13 +180,11 @@ export default function Dashboard() {
         .eq("UserID", user.id)
         .eq("Status", "pending")
         .maybeSingle();
-
       if (existing) {
         setDeleteRequestMsg({ type: "pending", text: "You already have a pending deletion request. An admin will review it shortly." });
         setDeleteSubmitting(false);
         return;
       }
-
       const { error: insertError } = await supabase.from("DeletionRequest").insert({
         UserID: user.id,
         FullName: profile.fullName,
@@ -181,13 +192,11 @@ export default function Dashboard() {
         Username: profile.username,
         Status: "pending",
       });
-
       if (insertError) {
         setDeleteRequestMsg({ type: "error", text: insertError.message });
         setDeleteSubmitting(false);
         return;
       }
-
       setHasPendingRequest(true);
       setDeletePassword("");
       setDeletePassError(false);
@@ -199,16 +208,13 @@ export default function Dashboard() {
       setDeleteSubmitting(false);
     }
   };
-
   const handleLogout = async () => {
     const success = await signOut();
     if (success) {
       navigate("/");
     }
   };
-
   const isAdmin = currentUser.role.trim().toLowerCase() === "admin";
-
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
     { id: "upload", label: "Upload Floor Plan", icon: Upload, path: "/upload" },
@@ -216,19 +222,16 @@ export default function Dashboard() {
     { id: "profile", label: "Profile", icon: User, path: null },
     ...(isAdmin ? [{ id: "admin-accounts", label: "Manage Accounts", icon: ShieldCheck, path: "/admin/accounts" }] : []),
   ];
-
   const stats = [
     { label: "Total Uploads", value: "24", icon: FileUp, color: "text-teal-400", bg: "bg-teal-500/10", glow: "shadow-teal-500/10" },
     { label: "Designs Generated", value: "18", icon: Boxes, color: "text-violet-400", bg: "bg-violet-500/10", glow: "shadow-violet-500/10" },
     { label: "Success Rate", value: "98%", icon: TrendingUp, color: "text-emerald-400", bg: "bg-emerald-500/10", glow: "shadow-emerald-500/10" },
   ];
-
   const recentActivity = [
     { id: 1, name: "Modern Bedroom Layout", date: "2 hours ago", status: "Completed" },
     { id: 2, name: "Master Suite Design", date: "1 day ago", status: "Completed" },
     { id: 3, name: "Guest Room Optimization", date: "2 days ago", status: "Completed" },
   ];
-
   const previousDesigns = [
     { id: 1, name: "Modern Bedroom Layout", date: "Feb 23, 2026", rooms: "Bedroom 1", score: 92, thumb: "MB" },
     { id: 2, name: "Master Suite Design", date: "Feb 22, 2026", rooms: "Bedroom 2", score: 87, thumb: "MS" },
@@ -237,13 +240,11 @@ export default function Dashboard() {
     { id: 5, name: "Home Office Setup", date: "Feb 15, 2026", rooms: "Study Room", score: 91, thumb: "HO" },
     { id: 6, name: "Kids Bedroom Plan", date: "Feb 10, 2026", rooms: "Bedroom 3", score: 74, thumb: "KB" },
   ];
-
   const handleSaveProfile = async () => {
     setIsSaving(true);
     try {
       const { data: { user }, error: authErr } = await supabase.auth.getUser();
       if (authErr || !user) throw new Error("Session expired. Please sign in again.");
-
       // Persist to the User table
       const { error: dbErr } = await supabase
         .from("User")
@@ -255,9 +256,7 @@ export default function Dashboard() {
           Bio: profileDraft.bio.trim(),
         })
         .eq("UserID", user.id);
-
       if (dbErr) throw new Error(dbErr.message);
-
       // Also update auth user_metadata so UserContext picks it up on next load
       await supabase.auth.updateUser({
         data: {
@@ -265,7 +264,6 @@ export default function Dashboard() {
           username: profileDraft.username.trim(),
         },
       });
-
       setProfile({ ...profileDraft });
       setProfileEdit(false);
       setProfileSaved(true);
@@ -277,7 +275,6 @@ export default function Dashboard() {
       setIsSaving(false);
     }
   };
-
   const handleChangePassword = () => {
     if (!passwords.old) { setPassMsg({ type: "err", text: "Enter your current password." }); return; }
     if (passwords.newP.length < 8) { setPassMsg({ type: "err", text: "New password must be at least 8 characters." }); return; }
@@ -286,11 +283,9 @@ export default function Dashboard() {
     setPasswords({ old: "", newP: "", conf: "" });
     setTimeout(() => setPassMsg(null), 3500);
   };
-
   // ── Shared input classes ────────────────────
   const inputCls = "w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-teal-500/50 focus:ring-2 focus:ring-teal-500/15 transition-all";
   const cardCls = "glass-card rounded-2xl p-6 border border-white/5";
-
   // ── Tab renderers ──────────────────────────
   const renderDashboard = () => (
     <>
@@ -298,7 +293,6 @@ export default function Dashboard() {
         <h2 className="text-3xl md:text-4xl font-bold text-white mb-1">Dashboard</h2>
         <p className="text-zinc-500">Manage your floor plans and 3D layouts</p>
       </motion.div>
-
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
         {stats.map((stat, i) => {
@@ -318,7 +312,6 @@ export default function Dashboard() {
           );
         })}
       </div>
-
       {/* Action Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}
@@ -340,7 +333,6 @@ export default function Dashboard() {
             </motion.button>
           </div>
         </motion.div>
-
         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}
           whileHover={{ y: -6, transition: { duration: 0.25 } }}
           className={`${cardCls} cursor-pointer hover:bg-white/[0.07] transition-all glow-violet`}
@@ -361,7 +353,6 @@ export default function Dashboard() {
           </div>
         </motion.div>
       </div>
-
       {/* Recent Activity */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
         className={cardCls}>
@@ -393,7 +384,6 @@ export default function Dashboard() {
       </motion.div>
     </>
   );
-
   const renderDesigns = () => (
     <>
       <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
@@ -439,7 +429,6 @@ export default function Dashboard() {
       </div>
     </>
   );
-
   const renderProfile = () => (
     <>
       <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} className="mb-8 flex items-center justify-between">
@@ -454,7 +443,6 @@ export default function Dashboard() {
           </motion.div>
         )}
       </motion.div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Avatar Card */}
         <motion.div initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }}
@@ -463,7 +451,7 @@ export default function Dashboard() {
             <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white text-3xl font-black shadow-lg shadow-teal-500/20">
               {profile.fullName.split(" ").map(w => w[0]).join("").slice(0, 2)}
             </div>
-            <button className="absolute -bottom-2 -right-2 w-8 h-8 bg-[#141419] border border-white/10 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors">
+            <button className="absolute -bottom-2 -right-2 w-8 h-8 bg-popover border border-white/10 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors">
               <Camera className="w-3.5 h-3.5 text-teal-400" />
             </button>
           </div>
@@ -487,7 +475,6 @@ export default function Dashboard() {
             <p className="text-xs text-zinc-600 italic text-left">{profile.bio}</p>
           </div>
         </motion.div>
-
         {/* Right Column */}
         <div className="lg:col-span-2 space-y-5">
           {/* Personal Info */}
@@ -542,7 +529,6 @@ export default function Dashboard() {
               </div>
             </div>
           </motion.div>
-
           {/* Change Password */}
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }} className={cardCls}>
             <h3 className="font-bold text-zinc-200 flex items-center gap-2 mb-5">
@@ -581,7 +567,6 @@ export default function Dashboard() {
               </motion.button>
             </div>
           </motion.div>
-
           {/* Notifications */}
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className={cardCls}>
             <h3 className="font-bold text-zinc-200 flex items-center gap-2 mb-5">
@@ -607,14 +592,12 @@ export default function Dashboard() {
               ))}
             </div>
           </motion.div>
-
           {/* Danger Zone */}
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.26 }}
             className="glass-card rounded-2xl p-6 border border-red-500/15">
             <h3 className="font-bold text-red-400 flex items-center gap-2 mb-4">
               <Shield className="w-4 h-4" /> Danger Zone
             </h3>
-
             {/* Request feedback message */}
             <AnimatePresence>
               {deleteRequestMsg && (
@@ -636,7 +619,6 @@ export default function Dashboard() {
                 </motion.div>
               )}
             </AnimatePresence>
-
             <div className="flex items-start justify-between gap-3 p-4 bg-red-500/5 rounded-xl border border-red-500/15">
               <div>
                 <p className="text-sm font-semibold text-red-300">Request Account Deletion</p>
@@ -690,10 +672,8 @@ export default function Dashboard() {
       </div>
     </>
   );
-
   return (
-    <div className="min-h-screen w-full bg-[#0a0a0f] relative" style={{ fontFamily: "'Inter', sans-serif" }}>
-
+    <div className="min-h-screen w-full bg-background relative" style={{ fontFamily: "'Inter', sans-serif" }}>
       {/* Delete Account Modal */}
       <AnimatePresence>
         {showDeleteModal && (
@@ -703,7 +683,7 @@ export default function Dashboard() {
             <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }} transition={{ type: "spring", stiffness: 320, damping: 26 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md bg-[#141419] rounded-3xl shadow-2xl overflow-hidden border border-white/10">
+              className="w-full max-w-md bg-popover rounded-3xl shadow-2xl overflow-hidden border border-white/10">
               <div className="bg-gradient-to-r from-red-500 to-rose-600 px-6 py-5 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="bg-white/20 p-2.5 rounded-xl"><Shield className="w-5 h-5 text-white" /></div>
@@ -765,10 +745,8 @@ export default function Dashboard() {
           </motion.div>
         )}
       </AnimatePresence>
-
       {/* Dot grid overlay */}
       <div className="absolute inset-0 dot-grid pointer-events-none" />
-
       {/* Top Nav */}
       <nav className="relative glass-nav z-30">
         <div className="px-4 md:px-8 py-4">
@@ -788,15 +766,105 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <div className="hidden md:block text-right">
-                <p className="text-xs text-zinc-500">Welcome back,</p>
-                <p className="font-semibold text-white text-sm">{displayName} 👋</p>
+              <div className="relative" ref={profileMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setProfileMenuOpen((open) => !open)}
+                  aria-expanded={profileMenuOpen}
+                  aria-haspopup="menu"
+                  aria-label="Open profile menu"
+                  className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 hover:bg-white/5 transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+                >
+                  <div className="w-10 h-10 shrink-0 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white text-sm font-bold shadow-md shadow-teal-500/20">
+                    {(displayName || "U")
+                      .trim()
+                      .split(/\s+/)
+                      .map((part) => part[0])
+                      .join("")
+                      .slice(0, 2)
+                      .toUpperCase()}
+                  </div>
+                  <div className="hidden sm:block text-left">
+                    <p className="text-xs text-zinc-500">Welcome back,</p>
+                    <p className="font-semibold text-white text-sm max-w-48 truncate">
+                      {displayName}
+                    </p>
+                  </div>
+                  <ChevronDown
+                    className={`w-4 h-4 text-zinc-400 transition-transform ${
+                      profileMenuOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                <AnimatePresence>
+                  {profileMenuOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -8, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                      transition={{ duration: 0.15 }}
+                      role="menu"
+                      className="absolute right-0 top-full mt-3 w-64 rounded-2xl border border-white/10 bg-popover shadow-2xl overflow-hidden z-50"
+                    >
+                      <div className="p-4 border-b border-white/10">
+                        <div className="flex items-center gap-3">
+                          <div className="w-11 h-11 shrink-0 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white font-bold">
+                            {(displayName || "U")
+                              .trim()
+                              .split(/\s+/)
+                              .map((part) => part[0])
+                              .join("")
+                              .slice(0, 2)
+                              .toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-white text-sm truncate">
+                              {displayName}
+                            </p>
+                            <p className="text-xs text-zinc-500 truncate">
+                              {profile.email}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="p-2">
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setActiveMenu("profile");
+                            setProfileMenuOpen(false);
+                            setMobileMenuOpen(false);
+                          }}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-zinc-300 hover:bg-white/5 hover:text-white transition-colors"
+                        >
+                          <User className="w-4 h-4 text-teal-400" />
+                          My Profile
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setProfileMenuOpen(false);
+                            void handleLogout();
+                          }}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          Log out
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
+              <ThemeToggle />
             </div>
           </div>
         </div>
       </nav>
-
       <div className="flex">
         {/* Desktop Sidebar */}
         <aside className="hidden lg:flex flex-col w-64 glass-sidebar min-h-[calc(100vh-69px)] relative border-r border-white/5">
@@ -817,14 +885,7 @@ export default function Dashboard() {
               );
             })}
           </nav>
-          <div className="p-4 border-t border-white/5">
-            <button onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl text-sm font-medium transition-all">
-              <LogOut className="w-5 h-5" /> Logout
-            </button>
-          </div>
         </aside>
-
         {/* Mobile Sidebar */}
         <AnimatePresence>
           {mobileMenuOpen && (
@@ -848,16 +909,9 @@ export default function Dashboard() {
                   );
                 })}
               </nav>
-              <div className="p-4 border-t border-white/5">
-                <button onClick={() => { setMobileMenuOpen(false); void handleLogout(); }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl text-sm font-medium transition-all">
-                  <LogOut className="w-5 h-5" /> Logout
-                </button>
-              </div>
             </motion.aside>
           )}
         </AnimatePresence>
-
         {/* Main Content */}
         <main className="flex-1 p-4 md:p-8 relative overflow-x-hidden">
           <div className="max-w-7xl mx-auto">
@@ -867,7 +921,6 @@ export default function Dashboard() {
               <h2 className="text-xl font-bold text-white">Welcome back, {displayName} 👋</h2>
               <p className="text-zinc-500 text-sm mt-1">Ready to create amazing 3D layouts?</p>
             </motion.div>
-
             <AnimatePresence mode="wait">
               <motion.div key={activeMenu} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }}>

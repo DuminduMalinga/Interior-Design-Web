@@ -1,6 +1,7 @@
 import { Box, Zap, ScanLine, Boxes, ArrowRight, CheckCircle2, Star, ChevronRight } from "lucide-react";
 import { motion, useScroll, useTransform } from "motion/react";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
+import ThemeToggle from "../components/ThemeToggle";
 import { useNavigate } from "react-router";
 import { useRef } from "react";
 
@@ -72,7 +73,7 @@ export default function Welcome() {
   const heroOpacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
 
   return (
-    <div className="min-h-screen w-full bg-[#0a0a0f] overflow-x-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="min-h-screen w-full bg-background overflow-x-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
 
       {/* ── Sticky Navbar ── */}
       <motion.header
@@ -102,6 +103,7 @@ export default function Welcome() {
 
           {/* CTA Buttons */}
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <motion.button
               whileHover={{ scale: 1.04 }}
               whileTap={{ scale: 0.96 }}
@@ -219,7 +221,7 @@ export default function Welcome() {
                   alt="3D Room Layout Preview"
                   className="w-full h-auto object-cover"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0f]/60 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-background/60 to-transparent" />
               </div>
 
               {/* Floating card — score */}
