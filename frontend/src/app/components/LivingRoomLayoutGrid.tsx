@@ -14,6 +14,17 @@ const COMPONENT_LABELS: Record<string, string> = {
   usability: "Usability",
   completeness: "Completeness",
   layout_specific: "Layout-specific",
+  // living-room engine: one component per rule
+  face_to_face: "1 · Face-to-face conversation",
+  views: "2 · Views of other people",
+  zones: "3 · Zones where needed",
+  clear_openings: "4 · Doors, windows and paths clear",
+  furniture_fit: "5 · Furniture sized to the room",
+  within_reach: "6 · Tables within reach",
+  daily_activities: "7 · Arranged for daily activities",
+  openness: "8 · Open, uncrowded room",
+  movement: "9 · Easy movement between areas",
+  accessibility: "10 · Occupants' physical needs",
   // bedroom engine: one component per rule
   entrance_view: "1 · Bed sees the entrance",
   door_distance: "2 · Distance from the doorway",

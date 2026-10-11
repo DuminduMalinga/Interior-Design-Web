@@ -119,7 +119,7 @@ class OpenCenterLayout(BaseLayout):
         else:
             blockers.append("A small room cannot keep circulation around a floating seating group")
 
-        needed = 2 * analysis.config.clearances.circulation_min + 2200.0
+        needed = 2 * analysis.config.clearances.circulation_min + analysis.sofa_length
         if min(analysis.room.width, analysis.room.length) < needed:
             blockers.append(
                 "The room is only {:.0f} mm across; {:.0f} mm is needed to walk around a floating sofa".format(

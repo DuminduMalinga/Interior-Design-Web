@@ -102,8 +102,9 @@ class ConversationLayout(BaseLayout):
             reasons.append("A narrow room makes facing seating hard to keep 1.5-3 m apart")
 
         longest = max((w.longest_solid_length for w in analysis.walls.values()), default=0.0)
-        if longest < 2400.0:
-            blockers.append("No wall run long enough ({:.0f} mm) for a 2200 mm sofa".format(longest))
+        sofa = analysis.sofa_length
+        if longest < sofa + 200.0:
+            blockers.append("No wall run long enough ({:.0f} mm) for a {:.0f} mm sofa".format(longest, sofa))
         else:
             score += 6.0
             reasons.append("Longest solid wall run is {:.0f} mm, enough for the sofa".format(longest))

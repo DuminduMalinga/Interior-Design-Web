@@ -32,6 +32,15 @@ from ..rules.furniture_rules import wall_behind
 
 FACING = {0: (0.0, 1.0), 90: (-1.0, 0.0), 180: (0.0, -1.0), 270: (1.0, 0.0)}
 
+#: strategies that place a piece *as part of* its anchor: without the anchor
+#: there is nowhere sensible for the piece to go
+ANCHOR_ONLY_STRATEGIES = ("at_desk",)
+
+
+def needs_anchor(spec: PlacementSpec) -> bool:
+    """True when the piece only makes sense together with the piece it is anchored to."""
+    return bool(spec.anchor) and all(s in ANCHOR_ONLY_STRATEGIES for s in spec.strategies)
+
 
 def rotation_towards(vector: Tuple[float, float]) -> int:
     """The cardinal rotation whose facing direction best matches `vector`."""
@@ -62,6 +71,8 @@ class CandidateGenerator:
         item_id: str,
     ) -> List[Furniture]:
         anchor = placed_by_role.get(spec.anchor) if spec.anchor else None
+        if anchor is None and needs_anchor(spec):
+            return []          # a desk chair without its desk is not placed at all
         raw: List[Tuple[float, float, int, str, str]] = []
 
         for strategy in spec.strategies:

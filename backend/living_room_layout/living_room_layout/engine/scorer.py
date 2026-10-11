@@ -4,17 +4,17 @@ Layout scoring (specification 12).
 `LayoutScorer` is the single place that turns a set of placed furniture into a
 number.  It composes:
 
-    generic soft constraints   rules/soft_constraints.py
-    layout-specific bonuses    layouts/<layout>.bonus()
+    the ten living-room rules   rules/living_rules.py (the reported 0-100 score)
+    layout character            layouts/<layout>.bonus() (a small search nudge)
 
-and keeps every individual contribution so the report can explain the total.
+and keeps every rule's result so the report can explain the total.
 """
 
 from __future__ import annotations
 
 from typing import List, Optional
 
-from ..layouts.base import BaseLayout
+from ..layouts.base import BaseLayout, PlacementSpec
 from ..models.furniture import Furniture
 from ..rules.circulation_rules import CirculationReport, analyse_circulation
 from ..rules.context import PlacementContext, ScoreItem
@@ -24,9 +24,9 @@ from ..rules.soft_constraints import LayoutScore, placement_score, score_layout
 class LayoutScorer:
     """Scores complete layouts, and individual placements during the search."""
 
-    def __init__(self, layout: BaseLayout, expected_roles: Optional[List[str]] = None):
+    def __init__(self, layout: BaseLayout, specs: Optional[List[PlacementSpec]] = None):
         self.layout = layout
-        self.expected_roles = expected_roles or []
+        self.specs = list(specs or [])
 
     # -- whole layout -------------------------------------------------------- #
     def score(
@@ -38,7 +38,7 @@ class LayoutScorer:
         full_ctx = ctx.with_placed(items)
         report = report or analyse_circulation(full_ctx, items)
         extra: List[ScoreItem] = self.layout.bonus(full_ctx, items)
-        return score_layout(ctx, items, expected=self.expected_roles, report=report, extra=extra)
+        return score_layout(ctx, items, planned=self.specs, report=report, extra=extra)
 
     # -- single placement ---------------------------------------------------- #
     def score_placement(self, item: Furniture, ctx: PlacementContext, spec=None) -> float:

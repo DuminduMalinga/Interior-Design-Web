@@ -268,6 +268,27 @@ Weights live at `backend/wall_detector/models/best.pt` (git-ignored). The fronte
 reads `VITE_DETECTOR_URL` (default `http://localhost:8000`). See
 [`backend/wall_detector/README.md`](backend/wall_detector/README.md) for details.
 
+### 🛋️ Living Room Layout service (rule-based living-room layouts)
+
+When the room picked on Select Room is a living room (its name contains
+"living"), View Layouts calls a local Python service that builds six layout
+types — conversation, TV, corner sofa, reading, open-centre and multi-functional
+— and optimises and scores each against ten living-room furniture-arrangement
+rules. The furniture follows the household's daily activities (conversation,
+TV, reading, work, dining) and is sized to the room. Pure Python — no model,
+no database.
+
+```bash
+cd backend/living_room_layout
+python -m venv venv
+source venv/Scripts/activate     # Git Bash  (venv\Scripts\activate in PowerShell; venv/bin/activate on POSIX)
+pip install -r requirements.txt
+uvicorn api:app --port 8100
+```
+
+The frontend reads `VITE_LIVING_ROOM_LAYOUT_URL` (default `http://localhost:8100`). See
+[`backend/living_room_layout/README.md`](backend/living_room_layout/README.md) for the rules and the API.
+
 ### 🛏️ Bedroom Layout service (rule-based furniture layouts)
 
 When the room picked on Select Room is a bedroom, View Layouts calls a second

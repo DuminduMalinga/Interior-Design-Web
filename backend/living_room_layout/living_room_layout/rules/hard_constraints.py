@@ -26,6 +26,7 @@ from .circulation_rules import check_layout_circulation
 from .door_rules import check_door_clearance, check_door_opening, check_door_swing
 from .furniture_rules import (
     check_coffee_table_clearance,
+    check_dining_clearance,
     check_minimum_gaps,
     check_paired_furniture,
     check_seating_clearance,
@@ -98,6 +99,7 @@ ITEM_CONSTRAINTS: List[ItemCheck] = [
     check_seating_clearance,      # 5.8
     check_seating_group_cohesion,  # 11 (no orphaned chair across the room)
     check_coffee_table_clearance,  # 5.7
+    check_dining_clearance,       # dining chairs can be pulled out
     check_minimum_gaps,           # no dead slivers
 ]
 
@@ -195,6 +197,9 @@ def rule_catalogue() -> List[dict]:
         {"id": "coffee_table_reach", "spec": "5.7",
          "source": "Circulation rules: 'Between sofa and coffee table 400-500 mm'",
          "description": "The coffee table stays within reach of the main sofa."},
+        {"id": "dining_clearance", "spec": "5.8",
+         "source": "Living-room rule 7: furniture arranged for the household's daily activities",
+         "description": "300 mm behind the pushed-in dining chairs, so they can be pulled out."},
         {"id": "dead_gap", "spec": "5.7/5.8", "source": "Circulation rules: usable clearances only",
          "description": "No unusable slivers narrower than 300 mm between pieces."},
         {"id": "circulation", "spec": "5.6",

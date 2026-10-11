@@ -106,6 +106,12 @@ class RoomAnalysis:
     window_zones: Dict[str, Rect]
     base_grid: OccupancyGrid
     facts: List[str] = field(default_factory=list)
+    #: what the room is furnished for (programme.Programme) - set by the pipeline
+    programme: Optional[object] = None
+    #: rule 3: the floor band each planned role was given, when the room is zoned
+    zone_by_role: Dict[str, Rect] = field(default_factory=dict)
+    #: rule 5: length of the sofa at the size chosen for this room
+    sofa_length: float = 2200.0
 
     # -- derived helpers ---------------------------------------------------- #
     @property

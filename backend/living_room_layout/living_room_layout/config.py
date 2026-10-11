@@ -61,6 +61,9 @@ class Clearances:
     arm_reach: float = 700.0                  # side table within arm's reach
     bookshelf_access: float = 750.0           # standing space in front of a bookshelf
 
+    # dining zone: clear floor behind the pushed-in chairs so they can be pulled out
+    dining_pull_out: float = 300.0
+
 
 @dataclass
 class RoomThresholds:
@@ -89,9 +92,14 @@ class SearchSettings:
 
 @dataclass
 class ScoreWeights:
-    """Soft-constraint weights (section 6 / 12 of the specification)."""
+    """Weights of the local placement score and of each layout's own character bonus.
+
+    These rank candidate positions while a layout is being built; the finished
+    layout is marked against the ten rules (`RuleWeights`).
+    """
 
     sofa_faces_tv: float = 44.0
+    chair_faces_sofa: float = 36.0
     seating_faces_each_other: float = 15.0
     coffee_table_centered: float = 22.0
     coffee_table_distance: float = 10.0
@@ -122,11 +130,69 @@ class ScoreWeights:
 
 
 @dataclass
+class RuleWeights:
+    """What each of the ten living-room rules is worth in the 0-100 layout score.
+
+    The field names are the rule keys in `rules/living_rules.py`.
+    """
+
+    face_to_face: float = 12.0        # 1
+    views: float = 8.0                # 2
+    zones: float = 8.0                # 3
+    clear_openings: float = 14.0      # 4
+    furniture_fit: float = 8.0        # 5
+    within_reach: float = 10.0        # 6
+    daily_activities: float = 12.0    # 7
+    openness: float = 10.0            # 8
+    movement: float = 10.0            # 9
+    accessibility: float = 8.0        # 10
+
+
+@dataclass
+class RuleThresholds:
+    """The measured figures the ten rules are marked against (mm unless stated)."""
+
+    # rule 1 - talking distance between seats, centre to centre
+    talk_near: float = 1200.0
+    talk_far: float = 3000.0
+    # rule 2 - how far a seated person turns to see someone (degrees)
+    view_easy_angle: float = 60.0
+    view_lost_angle: float = 120.0
+    eye_level: float = 1100.0             # furniture taller than this hides a seated person
+    # rule 3 - walkway between two activity zones
+    zone_gap_min: float = 300.0
+    zone_gap_preferred: float = 900.0
+    # rule 5 - sofa length as a share of the room dimension it runs along
+    sofa_share_low: float = 0.30
+    sofa_share_high: float = 0.67
+    sofa_share_max: float = 0.90
+    # rule 6 - a table surface within reach of a seat
+    surface_reach_far: float = 1400.0
+    # rule 7 - reading light, shelves and desk daylight
+    lamp_reach: float = 900.0
+    shelf_reach: float = 1800.0
+    daylight_reach: float = 2000.0
+    dining_pull_preferred: float = 450.0  # beyond the pushed-in chairs
+    # rule 8 - open floor
+    free_floor_low: float = 0.50          # share of the floor left free: no marks
+    free_floor_high: float = 0.70         # full marks
+    open_square: float = 1500.0
+    open_square_min: float = 800.0
+    # rule 10 - turning space and the clear floor beside a seat
+    turning_space: float = 1200.0
+    turning_space_accessible: float = 1500.0
+    seat_approach: float = 600.0
+    seat_approach_accessible: float = 800.0
+
+
+@dataclass
 class Config:
     clearances: Clearances = field(default_factory=Clearances)
     rooms: RoomThresholds = field(default_factory=RoomThresholds)
     search: SearchSettings = field(default_factory=SearchSettings)
     weights: ScoreWeights = field(default_factory=ScoreWeights)
+    rule_weights: RuleWeights = field(default_factory=RuleWeights)
+    rule_thresholds: RuleThresholds = field(default_factory=RuleThresholds)
 
     def to_dict(self) -> Dict:
         return asdict(self)
@@ -137,7 +203,7 @@ class Config:
         cfg = Config()
         if not data:
             return cfg
-        for section in ("clearances", "rooms", "search", "weights"):
+        for section in ("clearances", "rooms", "search", "weights", "rule_weights", "rule_thresholds"):
             overrides = data.get(section) or {}
             target = getattr(cfg, section)
             for key, value in overrides.items():

@@ -37,6 +37,11 @@ class UserRequirements:
     optional_furniture: List[str] = field(default_factory=list)
     excluded_furniture: List[str] = field(default_factory=list)
     notes: str = ""
+    #: rule 7 - what the household does in the room each day ("conversation",
+    #: "tv", "reading", "work", "dining"); empty = worked out by the programme
+    activities: List[str] = field(default_factory=list)
+    #: rule 10 - an occupant has mobility needs (None = not stated)
+    accessible: Optional[bool] = None
 
     def to_dict(self) -> Dict:
         return {
@@ -45,6 +50,8 @@ class UserRequirements:
             "required_furniture": list(self.required_furniture),
             "optional_furniture": list(self.optional_furniture),
             "excluded_furniture": list(self.excluded_furniture),
+            "activities": list(self.activities),
+            "accessible": self.accessible,
         }
 
 
@@ -62,6 +69,10 @@ class Scenario:
     source_path: Optional[str] = None
     input_doors: List[Dict] = field(default_factory=list)
     input_windows: List[Dict] = field(default_factory=list)
+    #: the caller's own `furniture_overrides`; they win over the programme's sizes
+    furniture_overrides: Dict[str, Dict] = field(default_factory=dict)
+    #: what the room is furnished for - set by `programme.apply_programme`
+    programme: Optional[object] = None
 
     @property
     def main_door(self) -> Optional[Door]:
@@ -166,6 +177,8 @@ def _parse_requirements(data: Dict) -> UserRequirements:
         optional_furniture=list(raw.get("optional_furniture") or []),
         excluded_furniture=list(raw.get("excluded_furniture") or []),
         notes=raw.get("notes", ""),
+        activities=[str(a).strip().lower() for a in (raw.get("activities") or [])],
+        accessible=None if raw.get("accessible") is None else bool(raw.get("accessible")),
     )
 
 
@@ -429,6 +442,7 @@ def parse_scenario(data: Dict, name: str = "scenario", source_path: str = None) 
         source_path=source_path,
         input_doors=raw_doors,
         input_windows=raw_windows,
+        furniture_overrides=dict(data.get("furniture_overrides") or {}),
     )
 
 

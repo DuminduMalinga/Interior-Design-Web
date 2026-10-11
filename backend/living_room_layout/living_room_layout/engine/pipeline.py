@@ -26,11 +26,15 @@ from typing import Dict, List, Optional
 
 from ..io_json import Scenario
 from ..layouts.base import BaseLayout, PlacementSpec
-from ..models.furniture import Furniture
+from ..layouts.zones import assign_zones
+from ..models.furniture import Furniture, FurnitureCatalogue
+from ..models.geometry import Rect
+from ..programme import Programme, apply_programme, catalogue_for
 from ..rules.circulation_rules import analyse_circulation
 from ..rules.context import PlacementContext, Violation
 from ..rules.door_rules import check_door_clearance, check_door_opening, check_door_swing
 from ..rules.hard_constraints import check_furniture_overlap, check_room_boundary, rule_catalogue
+from ..rules.living_rules import rule_catalogue as living_rule_catalogue
 from ..rules.window_rules import check_window_block
 from .constraint_checker import ConstraintChecker
 from .layout_selector import LayoutDecision, LayoutSelector
@@ -38,6 +42,28 @@ from .optimizer import LayoutOptimizer, LayoutResult
 from .room_analyzer import RoomAnalysis, RoomAnalyzer
 
 MAX_LAYOUT_ATTEMPTS = 3
+
+
+@dataclass
+class Attempt:
+    """One layout generated at one furniture size tier."""
+
+    layout: BaseLayout
+    result: LayoutResult
+    specs: List[PlacementSpec]
+    programme: Programme
+    catalogue: FurnitureCatalogue
+    zones: Dict[str, Rect] = field(default_factory=dict)       # zone name -> floor band
+    zone_by_role: Dict[str, Rect] = field(default_factory=dict)
+    zone_reasons: List[str] = field(default_factory=list)
+
+    @property
+    def missing_required(self) -> List:
+        return [f for f in self.result.failures if f.required]
+
+    @property
+    def complete(self) -> bool:
+        return self.result.valid and not self.missing_required
 
 
 @dataclass
@@ -53,6 +79,9 @@ class GenerationResult:
     attempts: List[Dict] = field(default_factory=list)
     explanation: List[str] = field(default_factory=list)
     elapsed: float = 0.0
+    programme: Optional[Programme] = None
+    catalogue: Optional[FurnitureCatalogue] = None
+    zones: Dict[str, Rect] = field(default_factory=dict)
 
     # -- validation ---------------------------------------------------------- #
     def validation(self) -> Dict:
@@ -119,7 +148,8 @@ class GenerationResult:
                 "score": round(self.result.score.total, 1),
                 "suitability_score": round(self.suitability().score, 1),
             },
-            "furniture": [item.to_dict() for item in self.result.items],
+            # a dining set is listed as its table and its chairs
+            "furniture": [entry for item in self.result.items for entry in item.output_dicts()],
             "validation": self.validation(),
             "explanation": list(self.explanation),
             "selected_layout": self.result.layout.name,
@@ -128,6 +158,13 @@ class GenerationResult:
             "rejection_summary": self.checker.report(limit=30),
             "unplaced_furniture": [f.to_dict() for f in self.result.failures],
             "scoring": self.result.score.to_dict(),
+            # the ten rules, each with its mark and the measured numbers behind it
+            "rules": self.result.score.rules_report(),
+            "programme": self.programme.to_dict(self.catalogue) if self.programme else None,
+            "zones": [
+                {"name": name, "bbox": [round(z.x0, 1), round(z.y0, 1), round(z.x1, 1), round(z.y1, 1)]}
+                for name, z in self.zones.items()
+            ],
             "layout_selection": self.decision.to_dict(),
             "openings": {
                 "doors": [d.to_dict(room, clear.door_clearance_min) for d in self.scenario.doors],
@@ -140,7 +177,10 @@ class GenerationResult:
                 elapsed_seconds=round(self.elapsed, 3),
                 trace=list(self.result.trace),
             ),
-            "rules_applied": {"hard_constraints": rule_catalogue()},
+            "rules_applied": {
+                "rules": living_rule_catalogue(self.scenario.config),
+                "hard_constraints": rule_catalogue(),
+            },
             "user_requirements": self.scenario.requirements.to_dict(),
         }
         if include_analysis:
@@ -159,8 +199,14 @@ class LayoutGenerator:
     def run(self) -> GenerationResult:
         started = time.time()
 
+        # the programme: furniture sizes (rule 5), the furniture each daily
+        # activity needs (rule 7) and the clearances for mobility needs (rule 10)
+        programme = apply_programme(self.scenario)
+
         # steps 2-8: analyse the room
         analysis = RoomAnalyzer(self.scenario).analyze()
+        analysis.programme = programme
+        analysis.sofa_length = self.scenario.catalogue.spec("sofa").width
 
         # step 9: choose a layout
         selector = LayoutSelector()
@@ -170,42 +216,82 @@ class LayoutGenerator:
         order = self._attempt_order(decision)
         checker = ConstraintChecker(self.scenario.config)
         attempts: List[Dict] = []
-        best: Optional[LayoutResult] = None
-        best_specs: List[PlacementSpec] = []
-        best_layout: Optional[BaseLayout] = None
+        best: Optional[Attempt] = None
 
         for layout in order[:MAX_LAYOUT_ATTEMPTS]:
-            specs = layout.plan(analysis, self.scenario.requirements, self.scenario.catalogue)
-            optimizer = LayoutOptimizer(analysis, layout, self.scenario.catalogue, checker)
-            result = optimizer.optimize(specs)
-            missing_required = [f for f in result.failures if f.required]
-            attempts.append(
-                {
-                    "layout": layout.name,
-                    "score": round(result.score.total, 1),
-                    "valid": result.valid,
-                    "furniture_placed": len(result.items),
-                    "required_missing": [f.role for f in missing_required],
-                    "hard_constraint_violations": [v.message for v in result.violations],
-                }
-            )
-            if best is None or self._better(result, best):
-                best, best_specs, best_layout = result, specs, layout
-            if result.valid and not missing_required:
+            attempt = self._attempt(layout, analysis, checker, programme)
+            attempts.append(self._attempt_record(attempt))
+            # rule 5: "select furniture sizes that fit" - when the sizes the
+            # floor area called for leave a piece out, try the next size down
+            smaller = programme.smaller_tier()
+            if not attempt.complete and smaller is not None:
+                retry = self._attempt(layout, analysis, checker, programme.at_tier(smaller))
+                attempts.append(self._attempt_record(retry))
+                if self._better(retry.result, attempt.result):
+                    attempt = retry
+            if best is None or self._better(attempt.result, best.result):
+                best = attempt
+            if attempt.complete:
                 break
 
+        # the rule report and the validation below refer to the winning attempt
+        analysis.programme = best.programme
+        analysis.zone_by_role = best.zone_by_role
+        analysis.sofa_length = best.catalogue.spec("sofa").width
         explanation = self._explain(analysis, decision, best, attempts)
         return GenerationResult(
             scenario=self.scenario,
             analysis=analysis,
             decision=decision,
-            result=best,
+            result=best.result,
             checker=checker,
-            specs=best_specs,
+            specs=best.specs,
             attempts=attempts,
             explanation=explanation,
             elapsed=time.time() - started,
+            programme=best.programme,
+            catalogue=best.catalogue,
+            zones=best.zones,
         )
+
+    # ------------------------------------------------------------------ #
+    def _attempt(self, layout: BaseLayout, analysis: RoomAnalysis, checker: ConstraintChecker,
+                 programme: Programme) -> Attempt:
+        """Plan, zone and optimise one layout at the programme's size tier."""
+        scenario = self.scenario
+        if programme.tier == programme.planned_tier:
+            catalogue = scenario.catalogue
+        else:
+            catalogue = catalogue_for(programme.tier, scenario.furniture_overrides)
+        # the furniture list as it stands for this layout (a corner layout swaps in its own sofa)
+        programme = programme.at_tier(programme.tier)
+        programme.required = list(scenario.requirements.required_furniture)
+        programme.optional = list(scenario.requirements.optional_furniture)
+        analysis.programme = programme
+        analysis.sofa_length = catalogue.spec("sofa").width
+
+        specs = layout.plan(analysis, scenario.requirements, catalogue)
+        # rule 3: one floor band per activity area, when the plan has more than one
+        zone_by_role, zone_reasons = assign_zones(specs, analysis)
+        analysis.zone_by_role = zone_by_role
+        zones = {spec.zone_name: spec.zone for spec in specs if spec.zone is not None and spec.zone_name}
+
+        result = LayoutOptimizer(analysis, layout, catalogue, checker).optimize(specs)
+        return Attempt(layout=layout, result=result, specs=specs, programme=programme,
+                       catalogue=catalogue, zones=zones, zone_by_role=zone_by_role, zone_reasons=zone_reasons)
+
+    @staticmethod
+    def _attempt_record(attempt: Attempt) -> Dict:
+        result = attempt.result
+        return {
+            "layout": attempt.layout.name,
+            "size_tier": attempt.programme.tier,
+            "score": round(result.score.total, 1),
+            "valid": result.valid,
+            "furniture_placed": len(result.items),
+            "required_missing": [f.role for f in attempt.missing_required],
+            "hard_constraint_violations": [v.message for v in result.violations],
+        }
 
     # ------------------------------------------------------------------ #
     def _attempt_order(self, decision: LayoutDecision) -> List[BaseLayout]:
@@ -234,10 +320,21 @@ class LayoutGenerator:
         return c_key > b_key
 
     # ------------------------------------------------------------------ #
-    def _explain(self, analysis, decision, result: LayoutResult, attempts) -> List[str]:
+    def _explain(self, analysis, decision, best: Attempt, attempts) -> List[str]:
         """The narrative answer to 'why does the room look like this?'"""
+        result = best.result
+        programme = best.programme
         lines: List[str] = []
         lines.extend(analysis.facts[:4])
+        lines.append("Furnished for {} ({}): {}".format(
+            programme.activity_text(),
+            "as given" if programme.activities_source == "provided" else "assumed from the room's purpose",
+            programme.summary(best.catalogue)))
+        lines.extend(programme.notes)
+        if programme.tier != programme.planned_tier:
+            lines.append("The {} sizes the floor area called for left a piece without a place, so {} sizes "
+                         "were used".format(programme.planned_tier, programme.tier))
+        lines.extend(best.zone_reasons)
         lines.append(
             "Selected the {} because: {}".format(
                 result.layout.title, "; ".join(decision.reasons[:3]) or "it scored highest"
@@ -273,12 +370,13 @@ class LayoutGenerator:
                     failure.reasons[0] if failure.reasons else "no candidate position satisfied every hard constraint",
                 )
             )
-        top = sorted(result.score.items, key=lambda s: -s.points)[:5]
-        for entry in top:
-            lines.append("+{:.0f} points: {}".format(entry.points, entry.message))
-        for entry in sorted(result.score.items, key=lambda s: s.points)[:3]:
-            if entry.points < 0:
-                lines.append("{:.0f} points: {}".format(entry.points, entry.message))
+        scale = result.score.scale
+        for number, rule in enumerate(result.score.rules.values(), start=1):
+            if not rule.applicable:
+                lines.append("Rule {} - {}: not applicable. {}".format(number, rule.rule.title, rule.detail))
+            else:
+                lines.append("Rule {} - {}: {:.1f} of {:.0f} points. {}".format(
+                    number, rule.rule.title, rule.points * scale, rule.weight * scale, rule.detail))
         return lines
 
 

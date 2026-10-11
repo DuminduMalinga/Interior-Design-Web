@@ -3,12 +3,13 @@ Self-contained test suite (no pytest required).
 
     python -m living_room_layout.tests.test_suite
 
-Covers four levels:
+Covers five levels:
 
 1. geometry      - intersection, containment, sectors, rotated footprints
 2. rules         - each hard constraint actually rejects what it should
 3. pipeline      - every scenario in input/ produces a valid, complete layout
 4. determinism   - the same input twice gives the same layout
+5. the ten rules - the programme they decide, their marks, and the report
 """
 
 from __future__ import annotations
@@ -33,9 +34,11 @@ from living_room_layout.models.furniture import Furniture, FurnitureCatalogue
 from living_room_layout.models.geometry import Rect, Shape, sector_polygon
 from living_room_layout.models.room import Room
 from living_room_layout.models.window import Window
+from living_room_layout.programme import apply_programme
 from living_room_layout.rules.context import PlacementContext
 from living_room_layout.rules.hard_constraints import check_item
 from living_room_layout.rules.circulation_rules import analyse_circulation
+from living_room_layout.rules.living_rules import RuleEvaluator, rule_catalogue
 
 INPUT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "input")
 
@@ -474,6 +477,184 @@ def test_explanations_present():
 
 
 # --------------------------------------------------------------------------- #
+# 5. the ten living-room rules
+# --------------------------------------------------------------------------- #
+def rule_marks(scn, pieces):
+    """Mark a hand-built arrangement against the ten rules."""
+    ctx = context(scn).with_placed(pieces)
+    report = analyse_circulation(ctx, pieces)
+    return RuleEvaluator(ctx, pieces, report).evaluate()
+
+
+def test_rule_catalogue():
+    catalogue = rule_catalogue()
+    check(len(catalogue) == 10, "there are ten living-room rules")
+    check([r["id"] for r in catalogue] == ["R{}".format(n) for n in range(1, 11)], "rules are R1..R10 in order")
+    check(close(sum(r["weight"] for r in catalogue), 100.0, 0.01), "the rule weights add up to 100")
+    check(all(r["rule"] and r["method"] for r in catalogue), "every rule carries its text and its method")
+
+
+def test_rules_reported_in_output():
+    data = LayoutGenerator(load_scenario(os.path.join(INPUT_DIR, "room_medium.json"))).run().to_dict()
+    rules = data["rules"]
+    check(len(rules) == 10, "the output reports all ten rules")
+    for rule in rules:
+        check(rule["status"] in ("satisfied", "partly_satisfied", "not_satisfied", "not_applicable"),
+              "{} has a known status".format(rule["id"]))
+        check(-0.01 <= rule["points"] <= rule["max_points"] + 0.01, "{} points stay within its maximum".format(rule["id"]))
+        check(rule["detail"], "{} explains its mark".format(rule["id"]))
+    score = data["layout"]["score"]
+    check(0.0 <= score <= 100.0, "the layout score is on a 0-100 scale, got {}".format(score))
+    check(close(sum(r["points"] for r in rules), score, 0.6), "the rule points add up to the layout score")
+    check(close(sum(r["max_points"] for r in rules), 100.0, 0.6), "the applicable rules are worth 100 points")
+    keys = {r["key"] for r in rules}
+    check(set(data["scoring"]["components"]) <= keys, "the score breakdown is keyed by rule")
+    check(data["programme"]["activities"], "the programme lists the activities the room is furnished for")
+    check(len(data["rules_applied"]["rules"]) == 10, "the rule catalogue is included")
+
+
+def test_face_to_face_rule():
+    scn = scenario(width=5000, length=4500)
+    sofa = piece("sofa", 1400, 3600, rotation=180)                  # against the north wall, facing south
+    facing = piece("chair", 2100, 1100, rotation=0, role="chair_1")  # in front of it, facing north
+    turned = piece("chair", 2100, 1100, rotation=180, role="chair_1")
+    good = rule_marks(scn, [sofa, facing])["R1"]
+    bad = rule_marks(scn, [sofa, turned])["R1"]
+    check(good.score > 0.9, "a chair facing the sofa at talking distance satisfies rule 1, got {:.2f}".format(good.score))
+    check(bad.score < good.score - 0.3, "a chair with its back to the sofa scores clearly lower")
+    alone = rule_marks(scn, [sofa])["R1"]
+    check(alone.score < 0.5, "a sofa with no seat facing it does not support face-to-face conversation")
+
+
+def test_views_rule():
+    scn = scenario(width=5000, length=4500)
+    sofa = piece("sofa", 1400, 3600, rotation=180)
+    chair = piece("chair", 2100, 600, rotation=0, role="chair_1")
+    clear = rule_marks(scn, [sofa, chair])["R2"]
+    check(clear.score > 0.9, "two seats facing each other see each other, got {:.2f}".format(clear.score))
+    shelf = piece("bookshelf", 2050, 2200, rotation=0)              # 2 m tall, between the two seats
+    blocked = rule_marks(scn, [sofa, chair, shelf])["R2"]
+    check(blocked.score < 0.1, "a tall piece between two seats blocks their view of each other")
+
+
+def test_reach_rule():
+    scn = scenario(width=5000, length=4500)
+    sofa = piece("sofa", 1400, 3600, rotation=180)                  # front face at y = 3600
+    near = piece("coffee_table", 1900, 2550, role="coffee_table")   # 450 mm in front
+    far = piece("coffee_table", 1900, 2100, role="coffee_table")    # 900 mm in front
+    check(rule_marks(scn, [sofa, near])["R6"].score > rule_marks(scn, [sofa, far])["R6"].score,
+          "a coffee table within reach marks higher than one 900 mm away")
+    check(rule_marks(scn, [sofa])["R6"].score == 0.0, "no table at all leaves nothing within reach")
+
+
+def test_programme_sizes_fit_room():
+    def programme_for(width, length, **extra):
+        data = {"room": {"width": width, "length": length},
+                "doors": [{"id": "d", "wall": "south", "position": 500, "width": 900}],
+                "user_requirements": {"required_furniture": ["sofa", "coffee_table"]}}
+        data.update(extra)
+        scn = parse_scenario(data)
+        return apply_programme(scn), scn
+
+    small, scn_small = programme_for(3200, 3400)
+    check(small.tier == "compact", "a 10.9 m2 room gets compact furniture, got {}".format(small.tier))
+    medium, scn_medium = programme_for(5000, 4000)
+    check(medium.tier == "standard", "a 20 m2 room gets standard furniture")
+    large, scn_large = programme_for(7000, 5500)
+    check(large.tier == "generous", "a 38.5 m2 room gets generous furniture")
+    widths = [s.catalogue.spec("sofa").width for s in (scn_small, scn_medium, scn_large)]
+    check(widths[0] < widths[1] < widths[2], "the sofa grows with the room: {}".format(widths))
+    _, overridden = programme_for(3200, 3400, furniture_overrides={"sofa": {"width": 2000}})
+    check(overridden.catalogue.spec("sofa").width == 2000, "an explicit furniture override beats the size tier")
+    check(apply_programme(scn_small) is small, "the programme is worked out once per scenario")
+
+
+def test_programme_activities():
+    def scn_for(**requirements):
+        return parse_scenario({"room": {"width": 6000, "length": 4500, "name": requirements.pop("name", "living")},
+                               "doors": [{"id": "d", "wall": "south", "position": 500, "width": 900}],
+                               "user_requirements": requirements})
+
+    default = apply_programme(scn_for())
+    check(default.activities == ["conversation", "tv"], "a family room is furnished for conversation and TV")
+    check(default.activities_source == "inferred", "activities nobody named are marked as inferred")
+    check(default.required[:2] == ["sofa", "coffee_table"] and "tv_console" in default.required,
+          "the programme plans the furniture those activities need: {}".format(default.required))
+
+    named = apply_programme(scn_for(activities=["reading", "dining"]))
+    check(named.activities == ["reading", "dining"] and named.activities_source == "provided",
+          "activities the household names are used as given")
+    check({"bookshelf", "reading_chair", "dining_set"} <= set(named.required) and "tv_console" not in named.required,
+          "only the named activities are furnished: {}".format(named.required))
+
+    combined = apply_programme(scn_for(name="Living / Dining"))
+    check("dining" in combined.activities, "a 'Living / Dining' room is furnished for dining too")
+
+    listed = apply_programme(scn_for(required_furniture=["sofa", "coffee_table", "desk"]))
+    check(listed.activities == ["conversation", "work"], "an explicit furniture list sets the activities")
+    check(listed.required == ["sofa", "coffee_table", "desk"], "and is left as the caller wrote it")
+
+    try:
+        apply_programme(scn_for(activities=["juggling"]))
+    except InputError:
+        pass
+    else:
+        raise AssertionError("an unknown activity must be rejected")
+
+
+def test_accessible_programme():
+    data = {"room": {"width": 6000, "length": 5000},
+            "doors": [{"id": "d", "wall": "south", "position": 500, "width": 900}],
+            "user_requirements": {"accessible": True}}
+    scn = parse_scenario(data)
+    programme = apply_programme(scn)
+    check(programme.accessible and programme.accessible_source == "provided", "mobility needs are recorded")
+    check(scn.config.clearances.door_clearance_min == 1200, "1.2 m is kept clear inside every door")
+    check(scn.config.clearances.seating_circulation_min == 900, "900 mm is needed behind a free-standing seat")
+    check("rug" not in programme.optional, "no loose rug is planned")
+    data["user_requirements"] = {}
+    plain = parse_scenario(data)
+    check("rug" in apply_programme(plain).optional, "without mobility needs a 30 m2 room gets a rug")
+    check(plain.config.clearances.door_clearance_min == 900, "and the standard door clearance")
+
+
+def test_dining_clearance_constraint():
+    ctx = context(scenario(width=6000, length=5000, doors=[]))
+    against_wall = piece("dining_set", 2000, 0, role="dining_set")           # a row of chairs on the south wall
+    violation = check_item(against_wall, ctx)
+    check(violation is not None and violation.rule == "dining_clearance",
+          "dining chairs with a wall right behind them are rejected, got {}".format(violation))
+    clear = piece("dining_set", 2000, 1500, role="dining_set")
+    check(check_item(clear, ctx) is None, "a dining set with floor behind both rows of chairs is accepted")
+    parts = clear.output_dicts()
+    check([p["type"] for p in parts] == ["dining_table"] + ["dining_chair"] * 4,
+          "the output lists the table and its four chairs")
+    table = parts[0]["bbox"]
+    check(close(table[3] - table[1], 1700 - 2 * 450), "the table is the set without its two rows of chairs")
+    check(all(1500 - 1 <= p["bbox"][1] and p["bbox"][3] <= 3200 + 1 for p in parts), "every part lies inside the set")
+
+
+def test_dining_zone_layout():
+    data = {
+        "room": {"width": 6500, "length": 4500, "name": "Living / Dining"},
+        "doors": [{"id": "d", "wall": "south", "position": 2800, "width": 900, "swing": "inward"}],
+        "windows": [{"id": "w", "wall": "north", "position": 2000, "width": 1800, "sill_height": 900}],
+        "user_requirements": {"purpose": "family_social", "activities": ["conversation", "tv", "dining"]},
+    }
+    result = LayoutGenerator(parse_scenario(data, name="living_dining")).run()
+    out = result.to_dict()
+    check(result.result.valid, "the living/dining room produces a valid layout: {}".format(
+        [v.message for v in result.result.violations]))
+    types = [f["type"] for f in out["furniture"]]
+    check(types.count("dining_table") == 1 and types.count("dining_chair") >= 4,
+          "a dining table and its chairs are placed: {}".format(types))
+    check({"living", "dining"} <= {z["name"] for z in out["zones"]}, "the room is divided into living and dining zones")
+    zones = {r["id"]: r for r in out["rules"]}
+    check(zones["R3"]["status"] != "not_applicable", "rule 3 applies once the room holds two activity areas")
+    check("dining" in zones["R7"]["detail"].lower(), "rule 7 reports on the dining activity")
+
+
+# --------------------------------------------------------------------------- #
 def main() -> int:
     groups: List[Tuple[str, List[Callable]]] = [
         ("geometry", [test_rect_intersection, test_polygon_sat, test_sector_area,
@@ -489,6 +670,10 @@ def main() -> int:
                                   test_unknown_preferred_layout_falls_back, test_room_without_doors,
                                   test_all_scenarios_valid, test_output_json_shape,
                                   test_determinism, test_explanations_present]),
+        ("the ten rules", [test_rule_catalogue, test_face_to_face_rule, test_views_rule, test_reach_rule,
+                           test_programme_sizes_fit_room, test_programme_activities,
+                           test_accessible_programme, test_dining_clearance_constraint,
+                           test_rules_reported_in_output, test_dining_zone_layout]),
     ]
     total = 0
     for title, tests in groups:

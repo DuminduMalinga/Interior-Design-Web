@@ -9,9 +9,14 @@ detected on the same floor plan, it:
   1. works out which door/window detections belong to *this* room,
   2. converts everything into the engine's own "floor-plan detector" input
      dialect (see living_room_layout/io_json.py: normalise_floorplan),
-  3. runs the full rule pipeline (room analysis -> layout selection ->
-     candidate generation -> hard/soft constraints -> optimisation),
-  4. returns the generated furniture layout plus the analysed room structure.
+  3. works out the programme: the household's daily activities, the furniture
+     they need, furniture sizes for the floor area and the clearances for an
+     occupant with mobility needs (living_room_layout/programme.py),
+  4. runs the full rule pipeline (room analysis -> layout selection ->
+     candidate generation -> hard constraints -> optimisation against the ten
+     living-room furniture-arrangement rules),
+  5. returns the generated furniture layout, its rule-by-rule report and the
+     analysed room structure.
 
 This service remains stateless and takes detections in and returns a layout as
 JSON. The frontend persists the result in Supabase, while rendering is left to
@@ -50,6 +55,8 @@ except ImportError:
 from living_room_layout.engine.pipeline import LayoutGenerator  # noqa: E402
 from living_room_layout.io_json import InputError, Scenario, parse_scenario  # noqa: E402
 from living_room_layout.layouts import ALL_LAYOUTS  # noqa: E402
+from living_room_layout.programme import apply_programme  # noqa: E402
+from living_room_layout.rules.living_rules import rule_catalogue  # noqa: E402
 
 # ── Config ─────────────────────────────────────────────────────────────
 #: mm/px used ONLY when the room has no door to recover the real scale from
@@ -65,15 +72,6 @@ ALLOWED_ORIGINS = [
         "ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
     ).split(",")
     if o.strip()
-]
-#: extra *optional* furniture added once the room's real area (only known
-#: after scale recovery) crosses each threshold, so a large room doesn't end
-#: up mostly empty with just a sofa and a coffee table. Purely additive —
-#: every one of these is placed only if it fits (never required).
-FURNITURE_BY_AREA_M2: List[Tuple[float, List[str]]] = [
-    (16.0, ["rug"]),
-    (22.0, ["lamp"]),
-    (30.0, ["storage_cabinet"]),
 ]
 #: which sofa variant each layout's own plan() actually calls "sofa" - see
 #: the note in generate_all() for why this has to be corrected per layout.
@@ -93,6 +91,12 @@ app.add_middleware(
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/rules")
+def rules():
+    """The ten rules as written, and how the engine applies each one."""
+    return {"rules": rule_catalogue()}
 
 
 # ── Helpers ────────────────────────────────────────────────────────────
@@ -117,7 +121,8 @@ def _prepare_scenario(payload: Dict[str, Any]) -> Tuple[Scenario, Dict[str, Any]
     """Shared setup for both endpoints: room+detections -> a parsed Scenario.
 
     Returns the scenario plus a metadata dict (roomId, scaleSource, doorsUsed,
-    windowsUsed, notes) describing every assumption that had to be made.
+    windowsUsed, notes, and the programme: activities, mobility needs, sizes)
+    describing every assumption that had to be made.
     """
     room = payload.get("room") or {}
     room_bbox_in = room.get("bbox")
@@ -169,10 +174,13 @@ def _prepare_scenario(payload: Dict[str, Any]) -> Tuple[Scenario, Dict[str, Any]
         "user_requirements": {
             "purpose": payload.get("purpose") or "family_social",
             "preferred_layout": payload.get("preferred_layout"),
-            "required_furniture": payload.get("required_furniture")
-            or ["sofa", "coffee_table", "tv", "tv_console"],
-            "optional_furniture": payload.get("optional_furniture") or ["chair", "side_table"],
+            # left empty, the programme plans the furniture from the activities
+            "required_furniture": payload.get("required_furniture") or [],
+            "optional_furniture": payload.get("optional_furniture") or [],
             "excluded_furniture": payload.get("excluded_furniture") or [],
+            # rule 7: what the household does here; rule 10: mobility needs
+            "activities": payload.get("activities") or [],
+            "accessible": payload.get("accessible"),
         },
     }
     if scale_m_per_px:
@@ -191,18 +199,11 @@ def _prepare_scenario(payload: Dict[str, Any]) -> Tuple[Scenario, Dict[str, Any]
             scenario = parse_scenario(
                 detector_payload, name=str(room.get("id") or room.get("name") or "living_room")
             )
+        # The room's true size is only known now, after scale recovery: size the
+        # furniture to it and plan the pieces the household's activities need.
+        programme = apply_programme(scenario)
     except InputError as exc:
         raise HTTPException(422, str(exc))
-
-    # A handful of small pieces looks sparse in a genuinely large room (the
-    # true size is only known now, after scale recovery) — fill it out a bit
-    # more, but only when the caller left the furniture list to us.
-    if not payload.get("optional_furniture"):
-        for min_area, extra in FURNITURE_BY_AREA_M2:
-            if scenario.room.area_m2 >= min_area:
-                for extra_type in extra:
-                    if extra_type not in scenario.requirements.optional_furniture:
-                        scenario.requirements.optional_furniture.append(extra_type)
 
     notes = [
         (line.split("] ", 1)[1] if "] " in line else line)
@@ -212,10 +213,16 @@ def _prepare_scenario(payload: Dict[str, Any]) -> Tuple[Scenario, Dict[str, Any]
 
     meta = {
         "roomId": room.get("id"),
+        "roomType": "living_room",
         "scaleSource": scale_source,
         "doorsUsed": [d["id"] for d in doors],
         "windowsUsed": [w["id"] for w in windows],
         "notes": notes,
+        "activities": list(programme.activities),
+        "activitiesSource": programme.activities_source,
+        "accessible": programme.accessible,
+        "accessibleSource": programme.accessible_source,
+        "programme": programme.to_dict(scenario.catalogue),
     }
     return scenario, meta
 
@@ -238,7 +245,8 @@ def generate_all(payload: Dict[str, Any] = Body(...)):
 
     Each layout is *forced*, so a layout the automatic selector would have
     skipped still produces its own plan and reports `valid: false` with the
-    hard constraints it broke, which is the honest comparison.
+    hard constraints it broke, which is the honest comparison. Every layout is
+    scored 0-100 against the same ten rules, so the scores compare directly.
     """
     base_scenario, meta = _prepare_scenario(payload)
 

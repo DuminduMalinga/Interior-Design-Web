@@ -119,7 +119,21 @@ FURNITURE_DB: Dict[str, Dict] = {
         "category": "soft", "flat": True,
         "prefers_wall": False, "front_clearance": 0, "allow_near_window": True,
     },
+    # A dining table with its chairs pushed in, placed as one piece so the
+    # chairs can never be separated from the table: `width` is the table
+    # length, `depth` the table plus a row of chairs on each long side.  The
+    # output JSON lists the table and every chair separately (`output_dicts`).
+    "dining_set": {
+        "width": 1200, "depth": 1700, "height": 750,
+        "category": "dining", "seats": 4,
+        "prefers_wall": False, "front_clearance": 0, "allow_near_window": True,
+    },
 }
+
+#: floor a pushed-in dining chair takes beyond the table edge, and its width
+DINING_CHAIR_DEPTH = 450.0
+DINING_CHAIR_WIDTH = 450.0
+DINING_CHAIR_HEIGHT = 900.0
 
 # Pieces that are allowed to share floor space (a TV stands on its console, a
 # lamp stands beside/behind a side table).  Checked in both orders.
@@ -368,6 +382,55 @@ class Furniture:
                 for r in self.part_rects()
             ]
         return data
+
+    def _local_rect(self, lx0: float, ly0: float, lx1: float, ly1: float) -> Rect:
+        """A rectangle given in the piece's own unrotated frame, in room coordinates."""
+        (ax, ay), (bx, by) = self._to_world(lx0, ly0), self._to_world(lx1, ly1)
+        return Rect.from_bounds(ax, ay, bx, by)
+
+    def table_rect(self) -> Rect:
+        """The table itself: for a dining set, the footprint without its chairs."""
+        if self.type != "dining_set":
+            return self.bbox
+        return self._local_rect(0.0, DINING_CHAIR_DEPTH, self.spec.width, self.spec.depth - DINING_CHAIR_DEPTH)
+
+    def output_dicts(self) -> List[Dict]:
+        """The piece as the output JSON lists it: a dining set becomes its table and chairs."""
+        if self.type != "dining_set":
+            return [self.to_dict()]
+        names = {0: "north", 90: "west", 180: "south", 270: "east"}
+
+        # the short names the plan viewer prints on the pieces, as the dining service gives them
+        roles = {"dining_table": "dining table", "dining_chair": "chair"}
+
+        def entry(ident: str, type_name: str, rect: Rect, rotation: int, height: float, reasons: List[str]) -> Dict:
+            turned = rotation in (90, 270)
+            return {
+                "id": ident, "type": type_name, "role": roles[type_name],
+                "x": round(rect.x0, 1), "y": round(rect.y0, 1),
+                "width": round(rect.height if turned else rect.width, 1),
+                "depth": round(rect.width if turned else rect.height, 1),
+                "height": height, "rotation": rotation, "facing": names[rotation],
+                "bbox": [round(rect.x0, 1), round(rect.y0, 1), round(rect.x1, 1), round(rect.y1, 1)],
+                "placement_strategy": self.strategy, "reasons": reasons,
+            }
+
+        width, depth = self.spec.width, self.spec.depth
+        per_side = max(1, int(self.spec.seats) // 2)
+        out = [entry(self.id, "dining_table", self.table_rect(), self.rotation % 360,
+                     self.spec.height, list(self.reasons))]
+        seat = 0
+        # the row on the piece's back edge faces the table (the piece's own facing), the far row faces back
+        for y0, turn in ((0.0, 0), (depth - DINING_CHAIR_DEPTH, 180)):
+            for index in range(per_side):
+                seat += 1
+                x0 = width * (index + 0.5) / per_side - DINING_CHAIR_WIDTH / 2.0
+                out.append(entry(
+                    "{}_chair_{}".format(self.id, seat), "dining_chair",
+                    self._local_rect(x0, y0, x0 + DINING_CHAIR_WIDTH, y0 + DINING_CHAIR_DEPTH),
+                    (self.rotation + turn) % 360, DINING_CHAIR_HEIGHT,
+                    ["Dining chair, drawn pushed in under the table"]))
+        return out
 
     def clone(self, **changes) -> "Furniture":
         item = Furniture(

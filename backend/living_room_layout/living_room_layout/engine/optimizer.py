@@ -10,9 +10,9 @@ step can be replayed:
        a hard constraint, and rank the survivors with the local soft score;
     3. keep the best `beam_width` partial layouts rather than committing to a
        single greedy choice (beam search - a bounded breadth-first search);
-    4. score every finished layout with the full soft-constraint model;
+    4. mark every finished layout against the ten living-room rules;
     5. hill-climb: try re-placing each piece in turn and keep any move that
-       raises the whole-layout score;
+       raises the layout's ten-rule score;
     6. re-validate the winner and report it.
 
 Running the same input twice produces the same layout.
@@ -29,7 +29,7 @@ from ..models.furniture import Furniture, FurnitureCatalogue
 from ..rules.circulation_rules import CirculationReport, analyse_circulation
 from ..rules.context import PlacementContext, Violation
 from ..rules.soft_constraints import LayoutScore
-from .candidate_generator import CandidateGenerator
+from .candidate_generator import CandidateGenerator, needs_anchor
 from .constraint_checker import ConstraintChecker
 from .scorer import LayoutScorer
 
@@ -115,7 +115,7 @@ class LayoutOptimizer:
 
     # ------------------------------------------------------------------ #
     def optimize(self, specs: List[PlacementSpec]) -> LayoutResult:
-        scorer = LayoutScorer(self.layout, [s.role for s in specs if s.required])
+        scorer = LayoutScorer(self.layout, specs)
         beam: List[PartialLayout] = [PartialLayout()]
         failures: List[PlacementFailure] = []
         counters: Dict[str, int] = {}
@@ -203,7 +203,53 @@ class LayoutOptimizer:
 
         best_result = self._hill_climb(best_result, specs, scorer)
         best_result.violations = self.checker.validate_layout(self.base_ctx, best_result.items)
+        if best_result.violations:
+            self._declutter(best_result, specs, scorer)
         return best_result
+
+    # ------------------------------------------------------------------ #
+    def _declutter(self, result: LayoutResult, specs: List[PlacementSpec], scorer: LayoutScorer) -> None:
+        """Rule 8 (avoid overcrowding): an optional piece never costs the room its validity.
+
+        While the finished layout still breaks a hard constraint - in practice,
+        the walking path is cut - the optional piece whose removal helps most
+        is left out. The thinned layout is only kept if it ends up valid;
+        otherwise the furniture stays and the layout reports what it breaks.
+        """
+        required = {s.role for s in specs if s.required}
+        # a piece that only belongs with another (a desk chair) leaves with it
+        followers = {s.role: s.anchor for s in specs if needs_anchor(s)}
+        why = result.violations[0].message
+        items, violations, score = list(result.items), list(result.violations), result.score
+        removed: List[Furniture] = []
+        while violations:
+            options = []
+            for item in items:
+                if item.role in required:
+                    continue
+                trial = [f for f in items if f.id != item.id and followers.get(f.role) != item.role]
+                trial_violations = self.checker.validate_layout(self.base_ctx, trial)
+                trial_score = scorer.score(self.base_ctx, trial)
+                cut_off = len(trial_score.circulation.unreachable_targets) if trial_score.circulation else 0
+                options.append((not trial_violations, -len(trial_violations), -cut_off, trial_score.objective,
+                                item.id, item, trial, trial_violations, trial_score))
+            if not options:
+                return                      # only planned-as-required furniture is left
+            best = max(options, key=lambda option: option[:5])
+            kept = {f.id for f in best[6]}
+            removed.extend(f for f in items if f.id not in kept)
+            items, violations, score = best[6], best[7], best[8]
+
+        reason = "Left out to keep the room walkable and uncrowded: with it, {}".format(
+            why[:1].lower() + why[1:])
+        result.items, result.violations = items, violations
+        result.score, result.circulation = score, score.circulation
+        result.failures = result.failures + [
+            PlacementFailure(role=item.role, type=item.type, required=False, candidates_tried=0, reasons=[reason])
+            for item in removed
+        ]
+        result.trace.append("{} left out so the layout satisfies every hard constraint".format(
+            ", ".join(item.role or item.type for item in removed)))
 
     # ------------------------------------------------------------------ #
     def _prune(self, beam: List[PartialLayout]) -> List[PartialLayout]:
@@ -276,14 +322,14 @@ class LayoutOptimizer:
                         accept = new_key[1] > old_key[1] + 0.01
                     if accept:
                         candidate.reasons = self._placement_reasons(spec, candidate, points)
+                        result.trace.append(
+                            "Hill climbing moved {} to strategy '{}' (rule score {:.1f} -> {:.1f})".format(
+                                spec.label(), candidate.strategy, best_score.total, score.total
+                            )
+                        )
                         best_items = trial
                         best_score = score
                         improved = True
-                        result.trace.append(
-                            "Hill climbing moved {} to strategy '{}' (+{:.1f} points)".format(
-                                spec.label(), candidate.strategy, score.total - result.score.total
-                            )
-                        )
                         break
             if not improved:
                 break
@@ -383,8 +429,8 @@ class LayoutOptimizer:
 
     @classmethod
     def _score_key(cls, score: LayoutScore) -> Tuple[bool, float]:
-        """Walkable layouts always beat unwalkable ones, then points decide."""
-        return (cls._walkable(score), score.total)
+        """Walkable layouts always beat unwalkable ones, then the ten rules decide."""
+        return (cls._walkable(score), score.objective)
 
     @classmethod
     def _preferred(cls, candidate: LayoutResult, current: LayoutResult) -> bool:

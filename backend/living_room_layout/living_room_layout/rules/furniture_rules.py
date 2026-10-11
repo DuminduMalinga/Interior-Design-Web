@@ -412,6 +412,32 @@ def check_coffee_table_clearance(item: Furniture, ctx: PlacementContext) -> Opti
     return None
 
 
+def check_dining_clearance(item: Furniture, ctx: PlacementContext) -> Optional[Violation]:
+    """Dining chairs need floor behind them to be pulled out and sat on.
+
+    A dining set is placed with its chairs pushed in; behind each row of chairs
+    `dining_pull_out` more has to be free of walls and furniture.  Checked from
+    both sides, so a piece placed later cannot close the gap either.
+    """
+    needed = ctx.config.clearances.dining_pull_out
+    sets = [item] if item.type == "dining_set" else ctx.by_type("dining_set")
+    if not sets or item.spec.flat:
+        return None
+    others = [f for f in ctx.placed if f.id != item.id] + [item]
+    for table in sets:
+        for direction in (table.facing, table.back_direction):
+            gap = clearance_in_direction(table, direction, ctx, others)
+            if gap < needed - 1.0:
+                return Violation(
+                    rule="dining_clearance",
+                    message="only {:.0f} mm behind the dining chairs - {:.0f} mm is needed to pull "
+                    "them out".format(gap, needed),
+                    subject=item.id,
+                    related=table.id,
+                )
+    return None
+
+
 #: pieces that only make sense directly above/on another piece
 PAIRED_WITH = {"tv": "tv_console"}
 

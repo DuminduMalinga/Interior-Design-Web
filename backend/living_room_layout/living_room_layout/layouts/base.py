@@ -42,6 +42,18 @@ FALLBACK_PLACEMENT: Dict[str, Tuple[List[str], Optional[str]]] = {
     # optional) rather than dropped somewhere that reads as a mistake.
     "rug": (["in_front_of", "floating"], "sofa"),
     "lamp": (["beside", "near", "wall", "corner", "center"], "sofa"),
+    # Furniture a daily activity brings into a layout that has no place of its
+    # own for it (rule 7): each goes where it can be used, and a piece that
+    # belongs with another is anchored to it by *type* ("bookshelf", "desk").
+    "chair": (["facing", "wall_facing"], "sofa"),
+    "side_table": (["beside"], "sofa"),
+    "tv_console": (["media_wall", "solid_wall"], None),
+    "tv": (["on_console", "media_wall"], "tv_console"),
+    "bookshelf": (["solid_wall"], None),
+    "reading_chair": (["beside_facing", "near"], "bookshelf"),
+    "desk": (["near_window", "wall"], None),
+    "desk_chair": (["at_desk"], "desk"),
+    "dining_set": (["center"], None),
 }
 
 
@@ -174,13 +186,19 @@ class BaseLayout:
         sofa_role = next((s.role for s in kept if s.type in BaseLayout.SOFA_TYPES), None)
 
         known = {s.type for s in kept}
-        for type_name in required + sorted(optional):
-            if type_name in known or type_name in excluded:
+        wanted = [t for t in required + sorted(optional) if t not in known and t not in excluded]
+        # a piece anchored to another requested piece is added after it
+        wanted.sort(key=lambda t: FALLBACK_PLACEMENT.get(t, ([], None))[1] in wanted)
+        for type_name in wanted:
+            if type_name in known:
                 continue
             strategies, anchor = FALLBACK_PLACEMENT.get(type_name, (["wall", "corner", "center"], None))
-            use_anchor = sofa_role if anchor == "sofa" and sofa_role else None
-            if anchor == "sofa" and not use_anchor:
-                # no sofa in this layout to anchor to - fall back to the walls
+            if anchor == "sofa":
+                use_anchor = sofa_role
+            else:
+                use_anchor = next((s.role for s in kept if s.type == anchor), None) if anchor else None
+            if anchor and not use_anchor:
+                # nothing in this layout to anchor to - fall back to the walls
                 strategies = ["wall", "corner", "center"]
             kept.append(
                 PlacementSpec(
@@ -189,9 +207,26 @@ class BaseLayout:
                     required=type_name in required,
                     strategies=strategies,
                     anchor=use_anchor,
-                    note="Requested by the user; added to this layout's roster"
-                    + (" near the seating group" if use_anchor else ""),
+                    note="Wanted for this room; added to this layout's roster"
+                    + (" with the {}".format(use_anchor.replace("_", " ")) if use_anchor else ""),
                 )
             )
             known.add(type_name)
-        return kept
+
+        # rule 7: the furniture the household's activities need is placed
+        # before the extras, so an optional chair cannot take the only wall the
+        # TV unit fits on. A piece's anchor always stays ahead of it.
+        by_role = {spec.role: spec for spec in kept}
+        ordered: List[PlacementSpec] = []
+
+        def place(spec: PlacementSpec) -> None:
+            if spec in ordered:
+                return
+            anchor_spec = by_role.get(spec.anchor) if spec.anchor else None
+            if anchor_spec is not None and anchor_spec is not spec:
+                place(anchor_spec)
+            ordered.append(spec)
+
+        for spec in [s for s in kept if s.required] + [s for s in kept if not s.required]:
+            place(spec)
+        return ordered
