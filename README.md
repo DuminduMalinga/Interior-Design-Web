@@ -271,12 +271,12 @@ reads `VITE_DETECTOR_URL` (default `http://localhost:8000`). See
 ### 🛋️ Living Room Layout service (rule-based living-room layouts)
 
 When the room picked on Select Room is a living room (its name contains
-"living"), View Layouts calls a local Python service that builds six layout
-types — conversation, TV, corner sofa, reading, open-centre and multi-functional
-— and optimises and scores each against ten living-room furniture-arrangement
-rules. The furniture follows the household's daily activities (conversation,
-TV, reading, work, dining) and is sized to the room. Pure Python — no model,
-no database.
+"living"), View Layouts calls a local Python service that arranges a sofa,
+armchairs, a coffee table, side tables, a TV unit and a rug according to ten
+living-room furniture-arrangement rules, and scores every layout against each
+rule. The furniture follows the household's daily activities — a dining table,
+a desk or a reading corner gets a zone of its own — and is sized to the room.
+Pure Python — no model, no database.
 
 ```bash
 cd backend/living_room_layout
