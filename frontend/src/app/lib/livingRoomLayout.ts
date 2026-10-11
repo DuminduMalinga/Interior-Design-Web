@@ -59,6 +59,10 @@ export interface LayoutFurnitureItem {
   parts?: [number, number, number, number][];
   /** Bathroom "wall" fittings and floor "drain", "ceiling" / "table" lights: they take up no floor. */
   mounted?: "floor" | "wall" | "drain" | "ceiling" | "table";
+  /** Fittings and lights: height of the fixing (or of the light) above the floor, mm. */
+  mount_height?: number | null;
+  /** A readable name, when the engine gives one (e.g. "vanity basin"). */
+  label?: string;
 }
 
 export interface LivingRoomLayoutResult {

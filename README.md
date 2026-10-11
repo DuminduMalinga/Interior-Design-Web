@@ -27,7 +27,7 @@
 |:----:|---------|-------------|
 | 🔍 | **AI Room Detection** | Instantly maps every room, wall, door & window from any 2D floor plan image |
 | 🪑 | **Smart Furniture Placement** | Scores hundreds of layout combinations and surfaces only the best-fit arrangements |
-| 🧊 | **Interactive 3D Viewer** | Real-time isometric 3D viewer — rotate, zoom, and export in one click |
+| 🧊 | **Interactive 3D Viewer** | The selected layout as a real-size 3D room (three.js) — orbit, zoom, click furniture, export PNG / GLB / JSON |
 | 📊 | **User Dashboard** | Manage projects, view design history, and configure profile & notifications |
 | 🛡️ | **Admin Panel** | Dedicated interface for user account management and approval workflows |
 | 🌗 | **Dark / Light Theme** | Full theme switching powered by a global `ThemeContext` |
@@ -142,7 +142,7 @@
           ┃  ┣ ⏳ Processing.tsx        ← AI analysis progress screen
           ┃  ┣ 🏷️ SelectRoom.tsx        ← Room selection post-detection
           ┃  ┣ 🗂️ ViewLayouts.tsx       ← AI-scored layout gallery
-          ┃  ┣ 🧊 RoomView3D.tsx        ← Interactive isometric 3D viewer
+          ┃  ┣ 🧊 RoomView3D.tsx        ← 3D view of the selected layout (three.js)
           ┃  ┗ 🛡️ AdminManageAccounts.tsx ← Admin user management panel
           ┗ 📂 styles/
              ┣ 📄 index.css
@@ -169,7 +169,7 @@
 | `/processing` | ⏳ Processing | AI analysis progress screen |
 | `/select-room` | 🏷️ SelectRoom | Pick a detected room to optimise |
 | `/view-layouts` | 🗂️ ViewLayouts | Browse AI-ranked furniture layouts |
-| `/room-view-3d` | 🧊 RoomView3D | Interactive isometric 3D viewer |
+| `/room-view-3d` | 🧊 RoomView3D | The selected layout as an interactive 3D room |
 | `/admin/accounts` | 🛡️ AdminManageAccounts | Admin user management |
 
 ### Backend API Endpoints (`http://localhost:4000`)
