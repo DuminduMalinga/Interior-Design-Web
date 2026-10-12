@@ -1,11 +1,16 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
 import type { LivingRoomLayoutResult } from "../lib/livingRoomLayout";
-import { buildRoomModel, disposeModel, updateFixtureVisibility, type RoomModel } from "../lib/roomScene3d";
+import {
+  SLAB, WALL, buildRoomModel, disposeModel, pinFixture, showAllWalls, updateWalls, type RoomModel,
+} from "../lib/roomScene3d";
 
 export type SceneQuality = "High" | "Medium" | "Low";
+/** What the room stands in front of: a white studio or a dark one. */
+export type SceneBackdrop = "light" | "dark";
 
 /** What the page's toolbar buttons can ask the 3D view to do. */
 export interface RoomScene3DHandle {
@@ -25,6 +30,7 @@ interface Props {
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   quality: SceneQuality;
+  backdrop?: SceneBackdrop;
   onFps?: (fps: number) => void;
   /** Called when WebGL cannot be started. */
   onError?: (message: string) => void;
@@ -35,17 +41,90 @@ interface Stage {
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
   controls: OrbitControls;
-  sun: THREE.DirectionalLight;
+  /** The one light that casts shadows. */
+  key: THREE.DirectionalLight;
   model: RoomModel;
   home: { position: THREE.Vector3; target: THREE.Vector3 };
+  /** The user has moved the view: a change of the view's size no longer puts it back where it started. */
+  touched: boolean;
+  /** Something changed that the next frame has to draw. */
+  dirty: boolean;
+  /** The model is being exported: leave its walls alone. */
+  exporting: boolean;
 }
 
 const HIGHLIGHT = new THREE.Color("#2dd4bf");
 const UP = new THREE.Vector3(0, 1, 0);
 
+/** The studio the room stands in: light in the middle, falling off to the corners. */
+const BACKDROPS: Record<SceneBackdrop, [string, string, string]> = {
+  light: ["#ffffff", "#eef0f3", "#dde1e7"],
+  dark: ["#353c4a", "#1c212b", "#10141b"],
+};
+const backdropCss = (backdrop: SceneBackdrop) => {
+  const [inner, middle, outer] = BACKDROPS[backdrop];
+  return `radial-gradient(ellipse 75% 70% at 50% 42%, ${inner} 0%, ${middle} 60%, ${outer} 100%)`;
+};
+
+/**
+ * Where the camera has to stand, looking back along `direction`, for every one
+ * of `points` to be in the picture with a little room to spare, and the point
+ * it then looks at: the one that puts the picture in the middle of the view.
+ */
+function frameView(camera: THREE.PerspectiveCamera, direction: THREE.Vector3, points: THREE.Vector3[], margin = 0.86) {
+  const forward = direction.clone().negate();
+  const right = new THREE.Vector3().crossVectors(forward, UP).normalize();
+  const up = new THREE.Vector3().crossVectors(right, forward);
+  const tanV = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * margin;
+  const tanH = tanV * camera.aspect;
+  const target = new THREE.Box3().setFromPoints(points).getCenter(new THREE.Vector3());
+  const offset = new THREE.Vector3();
+  let distance = 1;
+  for (let pass = 0; pass < 4; pass++) {
+    // slide the target until the picture is centred, then stand back far enough for the widest point
+    const across = { lo: Infinity, hi: -Infinity };
+    const upright = { lo: Infinity, hi: -Infinity };
+    for (const point of points) {
+      offset.copy(point).sub(target);
+      const depth = offset.dot(forward) + distance;
+      across.lo = Math.min(across.lo, offset.dot(right) / depth);
+      across.hi = Math.max(across.hi, offset.dot(right) / depth);
+      upright.lo = Math.min(upright.lo, offset.dot(up) / depth);
+      upright.hi = Math.max(upright.hi, offset.dot(up) / depth);
+    }
+    if (pass > 0) {
+      target.addScaledVector(right, ((across.lo + across.hi) / 2) * distance);
+      target.addScaledVector(up, ((upright.lo + upright.hi) / 2) * distance);
+    }
+    distance = 0;
+    for (const point of points) {
+      offset.copy(point).sub(target);
+      const depth = offset.dot(forward);
+      distance = Math.max(distance, Math.abs(offset.dot(right)) / tanH - depth, Math.abs(offset.dot(up)) / tanV - depth);
+    }
+  }
+  // a touch above the middle: the bottom of the view is where the page puts its hint
+  target.addScaledVector(up, -0.03 * distance * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
+  return { position: target.clone().addScaledVector(direction, distance), target };
+}
+
+function paintBackdrop(g: CanvasRenderingContext2D, width: number, height: number, backdrop: SceneBackdrop): void {
+  const [inner, middle, outer] = BACKDROPS[backdrop];
+  g.save();
+  g.translate(width * 0.5, height * 0.42);
+  g.scale(width * 0.75, height * 0.7);
+  const gradient = g.createRadialGradient(0, 0, 0, 0, 0, 1);
+  gradient.addColorStop(0, inner);
+  gradient.addColorStop(0.6, middle);
+  gradient.addColorStop(1, outer);
+  g.fillStyle = gradient;
+  g.fillRect(-2, -2, 4, 4);
+  g.restore();
+}
+
 /** An interactive three.js view of one layout: drag to orbit, scroll to zoom, click a piece to select it. */
 const RoomScene3D = forwardRef<RoomScene3DHandle, Props>(function RoomScene3D(
-  { layout, selectedId, onSelect, quality, onFps, onError },
+  { layout, selectedId, onSelect, quality, backdrop = "light", onFps, onError },
   ref,
 ) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -55,10 +134,22 @@ const RoomScene3D = forwardRef<RoomScene3DHandle, Props>(function RoomScene3D(
   callbacks.current = { onSelect, onFps, onError };
   const selectedRef = useRef(selectedId);
   const qualityRef = useRef(quality);
+  const backdropRef = useRef(backdrop);
+  backdropRef.current = backdrop;
 
   const applyQuality = (stage: Stage, level: SceneQuality) => {
-    stage.renderer.setPixelRatio(level === "High" ? Math.min(window.devicePixelRatio || 1, 2) : 1);
-    stage.sun.castShadow = level !== "Low";
+    const ratio = window.devicePixelRatio || 1;
+    stage.renderer.setPixelRatio(level === "High" ? Math.min(ratio, 2) : level === "Medium" ? Math.min(ratio, 1.25) : 1);
+    const { shadow } = stage.key;
+    const size = Math.min(level === "High" ? 4096 : 2048, stage.renderer.capabilities.maxTextureSize);
+    stage.key.castShadow = level !== "Low";
+    if (shadow.mapSize.x !== size) {
+      shadow.mapSize.set(size, size);
+      shadow.map?.dispose();
+      shadow.map = null;                       // made again at the new size on the next frame
+    }
+    shadow.radius = level === "High" ? 3.5 : 2;
+    stage.dirty = true;
   };
 
   const applySelection = (stage: Stage, id: string | null) => {
@@ -68,13 +159,18 @@ const RoomScene3D = forwardRef<RoomScene3DHandle, Props>(function RoomScene3D(
     }
     highlighted.current.clear();
     const group = id ? stage.model.furniture.get(id) : undefined;
+    pinFixture(stage.model.walls, group ?? null);       // a selected fitting stays in view when its wall goes
     group?.traverse((object) => {
-      const material = (object as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined;
-      if (!material || !material.isMeshStandardMaterial || highlighted.current.has(material)) return;
-      highlighted.current.set(material, { color: material.emissive.clone(), intensity: material.emissiveIntensity });
-      material.emissive.copy(HIGHLIGHT);
-      material.emissiveIntensity = 0.45;
+      const mesh = object as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      for (const material of (Array.isArray(mesh.material) ? mesh.material : [mesh.material]) as THREE.MeshStandardMaterial[]) {
+        if (!material.isMeshStandardMaterial || highlighted.current.has(material)) continue;
+        highlighted.current.set(material, { color: material.emissive.clone(), intensity: material.emissiveIntensity });
+        material.emissive.copy(HIGHLIGHT);
+        material.emissiveIntensity = 0.38;
+      }
     });
+    stage.dirty = true;
   };
 
   // ── build the scene for this layout ──────────────────────────────────
@@ -84,48 +180,94 @@ const RoomScene3D = forwardRef<RoomScene3DHandle, Props>(function RoomScene3D(
 
     let renderer: THREE.WebGLRenderer;
     try {
-      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     } catch (err) {
       callbacks.current.onError?.(err instanceof Error ? err.message : "WebGL is not available in this browser.");
       return;
     }
+    renderer.setClearColor(0x000000, 0);                 // the studio backdrop shows through
+    renderer.toneMapping = THREE.NeutralToneMapping;     // keeps the colours of the finishes true
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     host.appendChild(renderer.domElement);
     renderer.domElement.style.display = "block";
     renderer.domElement.style.touchAction = "none";
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color("#0b1120");
+    // soft light from every side, and something for steel, glass and mirrors to reflect
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    const studio = new RoomEnvironment();
+    const environment = pmrem.fromScene(studio, 0.04);
+    scene.environment = environment.texture;
+    scene.environmentIntensity = 0.5;
+    studio.dispose();
+    pmrem.dispose();
+
     const model = buildRoomModel(layout);
-    scene.add(model.root);
+    scene.add(model.root, model.extras);
 
     const { width, length, height } = model.size;
-    scene.add(new THREE.HemisphereLight("#ffffff", "#8a8f98", 1.15));
-    scene.add(new THREE.AmbientLight("#ffffff", 0.35));
-    const sun = new THREE.DirectionalLight("#fff4e0", 2.1);
-    sun.position.set(width * 0.35, height * 2.4, length * 0.55);
-    sun.shadow.mapSize.set(2048, 2048);
-    const reach = Math.max(width, length) * 0.75 + 0.5;
-    Object.assign(sun.shadow.camera, { left: -reach, right: reach, top: reach, bottom: -reach, near: 0.1, far: height * 6 });
-    sun.shadow.bias = -0.0004;
-    sun.shadow.normalBias = 0.02;
-    scene.add(sun);
+    const centre = new THREE.Vector3(0, height * 0.3, 0);
+    const radius = 0.5 * Math.hypot(width + 2 * WALL, length + 2 * WALL, height);
 
-    // the camera starts above the south-east corner, far enough back to take in the whole room
-    const camera = new THREE.PerspectiveCamera(40, 1, 0.05, 200);
-    const radius = 0.5 * Math.hypot(width, length, height);
-    const target = new THREE.Vector3(0, height * 0.22, 0);
+    // The lights stay where they are for the viewer, as for a model on a
+    // turntable: the key over the left shoulder, a weaker one filling in from
+    // the right. So the walls in view are always lit and shadows fall away.
+    const key = new THREE.DirectionalLight("#fff6ea", 2.4);
+    const fill = new THREE.DirectionalLight("#eef2ff", 0.6);
+    const reach = radius * 1.2;
+    Object.assign(key.shadow.camera, { left: -reach, right: reach, top: reach, bottom: -reach, near: radius * 2.4, far: radius * 5.6 });
+    key.shadow.bias = -0.0003;
+    key.shadow.normalBias = 0.02;
+    scene.add(key, key.target, fill, fill.target, new THREE.HemisphereLight("#ffffff", "#d9d2c7", 0.12));
+
+    const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 400);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
     controls.maxPolarAngle = Math.PI / 2 - 0.04;      // never below the floor
-    controls.minDistance = radius * 0.5;
+    controls.minDistance = radius * 0.6;
 
-    const stage: Stage = { renderer, scene, camera, controls, sun, model,
-      home: { position: new THREE.Vector3(), target } };
+    const stage: Stage = {
+      renderer, scene, camera, controls, key, model,
+      home: { position: new THREE.Vector3(), target: new THREE.Vector3() }, touched: false, dirty: true, exporting: false,
+    };
     stageRef.current = stage;
+    controls.addEventListener("start", () => { stage.touched = true; });
 
+    // What the opening view has to take in: the floor and the two far walls. The
+    // camera looks in over the corner the room shows best from, where the walls are taken away.
+    const direction = new THREE.Vector3(0.72 * model.view.x, 0.66, 0.88 * model.view.z).normalize();
+    const corners: THREE.Vector3[] = [];
+    for (const sx of [-1, 1]) {
+      for (const sz of [-1, 1]) {
+        corners.push(new THREE.Vector3(sx * (width / 2 + WALL), -SLAB, sz * (length / 2 + WALL)));
+        if (sx !== model.view.x || sz !== model.view.z) {
+          corners.push(new THREE.Vector3(sx * (width / 2 + WALL), height, sz * (length / 2 + WALL)));
+        }
+      }
+    }
+
+    const aim = () => {
+      const azimuth = controls.getAzimuthalAngle();
+      const place = (light: THREE.DirectionalLight, swing: number, lift: number) => {
+        const turn = azimuth + swing;
+        light.position
+          .set(Math.sin(turn) * Math.cos(lift), Math.sin(lift), Math.cos(turn) * Math.cos(lift))
+          .multiplyScalar(radius * 4)
+          .add(centre);
+        light.target.position.copy(centre);
+      };
+      place(key, -0.45, 0.95);
+      place(fill, 1.2, 0.45);
+      scene.environmentRotation.y = azimuth;
+    };
+
+    const goHome = () => {
+      camera.position.copy(stage.home.position);
+      controls.target.copy(stage.home.target);
+      controls.update();
+    };
     const frame = () => {
       const w = Math.max(host.clientWidth, 1);
       const h = Math.max(host.clientHeight, 1);
@@ -134,17 +276,15 @@ const RoomScene3D = forwardRef<RoomScene3DHandle, Props>(function RoomScene3D(
       renderer.domElement.style.height = "100%";
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
-      // distance at which a sphere round the room fits both ways across the view
-      const half = THREE.MathUtils.degToRad(camera.fov / 2);
-      const fit = radius / Math.sin(Math.min(half, Math.atan(Math.tan(half) * camera.aspect)));
-      controls.maxDistance = fit * 2.2;
-      return fit;
+      const view = frameView(camera, direction, corners);
+      stage.home.position.copy(view.position);
+      stage.home.target.copy(view.target);
+      controls.maxDistance = view.position.distanceTo(view.target) * 1.8;
+      if (!stage.touched) goHome();
+      stage.dirty = true;
     };
-    const fit = frame();
-    stage.home.position.copy(target).add(new THREE.Vector3(0.62, 0.72, 0.9).normalize().multiplyScalar(fit * 1.02));
-    camera.position.copy(stage.home.position);
-    controls.target.copy(target);
-    controls.update();
+    frame();
+    updateWalls(model.walls, camera.position, 0);
 
     applyQuality(stage, qualityRef.current);
     applySelection(stage, selectedRef.current);
@@ -164,7 +304,7 @@ const RoomScene3D = forwardRef<RoomScene3DHandle, Props>(function RoomScene3D(
       );
       const ray = new THREE.Raycaster();
       ray.setFromCamera(pointer, camera);
-      const hit = ray.intersectObjects([...model.furniture.values()], true)[0];
+      const hit = ray.intersectObjects([...model.furniture.values()].filter((piece) => piece.visible), true)[0];
       let object: THREE.Object3D | null = hit?.object ?? null;
       while (object && !object.userData.itemId) object = object.parent;
       callbacks.current.onSelect(object ? (object.userData.itemId as string) : null);
@@ -172,14 +312,22 @@ const RoomScene3D = forwardRef<RoomScene3DHandle, Props>(function RoomScene3D(
     renderer.domElement.addEventListener("pointerdown", onDown);
     renderer.domElement.addEventListener("pointerup", onUp);
 
+    // a frame is only drawn when the view has changed: the camera moved, a wall is coming or going
     let raf = 0;
     let frames = 0;
     let since = performance.now();
+    let last = since;
     const loop = (now: number) => {
       raf = requestAnimationFrame(loop);
-      controls.update();
-      updateFixtureVisibility(model, camera.position);
-      renderer.render(scene, camera);
+      const dt = Math.min((now - last) / 1000, 0.1);
+      last = now;
+      const moved = controls.update();
+      const walls = !stage.exporting && updateWalls(model.walls, camera.position, dt);
+      if (moved || walls || stage.dirty) {
+        stage.dirty = false;
+        aim();
+        renderer.render(scene, camera);
+      }
       frames += 1;
       if (now - since >= 1000) {
         callbacks.current.onFps?.(Math.round((frames * 1000) / (now - since)));
@@ -195,7 +343,9 @@ const RoomScene3D = forwardRef<RoomScene3DHandle, Props>(function RoomScene3D(
       renderer.domElement.removeEventListener("pointerdown", onDown);
       renderer.domElement.removeEventListener("pointerup", onUp);
       controls.dispose();
-      disposeModel(model.root);
+      disposeModel(model);
+      environment.dispose();
+      key.shadow.map?.dispose();
       renderer.dispose();
       renderer.domElement.remove();
       highlighted.current.clear();
@@ -221,6 +371,7 @@ const RoomScene3D = forwardRef<RoomScene3DHandle, Props>(function RoomScene3D(
       const offset = camera.position.clone().sub(controls.target);
       offset.setLength(THREE.MathUtils.clamp(offset.length() * factor, controls.minDistance, controls.maxDistance));
       camera.position.copy(controls.target).add(offset);
+      stage.touched = true;
     },
     rotate(degrees) {
       const stage = stageRef.current;
@@ -228,36 +379,61 @@ const RoomScene3D = forwardRef<RoomScene3DHandle, Props>(function RoomScene3D(
       const { camera, controls } = stage;
       const offset = camera.position.clone().sub(controls.target).applyAxisAngle(UP, THREE.MathUtils.degToRad(degrees));
       camera.position.copy(controls.target).add(offset);
+      stage.touched = true;
     },
     reset() {
       const stage = stageRef.current;
       if (!stage) return;
       stage.camera.position.copy(stage.home.position);
       stage.controls.target.copy(stage.home.target);
+      stage.touched = false;
     },
     toPNG() {
       const stage = stageRef.current;
       if (!stage) return null;
+      const view = stage.renderer.domElement;
       stage.renderer.render(stage.scene, stage.camera);     // the drawing buffer is only valid right after a render
-      return stage.renderer.domElement.toDataURL("image/png");
+      // the view itself is see-through; the picture gets the studio backdrop put behind it
+      const picture = document.createElement("canvas");
+      picture.width = view.width;
+      picture.height = view.height;
+      const g = picture.getContext("2d");
+      if (!g) return view.toDataURL("image/png");
+      paintBackdrop(g, picture.width, picture.height, backdropRef.current);
+      g.drawImage(view, 0, 0);
+      return picture.toDataURL("image/png");
     },
     exportGLB() {
       const stage = stageRef.current;
       if (!stage) return Promise.reject(new Error("The 3D view is not ready."));
-      // the exported model has every window and door, whichever way the camera is looking
-      for (const fixture of stage.model.fixtures) fixture.object.visible = true;
+      // the exported model has all four walls and no selection glow, whichever way the camera is looking
+      stage.exporting = true;
+      applySelection(stage, null);
+      showAllWalls(stage.model.walls);
+      const done = () => {
+        stage.exporting = false;
+        if (stageRef.current !== stage) return;
+        applySelection(stage, selectedRef.current);
+        updateWalls(stage.model.walls, stage.camera.position, 0);
+      };
       return new Promise<Blob>((resolve, reject) => {
         new GLTFExporter().parse(
           stage.model.root,
-          (result) => resolve(new Blob([result as ArrayBuffer], { type: "model/gltf-binary" })),
-          (error) => reject(error instanceof Error ? error : new Error("The 3D model could not be exported.")),
+          (result) => {
+            done();
+            resolve(new Blob([result as ArrayBuffer], { type: "model/gltf-binary" }));
+          },
+          (error) => {
+            done();
+            reject(error instanceof Error ? error : new Error("The 3D model could not be exported."));
+          },
           { binary: true },
         );
       });
     },
   }), []);
 
-  return <div ref={hostRef} className="absolute inset-0" style={{ cursor: "grab" }} />;
+  return <div ref={hostRef} className="absolute inset-0" style={{ cursor: "grab", background: backdropCss(backdrop) }} />;
 });
 
 export default RoomScene3D;

@@ -1,23 +1,34 @@
 /**
- * Surface colours of the 3D furniture models, by furniture type.
+ * Colours of the 3D furniture models: the finishes they are made of, and the
+ * main colour of each furniture type.
  *
  * Kept apart from the scene builder so pages can show the same colours (in a
  * legend, a list) without loading three.js.
  */
 
+/** The finishes the models are made of. */
+export const FINISH = {
+  oak: "#cfa97c", oakDark: "#ad875c", walnut: "#77563c",
+  white: "#f4f1eb", linen: "#e8e2d6", greige: "#bdb5a8", charcoal: "#3a3d42", black: "#1d1e21",
+  sage: "#8fa48a", terracotta: "#c77b5c", blush: "#d9a59c", mustard: "#d2a54a", teal: "#5f8a87", caramel: "#b0743e",
+  steel: "#dcdfe3", chrome: "#eceef0", brass: "#c9a45c", stone: "#d8d7d2", ceramic: "#fafaf6",
+};
+
 export const PALETTE: Record<string, string> = {
-  sofa: "#5f8f8b", loveseat: "#5f8f8b", l_sofa: "#5f8f8b",
-  chair: "#5b7fa6", reading_chair: "#7a6aa8", desk_chair: "#475569", dining_chair: "#8a6f52", stool: "#8a6f52",
-  coffee_table: "#b08455", side_table: "#b08455", bedside_table: "#b08455", dining_table: "#a97c50",
-  desk: "#c19a6b", dressing_table: "#c19a6b",
-  tv: "#111827", tv_console: "#6b4f3a", storage_cabinet: "#8b6b4a", sideboard: "#8b6b4a", dresser: "#8b6b4a",
-  bookshelf: "#8b6b4a", wardrobe: "#9a7b5b",
-  lamp: "#fde68a", bedside_lamp: "#fde68a", desk_lamp: "#fde68a", pendant_light: "#fde68a",
-  ceiling_light: "#fef3c7", mirror_light: "#fef3c7",
-  rug: "#b97a7a", bed: "#8b6b4a",
-  counter: "#d4d4d8", sink: "#d4d4d8", stove: "#d4d4d8", utensil_drawers: "#d4d4d8", fridge: "#cbd5e1",
-  shower: "#e2e8f0", toilet: "#f8fafc", washbasin: "#f8fafc", bathroom_cabinet: "#a3b8c2",
-  mirror: "#bfdbfe", towel_rail: "#d6a87c", towel_ring: "#d6a87c", grab_bar: "#cbd5e1", floor_drain: "#52525b",
+  sofa: FINISH.greige, loveseat: FINISH.greige, l_sofa: FINISH.greige,
+  chair: FINISH.teal, reading_chair: FINISH.caramel, desk_chair: FINISH.charcoal,
+  dining_chair: FINISH.blush, stool: FINISH.blush,
+  coffee_table: FINISH.oak, side_table: FINISH.oak, bedside_table: FINISH.oak, dining_table: FINISH.oak,
+  desk: FINISH.oak, dressing_table: FINISH.oak,
+  tv: FINISH.black, tv_console: FINISH.oak, storage_cabinet: FINISH.charcoal, sideboard: FINISH.charcoal,
+  dresser: FINISH.oak, bookshelf: FINISH.oak, wardrobe: FINISH.white,
+  lamp: "#ffe9c4", bedside_lamp: "#ffe9c4", desk_lamp: "#ffe9c4", pendant_light: "#ffe9c4",
+  ceiling_light: "#fff4dc", mirror_light: "#fff4dc",
+  rug: FINISH.linen, bed: FINISH.greige,
+  counter: FINISH.oak, sink: FINISH.steel, stove: FINISH.steel, utensil_drawers: FINISH.oak, fridge: FINISH.steel,
+  shower: "#cfe3ea", toilet: FINISH.ceramic, washbasin: FINISH.ceramic, bathroom_cabinet: FINISH.oak,
+  mirror: "#cfe0ea", towel_rail: FINISH.sage, towel_ring: FINISH.terracotta, grab_bar: FINISH.steel,
+  floor_drain: "#8b8f94",
 };
 const DEFAULT_COLOR = "#a1a1aa";
 

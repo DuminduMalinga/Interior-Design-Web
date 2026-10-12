@@ -65,6 +65,8 @@ export interface LayoutFurnitureItem {
   mount_height?: number | null;
   /** A readable name, when the engine gives one (e.g. "vanity basin"). */
   label?: string;
+  /** Which of the catalogue's versions of the piece this is (e.g. "3-door", "walk_in", "double bowl"). */
+  model?: string;
 }
 
 export interface LivingRoomLayoutResult {

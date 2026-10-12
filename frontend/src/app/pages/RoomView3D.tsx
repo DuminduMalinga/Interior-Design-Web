@@ -28,6 +28,7 @@ import { useLocation, useNavigate } from "react-router";
 import AppNavbar from "../components/AppNavbar";
 import RoomSvg, { fmtMm } from "../components/RoomSvg";
 import type { RoomScene3DHandle, SceneQuality } from "../components/RoomScene3D";
+import { useTheme } from "../context/ThemeContext";
 import type { DetectionResult } from "../lib/wallDetector";
 import type { LayoutFurnitureItem, LivingRoomLayoutResult } from "../lib/livingRoomLayout";
 import { furnitureColor } from "../lib/roomPalette3d";
@@ -250,6 +251,7 @@ export default function RoomView3D() {
   const layout = navState?.livingRoomLayout ?? null;
   const roomName = navState?.room?.name ?? "Room";
 
+  const { theme } = useTheme();
   const [viewMode, setViewMode] = useState<ViewMode>("3D");
   const [isFullscreen, setIsFullscreen] = useState(true);
   const [quality, setQuality] = useState<SceneQuality>("High");
@@ -459,6 +461,7 @@ export default function RoomView3D() {
                         selectedId={selectedId}
                         onSelect={setSelectedId}
                         quality={quality}
+                        backdrop={theme}
                         onFps={setFps}
                         onError={setSceneError}
                       />
@@ -494,7 +497,7 @@ export default function RoomView3D() {
 
                   {/* Drag hint */}
                   {show3D && (
-                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 text-[11px] font-medium px-3 py-1.5 rounded-full backdrop-blur-sm border pointer-events-none select-none bg-black/50 border-white/10 text-zinc-400">
+                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 text-[11px] font-medium px-3 py-1.5 rounded-full backdrop-blur-sm border pointer-events-none select-none bg-popover/80 border-white/10 text-zinc-400">
                       Drag to rotate · Scroll to zoom · Right-drag to pan · Click furniture for info
                     </div>
                   )}
@@ -515,7 +518,7 @@ export default function RoomView3D() {
                           whileTap={{ scale: 0.92 }}
                           onClick={action}
                           title={title}
-                          className="w-9 h-9 flex items-center justify-center rounded-xl border shadow-md transition-all bg-black/50 border-white/10 text-zinc-300 hover:bg-white/10 backdrop-blur-sm"
+                          className="w-9 h-9 flex items-center justify-center rounded-xl border shadow-md transition-all bg-popover/80 border-white/10 text-zinc-300 hover:bg-popover backdrop-blur-sm"
                         >
                           <Icon className="w-4 h-4" />
                         </motion.button>
