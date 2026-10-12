@@ -183,30 +183,27 @@ export default function UploadFloorPlan() {
       {/* Nav */}
       <AppNavbar />
 
-      <main className="relative p-4 md:p-8">
+      <main className="relative px-4 pt-3 pb-4 md:px-8 md:pt-4 md:pb-8">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
-          <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-1">Upload Floor Plan</h2>
-            <p className="text-zinc-500">Upload your 2D floor plan to begin automatic room detection and layout optimization.</p>
-          </motion.div>
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+            className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-3">
+            <h2 className="text-lg font-semibold text-white">Upload Floor Plan</h2>
 
-          {/* Step Indicator */}
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}
-            className="glass-card rounded-2xl border border-white/5 px-6 py-4 flex items-center justify-center gap-2 md:gap-4 mb-8">
-            {steps.map((step, i) => (
-              <div key={step.number} className="flex items-center">
-                <div className="flex flex-col items-center">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all ${
+            {/* Step Indicator */}
+            <div className="flex items-center gap-1.5">
+              {steps.map((step, i) => (
+                <div key={step.number} className="flex items-center gap-1.5">
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] ${
                     step.active
-                      ? "bg-gradient-to-br from-teal-400 to-teal-600 text-white shadow-lg shadow-teal-500/20"
+                      ? "bg-gradient-to-br from-teal-400 to-teal-600 text-white"
                       : "bg-white/5 text-zinc-600 border border-white/10"
                   }`}>{step.number}</div>
-                  <p className={`mt-1.5 text-xs font-medium ${step.active ? "text-teal-400" : "text-zinc-600"}`}>{step.label}</p>
+                  <p className={`text-xs font-medium ${step.active ? "text-teal-400" : "text-zinc-600"}`}>{step.label}</p>
+                  {i < steps.length - 1 && <ArrowRight className="w-3 h-3 text-zinc-700" />}
                 </div>
-                {i < steps.length - 1 && <ArrowRight className="w-4 h-4 text-zinc-700 mx-2 md:mx-4 mb-5" />}
-              </div>
-            ))}
+              ))}
+            </div>
           </motion.div>
 
           {/* Upload Card */}

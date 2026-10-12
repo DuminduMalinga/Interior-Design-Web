@@ -20,6 +20,7 @@ import {
   AlertCircle,
   Cpu,
   ArrowLeft,
+  ArrowRight,
   Upload,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -63,41 +64,29 @@ const STEPS = [
 
 function StepIndicator({ current }: { current: number }) {
   return (
-    <div className="flex items-center justify-center gap-0 flex-wrap select-none">
+    <div className="flex items-center gap-1.5 flex-wrap select-none">
       {STEPS.map((s, i) => {
         const isDone = s.step < current;
         const isActive = s.step === current;
         return (
-          <div key={s.step} className="flex items-center">
-            <div className="flex flex-col items-center">
-              <div
-                className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-all duration-300 ${
-                  isDone
-                    ? "bg-gradient-to-br from-blue-600 to-indigo-700 border-indigo-700 text-white"
-                    : isActive
-                    ? "bg-white border-indigo-600 text-indigo-700 shadow-md shadow-indigo-200"
-                    : "bg-white border-gray-300 text-gray-400"
-                }`}
-              >
-                {isDone ? <Check className="w-3.5 h-3.5" /> : s.step}
-              </div>
-              <span
-                className={`mt-1 text-[9px] font-medium whitespace-nowrap ${
-                  isActive ? "text-indigo-700" : isDone ? "text-blue-600" : "text-gray-400"
-                }`}
-              >
-                {s.label}
-              </span>
+          <div key={s.step} className="flex items-center gap-1.5">
+            <div
+              className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] ${
+                isDone || isActive
+                  ? "bg-gradient-to-br from-teal-400 to-teal-600 text-white"
+                  : "bg-white/5 text-zinc-600 border border-white/10"
+              }`}
+            >
+              {isDone ? <Check className="w-3 h-3" /> : s.step}
             </div>
-            {i < STEPS.length - 1 && (
-              <div
-                className={`h-0.5 w-6 md:w-8 mb-4 mx-0.5 transition-all duration-500 ${
-                  s.step < current
-                    ? "bg-gradient-to-r from-blue-600 to-indigo-700"
-                    : "bg-gray-200"
-                }`}
-              />
-            )}
+            <span
+              className={`text-xs font-medium whitespace-nowrap ${
+                isActive ? "text-teal-400" : isDone ? "text-teal-500" : "text-zinc-600"
+              }`}
+            >
+              {s.label}
+            </span>
+            {i < STEPS.length - 1 && <ArrowRight className="w-3 h-3 text-zinc-700" />}
           </div>
         );
       })}
@@ -262,7 +251,7 @@ export default function RoomView3D() {
   const roomName = navState?.room?.name ?? "Room";
 
   const [viewMode, setViewMode] = useState<ViewMode>("3D");
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(true);
   const [quality, setQuality] = useState<SceneQuality>("High");
   const [fps, setFps] = useState<number | null>(null);
   const [sceneError, setSceneError] = useState<string | null>(null);
@@ -339,41 +328,33 @@ export default function RoomView3D() {
       <AppNavbar />
 
       {/* ── Main ── */}
-      <main className="relative px-4 md:px-8 py-6 md:py-8 max-w-[1400px] mx-auto">
+      <main className="relative px-4 md:px-8 pt-3 md:pt-4 pb-6 md:pb-8 max-w-[1400px] mx-auto">
 
-        {/* Step Indicator */}
-        <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
-          <div className="glass-card rounded-2xl border border-white/5 px-6 py-4 flex justify-center">
-            <StepIndicator current={6} />
-          </div>
-        </motion.div>
-
-        {/* Page Header */}
+        {/* Page Header + Step Indicator + Toolbar */}
         <motion.div
-          initial={{ opacity: 0, y: -14 }}
+          initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="mb-5 flex flex-col sm:flex-row sm:items-end justify-between gap-3"
+          className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2"
         >
-          <div>
-            <h2 className="text-3xl md:text-4xl font-extrabold bg-gradient-to-r from-teal-300 to-cyan-400 bg-clip-text text-transparent">
-              3D Room Visualization
-            </h2>
-            <p className="mt-1.5 text-sm md:text-base text-zinc-400">
-              {layout
-                ? `"${roomName}" with the ${layout.layout.title.toLowerCase()} you selected, built at real size from the layout's own positions.`
-                : "Select a layout to see it as an interactive 3D room."}
-            </p>
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-white">3D Room Visualization</h2>
+            {layout && (
+              <p className="text-xs text-zinc-500 truncate">
+                {roomName} · {layout.layout.title}
+              </p>
+            )}
           </div>
+
+          <StepIndicator current={6} />
 
           {/* Toolbar */}
           {layout && (
             <div className="flex items-center gap-2 flex-wrap">
               {/* 2D / 3D Toggle */}
-              <div className="flex rounded-xl border overflow-hidden shadow-sm border-white/10">
+              <div className="flex rounded-lg border overflow-hidden shadow-sm border-white/10">
                 {(["3D", "2D"] as ViewMode[]).map((mode) => (
                   <button key={mode} onClick={() => setViewMode(mode)}
-                    className={`px-4 py-2 text-sm font-bold transition-all flex items-center gap-1.5 ${
+                    className={`px-3 py-1.5 text-xs font-bold transition-all flex items-center gap-1.5 ${
                       viewMode === mode
                         ? "bg-gradient-to-r from-teal-500 to-teal-600 text-white"
                         : "bg-white/5 text-zinc-400 hover:bg-white/10"
@@ -388,7 +369,7 @@ export default function RoomView3D() {
                 whileHover={{ scale: 1.08 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setIsFullscreen((p) => !p)}
-                className="p-2.5 rounded-xl border shadow-sm transition-all bg-white/5 border-white/10 text-zinc-400 hover:bg-white/10"
+                className="p-1.5 rounded-lg border shadow-sm transition-all bg-white/5 border-white/10 text-zinc-400 hover:bg-white/10"
                 title="Toggle wide view"
               >
                 {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
