@@ -114,7 +114,6 @@ class RoomThresholds:
     shower_min_side: float = 1100.0
     standard_min_area: float = 3.6         # standard fixtures from here, compact ones below
     large_min_area: float = 6.0            # a walk-in shower and a wide vanity from here
-    cabinet_min_area: float = 5.0          # a separate storage cabinet from here
     alcove_stretch: float = 300.0          # a shower this close to filling the wall is made to fit it
     crowded_ratio: float = 0.38            # fixtures may cover this much floor at full marks
     overcrowded_ratio: float = 0.58        # ... and no marks from here

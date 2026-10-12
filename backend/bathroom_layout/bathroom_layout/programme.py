@@ -97,9 +97,7 @@ def select_programme(
         notes.append(
             "At {:.1f} m2 the room is planned as a toilet room - a pan and a basin, no shower.".format(area))
 
-    cabinet = _flag(storage_cabinet)
-    if cabinet is None:
-        cabinet = area >= t.cabinet_min_area
+    cabinet = bool(_flag(storage_cabinet))      # only when asked for: a bathroom is not given one by its size
 
     return Programme(
         accessible=is_accessible,

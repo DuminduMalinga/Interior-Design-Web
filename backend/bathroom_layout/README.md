@@ -74,8 +74,8 @@ overridden per request with a `config` block.
 
 **What a bathroom gets.** A 1200 × 900 walk-in shower and a 900 mm vanity from
 6 m², a 900 × 900 shower and a 600 mm vanity from 3.6 m², an 800 × 800 shower,
-a short-projection toilet and a wall-hung basin below that; a separate tall
-cabinet from 5 m². Under 2.4 m² the room is planned as a toilet room with no
+a short-projection toilet and a wall-hung basin below that. A separate tall
+cabinet is added only when the request asks for one. Under 2.4 m² the room is planned as a toilet room with no
 shower. A room that cannot take its first choice falls back a size, down to a
 760 × 760 shower.
 
@@ -120,7 +120,7 @@ The request is the living-room service's, plus optional bathroom fields:
   "rooms": [ /* optional: every room { id, name, bbox } */ ],
   "accessible": false,             // optional: the user has mobility needs (rules 13 and 15)
   "shower": true,                  // optional: decided from the floor area if left out
-  "storage_cabinet": true,         // optional: decided from the floor area if left out
+  "storage_cabinet": true,         // optional: no cabinet unless this is set
   "fixture_size": "standard",      // optional: large | standard | compact
   "scale_m_per_px": 0.01875        // optional: recovered from the door widths if left out
 }

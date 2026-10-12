@@ -323,9 +323,10 @@ class BehaviourTests(unittest.TestCase):
         self.assertEqual(models("standard"), "standard")
         self.assertEqual(models("large"), "walk_in")
 
-    def test_a_storage_cabinet_comes_with_floor_area_or_on_request(self):
-        self.assertIsNone(piece(result_for("standard")["layouts"][0], "bathroom_cabinet"))
-        self.assertIsNotNone(piece(result_for("large")["layouts"][0], "bathroom_cabinet"))
+    def test_a_storage_cabinet_comes_only_on_request(self):
+        for name in ("standard", "large"):
+            for layout in result_for(name)["layouts"]:
+                self.assertIsNone(piece(layout, "bathroom_cabinet"), name)
         asked = generate_bathroom_layouts(dict(copy.deepcopy(ROOMS["standard"]), storage_cabinet=True))
         best = asked["layouts"][0]
         self.assertTrue(piece(best, "bathroom_cabinet") is not None
