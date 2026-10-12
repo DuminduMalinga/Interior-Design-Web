@@ -42,6 +42,15 @@ AXIS_NAMES = {"ew": "east-west", "ns": "north-south"}
 KITCHEN = re.compile(r"kitchen", re.I)
 
 
+#: the highest total a layout is reported with: however well it does, none is called perfect
+TOP_SCORE = 99.0
+
+
+def reported(score: float) -> float:
+    """A total as it is given out: to one decimal, and never the full hundred."""
+    return round(min(score, TOP_SCORE), 1)
+
+
 def find_kitchen(payload: Dict, shell: Shell, limit: float) -> Optional[Tuple[Point, str]]:
     """Rule 8: the point on this room's boundary nearest the kitchen - its door when there is one."""
     room = shell.room
@@ -419,6 +428,8 @@ class Generator:
         rules = list(result.rules.values())
         applicable = sum(r.weight for r in rules if r.applicable) or 1.0
         scale = 100.0 / applicable           # so the per-rule points add up to the 0-100 total
+        # ... and the points earned still add up to the total once it has been held to the top score
+        earned = scale * min(1.0, TOP_SCORE / result.score) if result.score > 0 else scale
         checks = {v["check"] for v in result.violations}
 
         explanation = ["Furniture (rules 4 and 12): {}, {} chairs{}.".format(
@@ -427,7 +438,7 @@ class Generator:
             "Rule {} - {}: {} [{}]".format(
                 r.rule.id[1:], r.rule.title, r.detail,
                 "not applicable" if not r.applicable else "{:.1f} of {:.1f} points".format(
-                    r.points * scale, r.weight * scale))
+                    r.points * earned, r.weight * scale))
             for r in rules
         ]
         explanation += list(lay.compromises)
@@ -453,8 +464,8 @@ class Generator:
             "layout": {
                 "type": result.type,
                 "title": result.title,
-                "score": round(result.score, 1),
-                "suitability_score": round(lay.base_score, 1),
+                "score": reported(result.score),
+                "suitability_score": reported(lay.base_score),
             },
             "furniture": furniture,
             "validation": {
@@ -475,11 +486,11 @@ class Generator:
             "reason": reason,
             "unplaced_furniture": [u.to_dict() for u in lay.unplaced],
             "scoring": {
-                "total": round(result.score, 1),
+                "total": reported(result.score),
                 "max": 100,
-                "components": {r.rule.key: round(r.points * scale, 1) for r in rules if r.applicable},
+                "components": {r.rule.key: round(r.points * earned, 1) for r in rules if r.applicable},
                 "contributions": [
-                    {"rule": r.rule.key, "points": round(r.points * scale, 2), "message": r.detail}
+                    {"rule": r.rule.key, "points": round(r.points * earned, 2), "message": r.detail}
                     for r in rules if r.applicable
                 ],
             },
@@ -491,7 +502,7 @@ class Generator:
                     "rule": r.rule.text,
                     "status": r.status,
                     "score": round(r.score, 3),
-                    "points": round(r.points * scale, 1),
+                    "points": round(r.points * earned, 1),
                     "max_points": round(r.weight * scale, 1) if r.applicable else 0.0,
                     "detail": r.detail,
                 }
@@ -565,7 +576,7 @@ def generate_dining_layouts(
                                             results[0].layout.spec.seats))
 
     ranking = [
-        {"layout": r.type, "title": r.title, "score": round(r.score, 1), "feasible": r.valid,
+        {"layout": r.type, "title": r.title, "score": reported(r.score), "feasible": r.valid,
          "reasons": [generator.summary(r.layout)]}
         for r in results
     ]

@@ -65,6 +65,15 @@ ARRANGEMENT_NAMES = {
 }
 
 
+#: the highest total a layout is reported with: however well it does, none is called perfect
+TOP_SCORE = 99.0
+
+
+def reported(score: float) -> float:
+    """A total as it is given out: to one decimal, and never the full hundred."""
+    return round(min(score, TOP_SCORE), 1)
+
+
 def spread(lo: float, hi: float, step: float) -> List[float]:
     """Positions from `lo` to `hi`: a regular grid, both ends and the middle."""
     if hi < lo - 1.0:
@@ -609,7 +618,7 @@ class Generator:
     # ------------------------------------------------------------------ #
     def _select(self, results: List[Result]) -> List[Result]:
         # equal marks: the sofa against the wall comes first
-        order = lambda r: (not r.valid, -round(r.score, 1), r.layout.offset, r.layout.facing, r.layout.arrangement)
+        order = lambda r: (not r.valid, -reported(r.score), r.layout.offset, r.layout.facing, r.layout.arrangement)
         primary: Dict[str, Result] = {}
         for result in sorted(results, key=order):
             primary.setdefault(result.layout.facing, result)
@@ -692,6 +701,8 @@ class Generator:
         rules = list(result.rules.values())
         applicable = sum(r.weight for r in rules if r.applicable) or 1.0
         scale = 100.0 / applicable           # so the per-rule points add up to the 0-100 total
+        # ... and the points earned still add up to the total once it has been held to the top score
+        earned = scale * min(1.0, TOP_SCORE / result.score) if result.score > 0 else scale
         checks = {v["check"] for v in result.violations}
 
         explanation = ["Furniture (rules 5 and 7): {}.".format(self.summary(lay)[:-1])]
@@ -699,7 +710,7 @@ class Generator:
             "Rule {} - {}: {} [{}]".format(
                 r.rule.id[1:], r.rule.title, r.detail,
                 "not applicable" if not r.applicable else "{:.1f} of {:.1f} points".format(
-                    r.points * scale, r.weight * scale))
+                    r.points * earned, r.weight * scale))
             for r in rules
         ]
         explanation += list(lay.compromises)
@@ -724,8 +735,8 @@ class Generator:
             "layout": {
                 "type": result.type,
                 "title": result.title,
-                "score": round(result.score, 1),
-                "suitability_score": round(lay.base_score, 1),
+                "score": reported(result.score),
+                "suitability_score": reported(lay.base_score),
             },
             "furniture": furniture,
             "validation": {
@@ -746,11 +757,11 @@ class Generator:
             "reason": reason,
             "unplaced_furniture": [u.to_dict() for u in lay.unplaced],
             "scoring": {
-                "total": round(result.score, 1),
+                "total": reported(result.score),
                 "max": 100,
-                "components": {r.rule.key: round(r.points * scale, 1) for r in rules if r.applicable},
+                "components": {r.rule.key: round(r.points * earned, 1) for r in rules if r.applicable},
                 "contributions": [
-                    {"rule": r.rule.key, "points": round(r.points * scale, 2), "message": r.detail}
+                    {"rule": r.rule.key, "points": round(r.points * earned, 2), "message": r.detail}
                     for r in rules if r.applicable
                 ],
             },
@@ -762,7 +773,7 @@ class Generator:
                     "rule": r.rule.text,
                     "status": r.status,
                     "score": round(r.score, 3),
-                    "points": round(r.points * scale, 1),
+                    "points": round(r.points * earned, 1),
                     "max_points": round(r.weight * scale, 1) if r.applicable else 0.0,
                     "detail": r.detail,
                 }
@@ -842,7 +853,7 @@ def generate_living_room_layouts(
                          "with what it breaks.")
 
     ranking = [
-        {"layout": r.type, "title": r.title, "score": round(r.score, 1), "feasible": r.valid,
+        {"layout": r.type, "title": r.title, "score": reported(r.score), "feasible": r.valid,
          "reasons": [generator.summary(r.layout)]}
         for r in results
     ]
