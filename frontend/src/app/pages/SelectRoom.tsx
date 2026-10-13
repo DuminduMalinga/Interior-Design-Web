@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Box,
-  LogOut,
   Menu,
   X,
   ArrowLeft,
@@ -12,12 +10,11 @@ import {
   Home,
   Maximize2,
   ScanText,
-  Download,
+  Download
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useLocation, useNavigate } from "react-router";
-import { useCurrentUserProfile } from "../context/UserContext";
-import ThemeToggle from "../components/ThemeToggle";
+import AppNavbar from "../components/AppNavbar";
 import type { DetectionResult } from "../lib/wallDetector";
 
 type RoomType = "Room";
@@ -112,29 +109,23 @@ const STEPS = [
 
 function StepIndicator({ current }: { current: number }) {
   return (
-    <div className="flex items-center justify-center gap-0 flex-wrap select-none">
+    <div className="flex items-center gap-1.5 flex-wrap select-none">
       {STEPS.map((s, i) => {
         const isDone = s.step < current;
         const isActive = s.step === current;
         return (
-          <div key={s.step} className="flex items-center">
-            <div className="flex flex-col items-center">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all duration-300 ${
-                isDone ? "bg-gradient-to-br from-teal-400 to-teal-600 border-teal-600 text-white" :
-                isActive ? "bg-white/5 border-teal-400 text-teal-300 shadow-md shadow-teal-500/20" :
-                "bg-white/5 border-white/10 text-zinc-600"
-              }`}>
-                {isDone ? <Check className="w-4 h-4" /> : s.step}
-              </div>
-              <span className={`mt-1 text-[10px] font-medium whitespace-nowrap ${
-                isActive ? "text-teal-400" : isDone ? "text-teal-500" : "text-zinc-600"
-              }`}>{s.label}</span>
+          <div key={s.step} className="flex items-center gap-1.5">
+            <div className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] ${
+              isDone || isActive
+                ? "bg-gradient-to-br from-teal-400 to-teal-600 text-white"
+                : "bg-white/5 text-zinc-600 border border-white/10"
+            }`}>
+              {isDone ? <Check className="w-3 h-3" /> : s.step}
             </div>
-            {i < STEPS.length - 1 && (
-              <div className={`h-0.5 w-8 md:w-12 mb-4 mx-1 transition-all duration-500 ${
-                s.step < current ? "bg-gradient-to-r from-teal-400 to-teal-600" : "bg-white/10"
-              }`} />
-            )}
+            <span className={`text-xs font-medium whitespace-nowrap ${
+              isActive ? "text-teal-400" : isDone ? "text-teal-500" : "text-zinc-600"
+            }`}>{s.label}</span>
+            {i < STEPS.length - 1 && <ArrowRight className="w-3 h-3 text-zinc-700" />}
           </div>
         );
       })}
@@ -221,21 +212,12 @@ export default function SelectRoom() {
     ?.detection;
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { profile, signOut } = useCurrentUserProfile();
-
   // Reached without a detection payload (e.g. deep link / reload) — restart.
   useEffect(() => {
     if (!detection) navigate("/upload", { replace: true });
   }, [detection, navigate]);
 
-  const handleLogout = async () => {
-    const success = await signOut();
-    if (success) {
-      navigate("/");
-    }
-  };
 
-  const displayName = profile.fullName?.trim() ? profile.fullName : profile.username;
   const rooms = useMemo(
     () => (detection ? roomsFromDetection(detection) : []),
     [detection],
@@ -244,7 +226,7 @@ export default function SelectRoom() {
   const counts = detection?.counts ?? {};
 
   const handleContinue = () => {
-    if (!selectedRoom) return;
+    if (!detection || !selectedRoom) return;
     navigate("/view-layouts", {
       state: { floorPlanId: detection.floorPlanId, room: selectedRoom, detection },
     });
@@ -273,50 +255,20 @@ export default function SelectRoom() {
       <div className="absolute top-1/4 left-1/4 w-[400px] h-[400px] bg-teal-500/5 rounded-full blur-[100px] pointer-events-none" />
 
       {/* Nav */}
-      <nav className="relative glass-nav z-30">
-        <div className="px-4 md:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="lg:hidden text-zinc-400 hover:text-white">
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
-            <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/dashboard")}>
-              <div className="bg-gradient-to-br from-teal-400 to-teal-600 p-2 rounded-xl shadow-lg shadow-teal-500/20">
-                <Box className="w-8 h-8 text-white" strokeWidth={1.5} />
-              </div>
-              <div className="hidden md:block">
-                <h1 className="text-base font-bold text-white">3D Layout System</h1>
-                <p className="text-xs text-zinc-500">AI-Powered Design</p>
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="hidden md:block text-right">
-              <p className="text-xs text-zinc-500">Welcome back,</p>
-              <p className="font-semibold text-white text-sm">{displayName} 👋</p>
-            </div>
-            <ThemeToggle />
-            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors">
-              <LogOut className="w-4 h-4" />
-              <span className="hidden sm:inline text-sm font-medium">Logout</span>
-            </motion.button>
-          </div>
-        </div>
-      </nav>
+      <AppNavbar
+        leading={
+          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="lg:hidden text-zinc-400 hover:text-white">
+            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
+        }
+      />
 
-      <main className="relative px-4 md:px-8 py-8 md:py-10 max-w-6xl mx-auto">
-        {/* Step Indicator */}
-        <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="mb-8">
-          <div className="glass-card rounded-2xl border border-white/5 px-6 py-4 flex justify-center">
-            <StepIndicator current={3} />
-          </div>
-        </motion.div>
-
-        {/* Page Header */}
-        <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} className="mb-8">
-          <h2 className="text-3xl md:text-4xl font-extrabold bg-gradient-to-r from-teal-300 to-cyan-400 bg-clip-text text-transparent">Select a Room</h2>
-          <p className="text-zinc-500 mt-1 text-sm md:text-base">Choose one detected room to generate optimized furniture layouts.</p>
+      <main className="relative px-4 md:px-8 pt-3 md:pt-4 pb-8 md:pb-10 max-w-6xl mx-auto">
+        {/* Page Header + Step Indicator */}
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-3">
+          <h2 className="text-lg font-semibold text-white">Select a Room</h2>
+          <StepIndicator current={3} />
         </motion.div>
 
         {rooms.length === 0 ? (

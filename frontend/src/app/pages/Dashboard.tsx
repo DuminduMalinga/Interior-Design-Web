@@ -1,11 +1,9 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
-  Box,
   LayoutDashboard,
   Upload,
   History,
   User,
-  LogOut,
   FileUp,
   Boxes,
   Menu,
@@ -30,14 +28,13 @@ import {
   ExternalLink,
   AlertTriangle,
   Loader2,
-  ClockAlert,
-  ChevronDown,
+  ClockAlert
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { useCurrentUserProfile } from "../context/UserContext";
 import { supabase } from "../lib/supabaseClient";
-import ThemeToggle from "../components/ThemeToggle";
+import AppNavbar from "../components/AppNavbar";
 type ProfileState = {
   fullName: string;
   username: string;
@@ -57,37 +54,13 @@ const createProfileState = (overrides: Partial<ProfileState> = {}): ProfileState
 });
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { profile: currentUser, signOut } = useCurrentUserProfile();
-  const [activeMenu, setActiveMenu] = useState("dashboard");
+  const { profile: currentUser } = useCurrentUserProfile();
+  const location = useLocation();
+  // The shared navbar's "My Profile" arrives here from other pages with { menu: "profile" }.
+  const [activeMenu, setActiveMenu] = useState(
+    (location.state as { menu?: string } | null)?.menu === "profile" ? "profile" : "dashboard",
+  );
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const profileMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleOutsideClick = (event: MouseEvent) => {
-      if (
-        profileMenuRef.current &&
-        !profileMenuRef.current.contains(event.target as Node)
-      ) {
-        setProfileMenuOpen(false);
-      }
-    };
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setProfileMenuOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleOutsideClick);
-    document.addEventListener("keydown", handleEscape);
-
-    return () => {
-      document.removeEventListener("mousedown", handleOutsideClick);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, []);
-
   // Profile state
   const [profileEdit, setProfileEdit] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
@@ -206,12 +179,6 @@ export default function Dashboard() {
       setDeleteRequestMsg({ type: "error", text: err instanceof Error ? err.message : "Failed to submit deletion request." });
     } finally {
       setDeleteSubmitting(false);
-    }
-  };
-  const handleLogout = async () => {
-    const success = await signOut();
-    if (success) {
-      navigate("/");
     }
   };
   const isAdmin = currentUser.role.trim().toLowerCase() === "admin";
@@ -748,123 +715,19 @@ export default function Dashboard() {
       {/* Dot grid overlay */}
       <div className="absolute inset-0 dot-grid pointer-events-none" />
       {/* Top Nav */}
-      <nav className="relative glass-nav z-30">
-        <div className="px-4 md:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="lg:hidden text-zinc-400 hover:text-white">
-                {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-              </button>
-              <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/")}>
-                <div className="bg-gradient-to-br from-teal-400 to-teal-600 p-2 rounded-xl shadow-lg shadow-teal-500/20">
-                  <Box className="w-8 h-8 text-white" strokeWidth={1.5} />
-                </div>
-                <div className="hidden md:block">
-                  <h1 className="text-base font-bold text-white">3D Layout System</h1>
-                  <p className="text-xs text-zinc-500">AI-Powered Design</p>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="relative" ref={profileMenuRef}>
-                <button
-                  type="button"
-                  onClick={() => setProfileMenuOpen((open) => !open)}
-                  aria-expanded={profileMenuOpen}
-                  aria-haspopup="menu"
-                  aria-label="Open profile menu"
-                  className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 hover:bg-white/5 transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500/40"
-                >
-                  <div className="w-10 h-10 shrink-0 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white text-sm font-bold shadow-md shadow-teal-500/20">
-                    {(displayName || "U")
-                      .trim()
-                      .split(/\s+/)
-                      .map((part) => part[0])
-                      .join("")
-                      .slice(0, 2)
-                      .toUpperCase()}
-                  </div>
-                  <div className="hidden sm:block text-left">
-                    <p className="text-xs text-zinc-500">Welcome back,</p>
-                    <p className="font-semibold text-white text-sm max-w-48 truncate">
-                      {displayName}
-                    </p>
-                  </div>
-                  <ChevronDown
-                    className={`w-4 h-4 text-zinc-400 transition-transform ${
-                      profileMenuOpen ? "rotate-180" : ""
-                    }`}
-                  />
-                </button>
-
-                <AnimatePresence>
-                  {profileMenuOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -8, scale: 0.97 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -8, scale: 0.97 }}
-                      transition={{ duration: 0.15 }}
-                      role="menu"
-                      className="absolute right-0 top-full mt-3 w-64 rounded-2xl border border-white/10 bg-popover shadow-2xl overflow-hidden z-50"
-                    >
-                      <div className="p-4 border-b border-white/10">
-                        <div className="flex items-center gap-3">
-                          <div className="w-11 h-11 shrink-0 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white font-bold">
-                            {(displayName || "U")
-                              .trim()
-                              .split(/\s+/)
-                              .map((part) => part[0])
-                              .join("")
-                              .slice(0, 2)
-                              .toUpperCase()}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-semibold text-white text-sm truncate">
-                              {displayName}
-                            </p>
-                            <p className="text-xs text-zinc-500 truncate">
-                              {profile.email}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="p-2">
-                        <button
-                          type="button"
-                          role="menuitem"
-                          onClick={() => {
-                            setActiveMenu("profile");
-                            setProfileMenuOpen(false);
-                            setMobileMenuOpen(false);
-                          }}
-                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-zinc-300 hover:bg-white/5 hover:text-white transition-colors"
-                        >
-                          <User className="w-4 h-4 text-teal-400" />
-                          My Profile
-                        </button>
-                        <button
-                          type="button"
-                          role="menuitem"
-                          onClick={() => {
-                            setProfileMenuOpen(false);
-                            void handleLogout();
-                          }}
-                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-red-400 hover:bg-red-500/10 transition-colors"
-                        >
-                          <LogOut className="w-4 h-4" />
-                          Log out
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-              <ThemeToggle />
-            </div>
-          </div>
-        </div>
-      </nav>
+      <AppNavbar
+        leading={
+          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="lg:hidden text-zinc-400 hover:text-white">
+            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
+        }
+        name={displayName}
+        email={profile.email}
+        onProfile={() => {
+          setActiveMenu("profile");
+          setMobileMenuOpen(false);
+        }}
+      />
       <div className="flex">
         {/* Desktop Sidebar */}
         <aside className="hidden lg:flex flex-col w-64 glass-sidebar min-h-[calc(100vh-69px)] relative border-r border-white/5">

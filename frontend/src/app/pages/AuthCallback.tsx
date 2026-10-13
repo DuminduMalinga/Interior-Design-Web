@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { Box, AlertCircle, Loader2 } from "lucide-react";
 import { motion } from "motion/react";
+import type { User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabaseClient";
 
 export default function AuthCallback() {
@@ -38,11 +39,11 @@ export default function AuthCallback() {
           return;
         }
 
-        let currentUser = session?.user;
+        let currentUser: User | null = session?.user ?? null;
 
         // If session is not immediately ready, wait for onAuthStateChange
         if (!currentUser) {
-          const authUser = await new Promise<typeof currentUser>((resolve) => {
+          const authUser = await new Promise<User | null>((resolve) => {
             const timeout = setTimeout(() => {
               resolve(null);
             }, 5000);

@@ -2,9 +2,12 @@
  * Client for the Living Room Layout service (backend/living_room_layout).
  *
  * Sends the selected room's bounding box + the door/window detections from
- * the wall detector; gets back a fully-explained, validated furniture layout
- * from the rule-based engine. Nothing here is persisted — the result flows
- * through router state only.
+ * the wall detector; gets back one layout for each way the seating group can
+ * stand, best first, each scored against the ten living-room
+ * furniture-arrangement rules.
+ *
+ * The layout types declared here are the ones every room engine returns, so
+ * the other clients (bedroom, kitchen, bathroom, dining) build on them.
  */
 
 const LAYOUT_URL = (
@@ -56,6 +59,14 @@ export interface LayoutFurnitureItem {
   shape?: "l";
   variant?: "left" | "right";
   parts?: [number, number, number, number][];
+  /** Bathroom "wall" fittings and floor "drain", "ceiling" / "table" lights: they take up no floor. */
+  mounted?: "floor" | "wall" | "drain" | "ceiling" | "table";
+  /** Fittings and lights: height of the fixing (or of the light) above the floor, mm. */
+  mount_height?: number | null;
+  /** A readable name, when the engine gives one (e.g. "vanity basin"). */
+  label?: string;
+  /** Which of the catalogue's versions of the piece this is (e.g. "3-door", "walk_in", "double bowl"). */
+  model?: string;
 }
 
 export interface LivingRoomLayoutResult {
@@ -103,13 +114,49 @@ export interface GenerateLivingRoomLayoutResponse {
   layout: LivingRoomLayoutResult;
 }
 
+/** Rule 7: what the household does in the living room each day. */
+export type LivingActivity = "conversation" | "tv" | "reading" | "work" | "dining";
+
+/** What the engine furnished the room for — the decisions rules 5, 7 and 10 make. */
+export interface LivingRoomProgramme {
+  activities: LivingActivity[];
+  /** "inferred" when the engine assumed them from the room's name and size */
+  activities_source: "provided" | "inferred";
+  accessible: boolean;
+  accessible_source: "provided" | "default";
+  occupants: number | null;
+  /** Rule 5: the furniture size class chosen for the floor area. */
+  size_tier: "compact" | "standard" | "generous";
+  /** Armchairs planned beside the sofa. */
+  armchairs: number;
+  /** Rule 3: "living" plus a zone for each of dining, work and reading that is planned. */
+  zones: string[];
+  /** e.g. "Standard sizes for conversation + tv: 2.1 m three-seat sofa, 2 armchairs, 1.1 m coffee table, 1.6 m TV unit" */
+  summary: string;
+}
+
+/** The living-room-only extras of a /generate or /generate-all response. */
+export interface LivingRoomExtras {
+  roomType: "living_room";
+  activities: LivingActivity[];
+  activitiesSource: "provided" | "inferred";
+  /** Planned for an occupant with mobility needs (rule 10). */
+  accessible: boolean;
+  accessibleSource: "provided" | "default";
+  programme: LivingRoomProgramme;
+}
+
 export interface GenerateLivingRoomLayoutRequest {
   room: { id: string; name?: string; bbox: { x1: number; y1: number; x2: number; y2: number } };
   detections: Array<{ id: string; class: string; bbox: { x1: number; y1: number; x2: number; y2: number } }>;
-  purpose?: string;
-  preferredLayout?: string;
-  requiredFurniture?: string[];
-  optionalFurniture?: string[];
+  /** Every room on the plan — this is how the engine tells which door leads to the kitchen. */
+  rooms?: Array<{ id: string; name: string; bbox: { x1: number; y1: number; x2: number; y2: number } }>;
+  /** Leave out to let the engine assume them from the room's name and size. */
+  activities?: LivingActivity[];
+  /** People to seat; leave out to let the room size decide. */
+  occupants?: number;
+  /** An occupant has mobility needs: wider paths, turning space, no loose rug. */
+  accessible?: boolean;
   /** Real-world metres-per-pixel, when the wall detector recovered one from
    * the plan's own printed room areas — overrides the engine's own guess
    * (a detected door's width, or a fixed default) with the real scale. */
@@ -117,8 +164,8 @@ export interface GenerateLivingRoomLayoutRequest {
   signal?: AbortSignal;
 }
 
-/** One of the six layout entries in a /generate-all response — either a full
- * result, or an error if that particular forced layout blew up. */
+/** One of the layout entries in a /generate-all response — either a full
+ * result, or an error when the room takes no layout at all. */
 export type LayoutOrError = LivingRoomLayoutResult | { layout: { type: string; title: string; score: number; suitability_score: number }; error: string };
 
 export function isLayoutError(entry: LayoutOrError): entry is Extract<LayoutOrError, { error: string }> {
@@ -145,10 +192,10 @@ async function postLayoutRequest<T>(path: string, req: GenerateLivingRoomLayoutR
       body: JSON.stringify({
         room: req.room,
         detections: req.detections,
-        purpose: req.purpose,
-        preferred_layout: req.preferredLayout,
-        required_furniture: req.requiredFurniture,
-        optional_furniture: req.optionalFurniture,
+        rooms: req.rooms,
+        activities: req.activities,
+        occupants: req.occupants,
+        accessible: req.accessible,
         scale_m_per_px: req.scaleMPerPx,
       }),
       signal: req.signal,
@@ -174,16 +221,16 @@ async function postLayoutRequest<T>(path: string, req: GenerateLivingRoomLayoutR
   return (await res.json()) as T;
 }
 
-/** The single best layout the automatic selector would pick. */
+/** The single best layout. */
 export async function generateLivingRoomLayout(
   req: GenerateLivingRoomLayoutRequest,
-): Promise<GenerateLivingRoomLayoutResponse> {
-  return postLayoutRequest<GenerateLivingRoomLayoutResponse>("/generate", req);
+): Promise<GenerateLivingRoomLayoutResponse & LivingRoomExtras> {
+  return postLayoutRequest<GenerateLivingRoomLayoutResponse & LivingRoomExtras>("/generate", req);
 }
 
-/** All six layouts for the room, side by side — for the comparison grid. */
+/** Every layout the room allows, best first, each scored against the ten rules — for the comparison grid. */
 export async function generateAllLivingRoomLayouts(
   req: GenerateLivingRoomLayoutRequest,
-): Promise<GenerateAllLivingRoomLayoutsResponse> {
-  return postLayoutRequest<GenerateAllLivingRoomLayoutsResponse>("/generate-all", req);
+): Promise<GenerateAllLivingRoomLayoutsResponse & LivingRoomExtras> {
+  return postLayoutRequest<GenerateAllLivingRoomLayoutsResponse & LivingRoomExtras>("/generate-all", req);
 }

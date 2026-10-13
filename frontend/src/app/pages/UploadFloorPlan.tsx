@@ -10,13 +10,11 @@ import {
   ArrowRight,
   Image as ImageIcon,
   FileText,
-  LogOut,
   LayoutDashboard,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router";
-import { useCurrentUserProfile } from "../context/UserContext";
-import ThemeToggle from "../components/ThemeToggle";
+import AppNavbar from "../components/AppNavbar";
 import { supabase } from "../lib/supabaseClient";
 import { detectFloorPlan } from "../lib/wallDetector";
 import { saveDetectionAnalysis } from "../lib/floorPlanAnalysis";
@@ -32,16 +30,6 @@ export default function UploadFloorPlan() {
   const [success, setSuccess] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const { profile, signOut } = useCurrentUserProfile();
-
-  const handleLogout = async () => {
-    const success = await signOut();
-    if (success) {
-      navigate("/");
-    }
-  };
-
-  const displayName = profile.fullName?.trim() ? profile.fullName : profile.username;
   const SUPPORTED_FORMATS = ["image/png", "image/jpeg", "image/jpg"];
   const SUPPORTED_EXTENSIONS = ["png", "jpg", "jpeg"];
   const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -193,57 +181,29 @@ export default function UploadFloorPlan() {
       <div className="absolute top-1/4 left-1/3 w-[400px] h-[400px] bg-teal-500/5 rounded-full blur-[100px] pointer-events-none" />
 
       {/* Nav */}
-      <nav className="relative glass-nav z-10">
-        <div className="px-4 md:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/dashboard")}>
-            <div className="bg-gradient-to-br from-teal-400 to-teal-600 p-2 rounded-xl shadow-lg shadow-teal-500/20">
-              <Box className="w-8 h-8 text-white" strokeWidth={1.5} />
-            </div>
-            <div className="hidden md:block">
-              <h1 className="text-base font-bold text-white">3D Layout System</h1>
-              <p className="text-xs text-zinc-500">AI-Powered Design</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="hidden md:block text-right">
-              <p className="text-xs text-zinc-500">Welcome back,</p>
-              <p className="font-semibold text-white text-sm">{displayName} 👋</p>
-            </div>
-            <ThemeToggle />
-            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors">
-              <LogOut className="w-4 h-4" />
-              <span className="hidden sm:inline text-sm font-medium">Logout</span>
-            </motion.button>
-          </div>
-        </div>
-      </nav>
+      <AppNavbar />
 
-      <main className="relative p-4 md:p-8">
+      <main className="relative px-4 pt-3 pb-4 md:px-8 md:pt-4 md:pb-8">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
-          <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-1">Upload Floor Plan</h2>
-            <p className="text-zinc-500">Upload your 2D floor plan to begin automatic room detection and layout optimization.</p>
-          </motion.div>
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+            className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-3">
+            <h2 className="text-lg font-semibold text-white">Upload Floor Plan</h2>
 
-          {/* Step Indicator */}
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}
-            className="glass-card rounded-2xl border border-white/5 px-6 py-4 flex items-center justify-center gap-2 md:gap-4 mb-8">
-            {steps.map((step, i) => (
-              <div key={step.number} className="flex items-center">
-                <div className="flex flex-col items-center">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all ${
+            {/* Step Indicator */}
+            <div className="flex items-center gap-1.5">
+              {steps.map((step, i) => (
+                <div key={step.number} className="flex items-center gap-1.5">
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] ${
                     step.active
-                      ? "bg-gradient-to-br from-teal-400 to-teal-600 text-white shadow-lg shadow-teal-500/20"
+                      ? "bg-gradient-to-br from-teal-400 to-teal-600 text-white"
                       : "bg-white/5 text-zinc-600 border border-white/10"
                   }`}>{step.number}</div>
-                  <p className={`mt-1.5 text-xs font-medium ${step.active ? "text-teal-400" : "text-zinc-600"}`}>{step.label}</p>
+                  <p className={`text-xs font-medium ${step.active ? "text-teal-400" : "text-zinc-600"}`}>{step.label}</p>
+                  {i < steps.length - 1 && <ArrowRight className="w-3 h-3 text-zinc-700" />}
                 </div>
-                {i < steps.length - 1 && <ArrowRight className="w-4 h-4 text-zinc-700 mx-2 md:mx-4 mb-5" />}
-              </div>
-            ))}
+              ))}
+            </div>
           </motion.div>
 
           {/* Upload Card */}

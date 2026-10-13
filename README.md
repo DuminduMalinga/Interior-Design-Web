@@ -27,7 +27,7 @@
 |:----:|---------|-------------|
 | 🔍 | **AI Room Detection** | Instantly maps every room, wall, door & window from any 2D floor plan image |
 | 🪑 | **Smart Furniture Placement** | Scores hundreds of layout combinations and surfaces only the best-fit arrangements |
-| 🧊 | **Interactive 3D Viewer** | Real-time isometric 3D viewer — rotate, zoom, and export in one click |
+| 🧊 | **Interactive 3D Viewer** | The selected layout as a real-size 3D room (three.js) — orbit, zoom, click furniture, export PNG / GLB / JSON |
 | 📊 | **User Dashboard** | Manage projects, view design history, and configure profile & notifications |
 | 🛡️ | **Admin Panel** | Dedicated interface for user account management and approval workflows |
 | 🌗 | **Dark / Light Theme** | Full theme switching powered by a global `ThemeContext` |
@@ -142,7 +142,7 @@
           ┃  ┣ ⏳ Processing.tsx        ← AI analysis progress screen
           ┃  ┣ 🏷️ SelectRoom.tsx        ← Room selection post-detection
           ┃  ┣ 🗂️ ViewLayouts.tsx       ← AI-scored layout gallery
-          ┃  ┣ 🧊 RoomView3D.tsx        ← Interactive isometric 3D viewer
+          ┃  ┣ 🧊 RoomView3D.tsx        ← 3D view of the selected layout (three.js)
           ┃  ┗ 🛡️ AdminManageAccounts.tsx ← Admin user management panel
           ┗ 📂 styles/
              ┣ 📄 index.css
@@ -169,7 +169,7 @@
 | `/processing` | ⏳ Processing | AI analysis progress screen |
 | `/select-room` | 🏷️ SelectRoom | Pick a detected room to optimise |
 | `/view-layouts` | 🗂️ ViewLayouts | Browse AI-ranked furniture layouts |
-| `/room-view-3d` | 🧊 RoomView3D | Interactive isometric 3D viewer |
+| `/room-view-3d` | 🧊 RoomView3D | The selected layout as an interactive 3D room |
 | `/admin/accounts` | 🛡️ AdminManageAccounts | Admin user management |
 
 ### Backend API Endpoints (`http://localhost:4000`)
@@ -267,6 +267,118 @@ uvicorn main:app --reload --port 8000
 Weights live at `backend/wall_detector/models/best.pt` (git-ignored). The frontend
 reads `VITE_DETECTOR_URL` (default `http://localhost:8000`). See
 [`backend/wall_detector/README.md`](backend/wall_detector/README.md) for details.
+
+### 🛋️ Living Room Layout service (rule-based living-room layouts)
+
+When the room picked on Select Room is a living room (its name contains
+"living"), View Layouts calls a local Python service that arranges a sofa,
+armchairs, a coffee table, side tables, a TV unit and a rug according to ten
+living-room furniture-arrangement rules, and scores every layout against each
+rule. The furniture follows the household's daily activities — a dining table,
+a desk or a reading corner gets a zone of its own — and is sized to the room.
+Pure Python — no model, no database.
+
+```bash
+cd backend/living_room_layout
+python -m venv venv
+source venv/Scripts/activate     # Git Bash  (venv\Scripts\activate in PowerShell; venv/bin/activate on POSIX)
+pip install -r requirements.txt
+uvicorn api:app --port 8100
+```
+
+The frontend reads `VITE_LIVING_ROOM_LAYOUT_URL` (default `http://localhost:8100`). See
+[`backend/living_room_layout/README.md`](backend/living_room_layout/README.md) for the rules and the API.
+
+### 🛏️ Bedroom Layout service (rule-based furniture layouts)
+
+When the room picked on Select Room is a bedroom, View Layouts calls a second
+local Python service that arranges a bed, bedside tables, wardrobe, drawers and
+a study desk according to twelve furniture-arrangement rules, and scores every
+layout against each rule. Pure Python — no model, no database.
+
+```bash
+cd backend/bedroom_layout
+python -m venv venv
+source venv/Scripts/activate     # Git Bash  (venv\Scripts\activate in PowerShell; venv/bin/activate on POSIX)
+pip install -r requirements.txt
+uvicorn api:app --port 8200
+```
+
+The frontend reads `VITE_BEDROOM_LAYOUT_URL` (default `http://localhost:8200`). See
+[`backend/bedroom_layout/README.md`](backend/bedroom_layout/README.md) for the rules and the API.
+
+### 🍳 Kitchen Layout service (rule-based kitchen layouts)
+
+When the room picked is a kitchen, View Layouts calls a third local Python
+service that lays out the kitchen shapes the room allows (one-wall, L, U,
+galley) and places sink, stove, refrigerator, worktops and a dining table by
+twelve kitchen-arrangement rules. Same setup as the bedroom service:
+
+```bash
+cd backend/kitchen_layout
+python -m venv venv
+source venv/Scripts/activate
+pip install -r requirements.txt
+uvicorn api:app --port 8300
+```
+
+The frontend reads `VITE_KITCHEN_LAYOUT_URL` (default `http://localhost:8300`). See
+[`backend/kitchen_layout/README.md`](backend/kitchen_layout/README.md).
+
+### 🚿 Bathroom Layout service (rule-based bathroom layouts)
+
+When the room picked is a bathroom (its name contains "bath", "toilet", "WC",
+"washroom" or "shower"), View Layouts calls a fourth local Python service that
+arranges the shower, toilet, washbasin and storage cabinet, fixes the mirror,
+towel rails, floor drain and — when the user has mobility needs — wheelchair
+space and grab bars, by fifteen bathroom-arrangement rules. Same setup again:
+
+```bash
+cd backend/bathroom_layout
+python -m venv venv
+source venv/Scripts/activate
+pip install -r requirements.txt
+uvicorn api:app --port 8400
+```
+
+The frontend reads `VITE_BATHROOM_LAYOUT_URL` (default `http://localhost:8400`). See
+[`backend/bathroom_layout/README.md`](backend/bathroom_layout/README.md).
+
+### 🍽️ Dining Layout service (rule-based dining-area layouts)
+
+When the room picked is a dining room or dining area, View Layouts calls a
+fifth local Python service that places the dining table and chairs, a sideboard
+and the pendant light by twelve dining-area rules. Same setup again:
+
+```bash
+cd backend/dining_layout
+python -m venv venv
+source venv/Scripts/activate
+pip install -r requirements.txt
+uvicorn api:app --port 8500
+```
+
+The frontend reads `VITE_DINING_LAYOUT_URL` (default `http://localhost:8500`). See
+[`backend/dining_layout/README.md`](backend/dining_layout/README.md).
+
+### 🛏️ Master Bedroom Layout service (rule-based master-bedroom layouts)
+
+When the room picked is a master bedroom (its name contains "master", "main" or
+"primary"), View Layouts calls a sixth local Python service instead of the
+bedroom one. It adds a dressing table, the lighting, both-sides bed access and
+the route to an en-suite bathroom, scored against fifteen master-bedroom rules.
+Same setup again:
+
+```bash
+cd backend/master_bedroom_layout
+python -m venv venv
+source venv/Scripts/activate
+pip install -r requirements.txt
+uvicorn api:app --port 8600
+```
+
+The frontend reads `VITE_MASTER_BEDROOM_LAYOUT_URL` (default `http://localhost:8600`). See
+[`backend/master_bedroom_layout/README.md`](backend/master_bedroom_layout/README.md).
 
 ### 📦 Production Build
 

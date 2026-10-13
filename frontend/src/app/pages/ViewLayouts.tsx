@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef, type ReactElement } from "react";
 import {
-  Box,
-  LogOut,
   ArrowLeft,
   ArrowRight,
   Check,
@@ -19,18 +17,37 @@ import {
   Sparkles,
   TrendingUp,
   ShieldCheck,
-  Layers,
+  Layers
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useLocation, useNavigate } from "react-router";
-import { useCurrentUserProfile } from "../context/UserContext";
-import ThemeToggle from "../components/ThemeToggle";
+import AppNavbar from "../components/AppNavbar";
 import type { DetectionResult } from "../lib/wallDetector";
 import {
   generateAllLivingRoomLayouts,
   isLayoutError,
   type GenerateAllLivingRoomLayoutsResponse,
+  type LivingActivity,
+  type LivingRoomExtras,
 } from "../lib/livingRoomLayout";
+import {
+  generateAllBedroomLayouts,
+  type GenerateAllBedroomLayoutsResponse,
+} from "../lib/bedroomLayout";
+import {
+  generateAllKitchenLayouts,
+  type GenerateAllKitchenLayoutsResponse,
+} from "../lib/kitchenLayout";
+import {
+  generateAllBathroomLayouts,
+  type GenerateAllBathroomLayoutsResponse,
+} from "../lib/bathroomLayout";
+import {
+  generateAllDiningLayouts,
+  type DiningSeats,
+  type GenerateAllDiningLayoutsResponse,
+} from "../lib/diningLayout";
+import { generateAllMasterBedroomLayouts } from "../lib/masterBedroomLayout";
 import LivingRoomLayoutGrid from "../components/LivingRoomLayoutGrid";
 import LivingRoomPlan from "../components/LivingRoomPlan";
 import {
@@ -163,39 +180,29 @@ const STEPS = [
 
 function StepIndicator({ current }: { current: number }) {
   return (
-    <div className="flex items-center justify-center gap-0 flex-wrap select-none">
+    <div className="flex items-center gap-1.5 flex-wrap select-none">
       {STEPS.map((s, i) => {
         const isDone = s.step < current;
         const isActive = s.step === current;
         return (
-          <div key={s.step} className="flex items-center">
-            <div className="flex flex-col items-center">
-              <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all duration-300 ${
-                  isDone
-                    ? "bg-gradient-to-br from-blue-600 to-indigo-700 border-indigo-700 text-white"
-                    : isActive
-                    ? "bg-white border-indigo-600 text-indigo-700 shadow-md shadow-indigo-200"
-                    : "bg-white border-gray-300 text-gray-400"
-                }`}
-              >
-                {isDone ? <Check className="w-4 h-4" /> : s.step}
-              </div>
-              <span
-                className={`mt-1 text-[10px] font-medium whitespace-nowrap ${
-                  isActive ? "text-indigo-700" : isDone ? "text-blue-600" : "text-gray-400"
-                }`}
-              >
-                {s.label}
-              </span>
+          <div key={s.step} className="flex items-center gap-1.5">
+            <div
+              className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] ${
+                isDone || isActive
+                  ? "bg-gradient-to-br from-teal-400 to-teal-600 text-white"
+                  : "bg-white/5 text-zinc-600 border border-white/10"
+              }`}
+            >
+              {isDone ? <Check className="w-3 h-3" /> : s.step}
             </div>
-            {i < STEPS.length - 1 && (
-              <div
-                className={`h-0.5 w-8 md:w-10 mb-4 mx-1 transition-all duration-500 ${
-                  s.step < current ? "bg-gradient-to-r from-blue-600 to-indigo-700" : "bg-gray-200"
-                }`}
-              />
-            )}
+            <span
+              className={`text-xs font-medium whitespace-nowrap ${
+                isActive ? "text-teal-400" : isDone ? "text-teal-500" : "text-zinc-600"
+              }`}
+            >
+              {s.label}
+            </span>
+            {i < STEPS.length - 1 && <ArrowRight className="w-3 h-3 text-zinc-700" />}
           </div>
         );
       })}
@@ -862,32 +869,82 @@ function LayoutCard({
   );
 }
 
+// Living-room rule 7: the household's daily activities, offered as one-click sets.
+const LIVING_ACTIVITY_SETS: Array<{ label: string; activities: LivingActivity[] | null }> = [
+  { label: "Auto", activities: null },
+  { label: "Talk & TV", activities: ["conversation", "tv"] },
+  { label: "+ Dining", activities: ["conversation", "tv", "dining"] },
+  { label: "+ Reading", activities: ["conversation", "tv", "reading"] },
+  { label: "+ Work", activities: ["conversation", "tv", "work"] },
+  { label: "Talk only", activities: ["conversation"] },
+];
+
 // ─────────────────────────────────────────────
 // Main Page
 // ─────────────────────────────────────────────
 export default function ViewLayouts() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { profile, signOut } = useCurrentUserProfile();
-
-  // ── Real living-room generation ──────────────────────────────────────
+  // ── Real layout generation ───────────────────────────────────────────
   // SelectRoom navigates here with { room, detection } in router state.
-  // Only rooms whose OCR'd name looks like a living room get the real
-  // rule-based engine for now; everything else keeps the placeholder below.
+  // Rooms whose OCR'd name looks like a living room, a bathroom, a bedroom, a kitchen or a
+  // dining area get
+  // their rule-based engine; everything else keeps the placeholder below.
   const navState = location.state as
     | { floorPlanId?: string; room?: { id: string; name: string }; detection?: DetectionResult }
     | null;
   const apiRoom = navState?.detection?.rooms.find((r) => r.id === navState.room?.id);
   const isLivingRoom = !!apiRoom && /living/i.test(apiRoom.name);
+  // Checked before the bedroom so an en-suite ("Bedroom 1 Bath") gets the bathroom engine.
+  const isBathroom =
+    !!apiRoom && !isLivingRoom && /bath|toilet|w\.?c|wash\s*room|shower|rest\s*room|lavatory/i.test(apiRoom.name);
+  const isBedroom = !!apiRoom && !isLivingRoom && !isBathroom && /bed/i.test(apiRoom.name);
+  // A master bedroom is a bedroom with its own, fuller rule set (dressing table, lighting, en-suite route).
+  const isMasterBedroom = isBedroom && /master|primary|main|\bm\.?\s*bed/i.test(apiRoom.name);
+  const isKitchen = !!apiRoom && !isLivingRoom && !isBathroom && !isBedroom && /kitchen/i.test(apiRoom.name);
+  // Checked last: a "Kitchen / Dining" room keeps the kitchen engine, which seats a table itself.
+  const isDining =
+    !!apiRoom && !isLivingRoom && !isBathroom && !isBedroom && !isKitchen && /din/i.test(apiRoom.name);
+  const hasEngine = isLivingRoom || isBathroom || isBedroom || isKitchen || isDining;
 
   const [livingAll, setLivingAll] = useState<GenerateAllLivingRoomLayoutsResponse | null>(null);
   const [selectedLayoutType, setSelectedLayoutType] = useState<string | null>(null);
   const [livingError, setLivingError] = useState<string | null>(null);
   const [livingLoading, setLivingLoading] = useState(false);
   const [livingRetry, setLivingRetry] = useState(0);
+  // Bedroom rule 11 needs a head count; null lets the engine infer it from the room size.
+  const [bedroomOccupants, setBedroomOccupants] = useState<1 | 2 | null>(null);
+  const bedroomAll = isBedroom ? (livingAll as GenerateAllBedroomLayoutsResponse | null) : null;
+  // Kitchen rule 10 concerns a dining table; null lets the engine decide from the room size.
+  const [kitchenTable, setKitchenTable] = useState<boolean | null>(null);
+  const kitchenAll = isKitchen ? (livingAll as GenerateAllKitchenLayoutsResponse | null) : null;
+  // Bathroom rules 13 and 15 apply only when the user has mobility needs.
+  const [bathroomAccessible, setBathroomAccessible] = useState(false);
+  const bathroomAll = isBathroom ? (livingAll as GenerateAllBathroomLayoutsResponse | null) : null;
+  // Dining rule 12 needs a seat count; null lets the engine decide from the room size.
+  const [diningSeats, setDiningSeats] = useState<DiningSeats | null>(null);
+  const diningAll = isDining ? (livingAll as GenerateAllDiningLayoutsResponse | null) : null;
+  // Living-room rule 7 needs the household's daily activities (null lets the engine assume
+  // them from the room); rule 10 concerns an occupant with mobility needs.
+  const [livingActivities, setLivingActivities] = useState<LivingActivity[] | null>(null);
+  const [livingAccessible, setLivingAccessible] = useState(false);
+  const livingRoomAll = isLivingRoom
+    ? (livingAll as (GenerateAllLivingRoomLayoutsResponse & LivingRoomExtras) | null)
+    : null;
+  const roomLabel = isBathroom
+    ? "Bathroom"
+    : isMasterBedroom
+      ? "Master Bedroom"
+      : isBedroom
+        ? "Bedroom"
+        : isKitchen
+        ? "Kitchen"
+        : isDining
+          ? "Dining Area"
+          : "Living Room";
 
   useEffect(() => {
-    if (!isLivingRoom || !apiRoom || !navState?.detection) return;
+    if (!hasEngine || !apiRoom || !navState?.detection) return;
     let cancelled = false;
     setLivingLoading(true);
     setLivingError(null);
@@ -901,11 +958,31 @@ export default function ViewLayouts() {
     const scaleMPerPx = navState.detection.scaleMmPerPx
       ? navState.detection.scaleMmPerPx / 1000
       : undefined;
-    generateAllLivingRoomLayouts({
+    const request = {
       room: { id: apiRoom.id, name: apiRoom.name, bbox: apiRoom.bbox },
       detections: openings.map((d) => ({ id: d.id, class: d.class, bbox: d.bbox })),
       scaleMPerPx,
-    })
+    };
+    const rooms = navState.detection.rooms.map((r) => ({ id: r.id, name: r.name, bbox: r.bbox }));
+    const generated: Promise<GenerateAllLivingRoomLayoutsResponse> = isBathroom
+      ? generateAllBathroomLayouts({ ...request, rooms, accessible: bathroomAccessible })
+      : isBedroom
+        ? (isMasterBedroom ? generateAllMasterBedroomLayouts : generateAllBedroomLayouts)({
+            ...request,
+            rooms,
+            occupants: bedroomOccupants ?? undefined,
+          })
+        : isKitchen
+          ? generateAllKitchenLayouts({ ...request, rooms, diningTable: kitchenTable ?? undefined })
+          : isDining
+            ? generateAllDiningLayouts({ ...request, rooms, seats: diningSeats ?? undefined })
+            : generateAllLivingRoomLayouts({
+                ...request,
+                rooms,
+                activities: livingActivities ?? undefined,
+                accessible: livingAccessible,
+              });
+    generated
       .then(async (res) => {
         if (cancelled) return;
         setLivingAll(res);
@@ -926,19 +1003,12 @@ export default function ViewLayouts() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLivingRoom, apiRoom?.id, navState?.detection, livingRetry]);
+  }, [hasEngine, isBathroom, isBedroom, isMasterBedroom, isKitchen, isDining, apiRoom?.id, navState?.detection, livingRetry,
+    bedroomOccupants, kitchenTable, bathroomAccessible, diningSeats, livingActivities, livingAccessible]);
 
   const rawSelectedLayout = livingAll?.layouts.find((l) => l.layout.type === selectedLayoutType) ?? null;
   const selectedLayoutEntry = rawSelectedLayout && !isLayoutError(rawSelectedLayout) ? rawSelectedLayout : null;
 
-  const handleLogout = async () => {
-    const success = await signOut();
-    if (success) {
-      navigate("/");
-    }
-  };
-
-  const displayName = profile.fullName?.trim() ? profile.fullName : profile.username;
 
   const bestId = MOCK_LAYOUTS.reduce((best, l) => (l.score > best.score ? l : best), MOCK_LAYOUTS[0])?.id;
   const [selectedId, setSelectedId] = useState<string>(bestId ?? "");
@@ -960,8 +1030,8 @@ export default function ViewLayouts() {
 
   const selectedLayout = MOCK_LAYOUTS.find((l) => l.id === selectedId);
 
-  // ── Living room: real structure + layout from the rule-based engine ────
-  if (isLivingRoom && apiRoom) {
+  // ── Living room / bedroom: real structure + layout from the rule-based engine ────
+  if (hasEngine && apiRoom) {
     return (
       <div className="min-h-screen w-full bg-background relative" style={{ fontFamily: "'Inter', sans-serif" }}>
         <div className="absolute inset-0 dot-grid pointer-events-none" />
@@ -969,55 +1039,170 @@ export default function ViewLayouts() {
         <div className="absolute bottom-1/4 left-1/4 w-[300px] h-[300px] bg-violet-500/5 rounded-full blur-[100px] pointer-events-none" />
 
         {/* Nav */}
-        <nav className="relative glass-nav z-30">
-          <div className="px-4 md:px-8 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/dashboard")}>
-              <div className="bg-gradient-to-br from-teal-400 to-teal-600 p-2 rounded-xl shadow-lg shadow-teal-500/20">
-                <Box className="w-8 h-8 text-white" strokeWidth={1.5} />
-              </div>
-              <div className="hidden md:block">
-                <h1 className="text-base font-bold text-white">3D Layout System</h1>
-                <p className="text-xs text-zinc-500">AI-Powered Design</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="hidden md:block text-right">
-                <p className="text-xs text-zinc-500">Welcome back,</p>
-                <p className="font-semibold text-white text-sm">{displayName} 👋</p>
-              </div>
-              <ThemeToggle />
-              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                onClick={handleLogout}
-                className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors">
-                <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline text-sm font-medium">Logout</span>
-              </motion.button>
-            </div>
-          </div>
-        </nav>
+        <AppNavbar />
 
-        <main className="relative px-4 md:px-8 py-8 md:py-10 max-w-6xl mx-auto">
-          <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-            <div className="glass-card rounded-2xl border border-white/5 px-6 py-4 flex justify-center">
+        <main className="relative px-4 md:px-8 pt-3 md:pt-4 pb-8 md:pb-10 max-w-6xl mx-auto">
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-4">
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+              <h2 className="text-lg font-semibold text-white">
+                {roomLabel} Structure &amp; Layout
+              </h2>
               <StepIndicator current={4} />
             </div>
-          </motion.div>
-
-          <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mb-8">
-            <h2 className="text-3xl md:text-4xl font-extrabold bg-gradient-to-r from-teal-300 to-cyan-400 bg-clip-text text-transparent">
-              Living Room Structure &amp; Layout
-            </h2>
-            <p className="text-zinc-500 mt-1.5 text-sm md:text-base">
-              All six layout types generated by the rule-based engine for "{apiRoom.name}" — pick one to see the full structure and every placement's reasoning.
+            <p className="text-zinc-500 mt-1 text-xs">
+              {isBathroom
+                ? `Layouts generated by the rule-based engine for "${apiRoom.name}", one per shower position and scored against the fifteen bathroom rules`
+                : isBedroom
+                ? `Layouts generated by the rule-based engine for "${apiRoom.name}", one per bed position and scored against the ${isMasterBedroom ? "fifteen master-bedroom" : "twelve bedroom"} rules`
+                : isKitchen
+                  ? `Layouts generated by the rule-based engine for "${apiRoom.name}", the best of each kitchen shape and scored against the twelve kitchen rules`
+                  : isDining
+                  ? `Layouts generated by the rule-based engine for "${apiRoom.name}", one per table position and scored against the twelve dining-area rules`
+                  : `Layouts generated by the rule-based engine for "${apiRoom.name}", one per way the seating group can stand and scored against the ten living-room rules`}
+              {" "}— pick one to see the full structure and every placement's reasoning.
             </p>
+            {isLivingRoom && (
+              <div className="flex flex-col gap-2 mt-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-zinc-500">Daily activities</span>
+                  {LIVING_ACTIVITY_SETS.map((set) => (
+                    <button key={set.label} disabled={livingLoading}
+                      onClick={() => setLivingActivities(set.activities)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                        (livingActivities?.join() ?? null) === (set.activities?.join() ?? null)
+                          ? "bg-teal-500/10 text-teal-300 border-teal-500/30"
+                          : "bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10"
+                      }`}>
+                      {set.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-zinc-500">Mobility needs</span>
+                  {([false, true] as const).map((choice) => (
+                    <button key={String(choice)} disabled={livingLoading}
+                      onClick={() => setLivingAccessible(choice)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                        livingAccessible === choice
+                          ? "bg-teal-500/10 text-teal-300 border-teal-500/30"
+                          : "bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10"
+                      }`}>
+                      {choice ? "Wider paths, no rug" : "None"}
+                    </button>
+                  ))}
+                  {livingRoomAll?.programme && (
+                    <span className="text-xs text-zinc-500">
+                      {livingRoomAll.activitiesSource === "inferred" ? "Assumed for this room: " : "Planned with: "}
+                      {livingRoomAll.programme.summary}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+            {isBedroom && (
+              <div className="flex flex-wrap items-center gap-2 mt-4">
+                <span className="text-xs text-zinc-500">Occupants</span>
+                {([null, 1, 2] as const).map((count) => (
+                  <button key={count ?? "auto"} disabled={livingLoading}
+                    onClick={() => setBedroomOccupants(count)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                      bedroomOccupants === count
+                        ? "bg-teal-500/10 text-teal-300 border-teal-500/30"
+                        : "bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10"
+                    }`}>
+                    {count ?? "Auto"}
+                  </button>
+                ))}
+                {bedroomAll && (
+                  <span className="text-xs text-zinc-500">
+                    {bedroomAll.occupantsSource === "inferred"
+                      ? `Planned for ${bedroomAll.occupants} ${isMasterBedroom ? "by default" : "from the room size"}`
+                      : `Planned for ${bedroomAll.occupants}`}
+                    : {bedroomAll.programme.summary}
+                  </span>
+                )}
+              </div>
+            )}
+            {isBathroom && (
+              <div className="flex flex-wrap items-center gap-2 mt-4">
+                <span className="text-xs text-zinc-500">Mobility needs</span>
+                {([false, true] as const).map((choice) => (
+                  <button key={String(choice)} disabled={livingLoading}
+                    onClick={() => setBathroomAccessible(choice)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                      bathroomAccessible === choice
+                        ? "bg-teal-500/10 text-teal-300 border-teal-500/30"
+                        : "bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10"
+                    }`}>
+                    {choice ? "Wheelchair & grab bars" : "None"}
+                  </button>
+                ))}
+                {bathroomAll && (
+                  <span className="text-xs text-zinc-500">Planned with: {bathroomAll.programme.summary}</span>
+                )}
+              </div>
+            )}
+            {isDining && (
+              <div className="flex flex-wrap items-center gap-2 mt-4">
+                <span className="text-xs text-zinc-500">Seats</span>
+                {([null, 2, 4, 6, 8] as const).map((count) => (
+                  <button key={count ?? "auto"} disabled={livingLoading}
+                    onClick={() => setDiningSeats(count)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                      diningSeats === count
+                        ? "bg-teal-500/10 text-teal-300 border-teal-500/30"
+                        : "bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10"
+                    }`}>
+                    {count ?? "Auto"}
+                  </button>
+                ))}
+                {diningAll && (
+                  <span className="text-xs text-zinc-500">
+                    {diningAll.seatsSource === "inferred"
+                      ? `Planned for ${diningAll.seats} from the room size`
+                      : `Planned for ${diningAll.seats}`}
+                    : {diningAll.programme.summary}
+                  </span>
+                )}
+              </div>
+            )}
+            {isKitchen && (
+              <div className="flex flex-wrap items-center gap-2 mt-4">
+                <span className="text-xs text-zinc-500">Dining table</span>
+                {([null, true, false] as const).map((choice) => (
+                  <button key={String(choice)} disabled={livingLoading}
+                    onClick={() => setKitchenTable(choice)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                      kitchenTable === choice
+                        ? "bg-teal-500/10 text-teal-300 border-teal-500/30"
+                        : "bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10"
+                    }`}>
+                    {choice === null ? "Auto" : choice ? "With" : "Without"}
+                  </button>
+                ))}
+                {kitchenAll && (
+                  <span className="text-xs text-zinc-500">Planned with: {kitchenAll.programme.summary}</span>
+                )}
+              </div>
+            )}
           </motion.div>
 
           {livingLoading && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
               className="glass-card rounded-3xl border border-white/5 p-12 flex flex-col items-center gap-4 text-center">
               <Loader2 className="w-10 h-10 text-teal-400 animate-spin" />
-              <p className="text-zinc-200 font-semibold">Generating all six layouts…</p>
-              <p className="text-zinc-600 text-sm max-w-sm">Running hard-constraint checks, candidate generation and beam-search optimisation for each layout type — this can take up to 20 seconds.</p>
+              <p className="text-zinc-200 font-semibold">{isBathroom ? "Generating bathroom layouts…" : isMasterBedroom ? "Generating master bedroom layouts…" : isBedroom ? "Generating bedroom layouts…" : isKitchen ? "Generating kitchen layouts…" : isDining ? "Generating dining layouts…" : "Generating living room layouts…"}</p>
+              <p className="text-zinc-600 text-sm max-w-sm">
+                {isBathroom
+                  ? "Trying the shower in every corner with the toilet and the basin on every wall, and checking each arrangement against the fifteen rules — this takes about a second."
+                  : isBedroom
+                  ? `Trying the bed on every wall and checking each arrangement against the ${isMasterBedroom ? "fifteen" : "twelve"} rules — this takes about a second.`
+                  : isKitchen
+                    ? "Trying every kitchen shape the walls allow and checking each against the twelve rules — this takes about a second."
+                    : isDining
+                    ? "Trying the table across the whole floor, both ways round, and checking each position against the twelve rules — this takes under a second."
+                    : "Trying the seating group across the whole floor, looking each way, and checking each arrangement against the ten rules — this takes under a second."}
+              </p>
             </motion.div>
           )}
 
@@ -1114,74 +1299,29 @@ export default function ViewLayouts() {
       <CompareModal layouts={MOCK_LAYOUTS} open={compareOpen} onClose={() => setCompareOpen(false)} />
 
       {/* ── Navigation ── */}
-      <nav className="relative glass-nav z-30">
-        <div className="px-4 md:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/dashboard")}>
-              <div className="bg-gradient-to-br from-teal-400 to-teal-600 p-2 rounded-xl shadow-lg shadow-teal-500/20">
-                <Box className="w-8 h-8 text-white" strokeWidth={1.5} />
-              </div>
-              <div className="hidden md:block">
-                <h1 className="text-base font-bold text-white">3D Layout System</h1>
-                <p className="text-xs text-zinc-500">AI-Powered Design</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="hidden md:block text-right">
-                <p className="text-xs text-zinc-500">Welcome back,</p>
-                <p className="font-semibold text-white text-sm">{displayName} 👋</p>
-              </div>
-              <ThemeToggle />
-              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                onClick={handleLogout}
-                className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors">
-                <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline text-sm font-medium">Logout</span>
-              </motion.button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <AppNavbar />
 
       {/* ── Main ── */}
-      <main className="relative px-4 md:px-8 py-8 md:py-10 max-w-7xl mx-auto">
+      <main className="relative px-4 md:px-8 pt-3 md:pt-4 pb-8 md:pb-10 max-w-7xl mx-auto">
 
-        {/* Step Indicator */}
+        {/* Page Header + Step Indicator + Toolbar */}
         <motion.div
-          initial={{ opacity: 0, y: -12 }}
+          initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
+          className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2"
         >
-          <div className="glass-card rounded-2xl border border-white/5 px-6 py-4 flex justify-center">
-            <StepIndicator current={4} />
-          </div>
-        </motion.div>
-
-        {/* Page Header + Toolbar */}
-        <motion.div
-          initial={{ opacity: 0, y: -14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-3"
-        >
-          <div>
-            <h2 className="text-3xl md:text-4xl font-extrabold bg-gradient-to-r from-teal-300 to-cyan-400 bg-clip-text text-transparent">
-              Generated Furniture Layouts
-            </h2>
-            <p className="text-zinc-500 mt-1.5 text-sm md:text-base">
-              Review and compare optimized layout options for your selected room.
-            </p>
-          </div>
-          <div className="flex items-center gap-3 shrink-0">
+          <h2 className="text-lg font-semibold text-white">Generated Furniture Layouts</h2>
+          <StepIndicator current={4} />
+          <div className="flex items-center gap-2 shrink-0">
             <ScoreTooltip />
             <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
               onClick={() => setCompareOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 border border-teal-500/20 bg-teal-500/10 text-teal-400 hover:bg-teal-500/20 rounded-xl text-sm font-semibold transition-all">
-              <GitCompare className="w-4 h-4" /> Compare
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-teal-500/20 bg-teal-500/10 text-teal-400 hover:bg-teal-500/20 rounded-lg text-xs font-semibold transition-all">
+              <GitCompare className="w-3.5 h-3.5" /> Compare
             </motion.button>
             <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
               onClick={() => { setIsLoading(true); setTimeout(() => setIsLoading(false), 1800); }}
-              className="flex items-center gap-2 px-4 py-2 border border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10 rounded-xl text-sm font-semibold transition-all">
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10 rounded-lg text-xs font-semibold transition-all">
               <RefreshCw className="w-4 h-4" /> Regenerate
             </motion.button>
           </div>

@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { Box, CheckCircle2, Loader2, LogOut, Sparkles } from "lucide-react";
+import { CheckCircle2, Loader2, Sparkles } from "lucide-react";
 import { motion } from "motion/react";
 import { useLocation, useNavigate } from "react-router";
-import { useCurrentUserProfile } from "../context/UserContext";
-import ThemeToggle from "../components/ThemeToggle";
+import AppNavbar from "../components/AppNavbar";
 import type { DetectionResult } from "../lib/wallDetector";
 
 export default function Processing() {
@@ -12,21 +11,11 @@ export default function Processing() {
   const detection = (location.state as { detection?: DetectionResult } | null)
     ?.detection;
   const [currentStep, setCurrentStep] = useState(0);
-  const { profile, signOut } = useCurrentUserProfile();
-
   // Landed here without a detection payload (e.g. page reload) — start over.
   useEffect(() => {
     if (!detection) navigate("/upload", { replace: true });
   }, [detection, navigate]);
 
-  const handleLogout = async () => {
-    const success = await signOut();
-    if (success) {
-      navigate("/");
-    }
-  };
-
-  const displayName = profile.fullName?.trim() ? profile.fullName : profile.username;
 
   const processingSteps = useMemo(() => {
     const c = detection?.counts ?? {};
@@ -68,36 +57,7 @@ export default function Processing() {
   return (
     <div className="min-h-screen w-full bg-background relative overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
       {/* Navigation */}
-      <nav className="relative glass-nav z-20">
-        <div className="px-4 md:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-gradient-to-br from-teal-400 to-teal-600 p-2.5 rounded-xl shadow-lg shadow-teal-500/20">
-              <Box className="w-6 h-6 text-white" strokeWidth={1.5} />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-white">3D Layout System</h1>
-              <p className="text-xs text-zinc-500">AI-Powered Design</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="hidden md:block text-right">
-              <p className="text-sm text-zinc-500">Welcome back,</p>
-              <p className="font-semibold text-white">{displayName} 👋</p>
-            </div>
-            <ThemeToggle />
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors duration-200"
-            >
-              <LogOut className="w-4 h-4" />
-              <span className="hidden sm:inline">Logout</span>
-            </motion.button>
-          </div>
-        </div>
-      </nav>
+      <AppNavbar />
 
       {/* Ambient orbs */}
       <div className="absolute top-1/3 left-1/4 w-[400px] h-[400px] bg-teal-500/5 rounded-full blur-[100px] pointer-events-none" />

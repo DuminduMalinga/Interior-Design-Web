@@ -1,132 +1,132 @@
 """
-Central configuration: every tunable number used by the rule engine.
+Central configuration: every tunable number used by the living-room rule engine.
 
-Nothing in `rules/`, `engine/` or `layouts/` hard-codes a dimension; they all
-read from here.  A project can therefore be re-tuned to a different standard
-(or a different country's guidance) by editing this one file, or at runtime by
-supplying a "config" block in the input JSON.
+Nothing in the rules or the search hard-codes a dimension; they all read from
+here, so the engine can be re-tuned to a different standard by editing this one
+file, or at runtime by sending a "config" block with the request.
 
-All distances are millimetres unless stated otherwise.
+All distances are millimetres, all areas square metres and all angles degrees.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
-from typing import Dict
+from dataclasses import asdict, dataclass, field
+from typing import Dict, Tuple
 
 
 @dataclass
 class Clearances:
-    """Clearance rules (hard-constraint thresholds)."""
+    """The distances the rules measure against."""
 
-    # 5.3 / 5.6 main entrance + circulation
-    door_clearance_min: float = 900.0        # absolute minimum in front of a door
-    door_clearance_preferred: float = 1200.0  # preferred, scored as a bonus
-    circulation_min: float = 900.0            # minimum walkable corridor width
-    circulation_preferred: float = 1200.0
+    # the door and the landing in front of it
+    door_entry_depth: float = 900.0       # kept clear in front of every door
 
-    # 5.7 coffee table
-    coffee_table_min: float = 400.0
-    coffee_table_max: float = 500.0
-    coffee_table_surround: float = 400.0      # movement space around the table
+    # rule 1 - talking to each other
+    conversation_near: float = 900.0      # seat front to seat front: full marks from here ...
+    conversation_far: float = 2700.0      # ... to here
+    conversation_limit: float = 3700.0    # no marks from here
+    facing_angle: float = 50.0            # a seat "faces the group" within this of its centre
 
-    # 5.8 seating
-    seating_circulation_min: float = 600.0    # behind / beside frequently used seating
-    seating_circulation_preferred: float = 900.0
+    # rule 2 - seeing each other
+    sight_full: float = 60.0              # another person this far off straight ahead is seen without turning
+    sight_none: float = 110.0             # ... and from here they are behind the shoulder
+    eye_height: float = 1100.0            # furniture taller than this blocks a seated person's view
+    entrance_angle: float = 100.0         # the door counts as in view from the sofa within this
 
-    # 5.5 windows
-    window_access_depth: float = 600.0        # keep-clear band in front of a window
-    window_tall_furniture_height: float = 1100.0  # taller than this = "tall furniture"
-    window_low_furniture_gap: float = 0.0     # low furniture may touch the wall
-    curtain_operating_space: float = 300.0    # space for curtains/blinds to work
+    # rule 3 - zones
+    zone_gap_min: float = 600.0           # hard: clear floor between the seating group and another zone
+    zone_gap_preferred: float = 900.0
 
-    # secondary circulation between furniture pieces
-    minor_gap_min: float = 300.0
+    # rule 4 - doors, windows and the main paths
+    door_gap_min: float = 900.0           # furniture to a doorway: no marks at or below this
+    door_gap_good: float = 1500.0
+    window_access_depth: float = 600.0    # band in front of a window kept free to reach it
+    route_ahead: float = 1500.0           # floor straight ahead of a lone door that counts as the route
 
-    # conversation distances (11. relationship rules)
-    conversation_min: float = 1500.0
-    conversation_max: float = 3000.0
-    #: hard cap - a chair further than this from every other seat is not part
-    #: of the group at all (an "orphan"), not just a loose conversation
-    #: distance; the candidate is rejected outright rather than merely scored
-    #: down. Deliberately looser than conversation_max so it never fights that
-    #: softer preference, only catches genuine cross-room outliers.
-    seating_group_max_span: float = 4500.0
+    # rule 5 - furniture sized to the room
+    sofa_wall_ideal: float = 0.65         # sofa length over the room size along it: full marks up to here
+    sofa_wall_max: float = 0.90           # ... no marks from here
 
-    # TV viewing distance: multiplier band applied to the TV diagonal / width
-    tv_distance_min: float = 1800.0
-    tv_distance_max: float = 4500.0
+    # rule 6 - within reach
+    table_gap: float = 400.0              # built in: seat front to the coffee table
+    reach_gap_min: float = 350.0          # hard limits on that gap
+    reach_gap_max: float = 500.0
+    reach: float = 600.0                  # a seat has a surface "within reach" up to here
 
-    # reading zone
-    arm_reach: float = 700.0                  # side table within arm's reach
-    bookshelf_access: float = 750.0           # standing space in front of a bookshelf
+    # rule 7 - the television
+    tv_min: float = 1500.0                # hard: sofa front to the TV
+    tv_near: float = 2000.0               # full marks from here ...
+    tv_far: float = 3600.0                # ... to here
+    tv_limit: float = 5500.0              # no marks from here
+    tv_angle_full: float = 15.0           # TV this far off straight ahead of the sofa: full marks
+    tv_angle_max: float = 35.0            # hard: never further off than this
+    tv_centre_height: float = 1100.0      # centre of the screen above the floor
+
+    # rule 7 - dining, working and reading in the room
+    chair_pull_min: float = 700.0         # hard: dining-table edge to a wall or furniture, on every side with chairs
+    chair_tuck: float = 300.0             # how far a pushed-in chair stands out from the table or desk
+    desk_chair_space: float = 900.0       # clear floor in front of the desk
+    armchair_front: float = 600.0         # clear floor in front of the reading chair
+    daylight_near: float = 1500.0         # desk or reading chair to a window: full marks up to here
+    daylight_far: float = 4000.0
+
+    # rule 9 - moving between the areas
+    path_widths: Tuple[float, ...] = (900.0, 750.0, 600.0)   # widest first; the last is the hard minimum
+    cut_off_tolerance: float = 0.95
+
+    # rule 10 - occupants with mobility needs
+    accessible_path_widths: Tuple[float, ...] = (1200.0, 1000.0, 900.0)
+    turning_space: float = 1500.0         # side of the clear square a wheelchair turns in
+    transfer_width: float = 900.0         # clear floor beside the sofa to pull a wheelchair up
+    transfer_depth: float = 1200.0
 
 
 @dataclass
 class RoomThresholds:
-    """Room-characteristic thresholds (square metres / ratios)."""
+    """Rules 5 and 8: what a living room of a given size gets, and when it is full."""
 
-    small_room_area: float = 14.0   # m^2 - below this the room counts as small
-    large_room_area: float = 26.0   # m^2 - at or above this the room counts as large
-    narrow_aspect_ratio: float = 1.7   # long/short above this = narrow room
-    square_aspect_ratio: float = 1.2   # below this = square-ish room
-    min_practical_dimension: float = 2400.0  # a usable living room side, mm
+    standard_area: float = 12.0        # below this the room gets the compact furniture
+    generous_area: float = 20.0        # from here the generous furniture
+    reading_area: float = 25.0         # a reading corner is assumed from here when no activities are given
+    crowded_ratio: float = 0.28        # furniture may cover this much floor at full marks
+    overcrowded_ratio: float = 0.45    # ... and no marks from here
+    open_square_min: float = 0.15      # largest clear square over the room's shorter side: no marks
+    open_square_good: float = 0.40     # ... full marks
+
+
+@dataclass
+class Weights:
+    """Points each of the ten rules can contribute; they add up to 100."""
+
+    face_to_face: float = 12.0       # rule 1
+    views: float = 8.0               # rule 2
+    zones: float = 8.0               # rule 3
+    clear_openings: float = 12.0     # rule 4
+    furniture_fit: float = 10.0      # rule 5
+    within_reach: float = 10.0       # rule 6
+    daily_activities: float = 12.0   # rule 7
+    openness: float = 10.0           # rule 8
+    movement: float = 10.0           # rule 9
+    accessibility: float = 8.0       # rule 10
 
 
 @dataclass
 class SearchSettings:
-    """Search / optimisation effort."""
+    """Search effort."""
 
-    wall_slide_step: float = 250.0     # sampling step along a wall
-    open_grid_step: float = 500.0      # sampling step for free-floating pieces
-    max_candidates_per_item: int = 260
-    beam_width: int = 8                # partial layouts kept while placing
-    branch_per_item: int = 6           # candidates expanded per partial layout
-    hill_climb_passes: int = 3         # re-placement sweeps after the beam search
-    grid_cell: float = 100.0           # circulation raster cell size
-    max_rejections_recorded: int = 400
-
-
-@dataclass
-class ScoreWeights:
-    """Soft-constraint weights (section 6 / 12 of the specification)."""
-
-    sofa_faces_tv: float = 44.0
-    seating_faces_each_other: float = 15.0
-    coffee_table_centered: float = 22.0
-    coffee_table_distance: float = 10.0
-    reading_chair_near_bookshelf: float = 10.0
-    side_table_within_reach: float = 8.0
-    lamp_beside_reading_chair: float = 6.0
-    desk_near_window: float = 8.0
-    tv_on_solid_wall: float = 10.0
-    good_circulation: float = 15.0
-    preferred_circulation_width: float = 5.0
-    wall_alignment: float = 10.0
-    window_access: float = 8.0
-    door_access: float = 8.0
-    symmetry: float = 8.0
-    usability_open_area: float = 10.0
-    zone_separation: float = 8.0
-    focal_balance: float = 6.0
-
-    # penalties (negative contributions)
-    penalty_close_to_door: float = -20.0
-    penalty_poor_circulation: float = -15.0
-    penalty_tv_facing_window: float = -15.0
-    penalty_coffee_table_misplaced: float = -10.0
-    penalty_floating_wall_item: float = -8.0
-    penalty_window_partially_blocked: float = -8.0
-    penalty_crowding: float = -6.0
-    penalty_missing_furniture: float = -12.0
+    step: float = 150.0           # sampling step for the sofa across the floor and for pieces along a wall
+    max_steps: int = 30           # ... widened in a large room so no more than this many are tried each way
+    shortlist: int = 40           # sofa positions per variant scored in full
+    finalists: int = 3            # ... of which this many are furnished, walked and fully scored
+    max_layouts: int = 6          # alternatives returned
 
 
 @dataclass
 class Config:
     clearances: Clearances = field(default_factory=Clearances)
     rooms: RoomThresholds = field(default_factory=RoomThresholds)
+    weights: Weights = field(default_factory=Weights)
     search: SearchSettings = field(default_factory=SearchSettings)
-    weights: ScoreWeights = field(default_factory=ScoreWeights)
 
     def to_dict(self) -> Dict:
         return asdict(self)
@@ -137,13 +137,11 @@ class Config:
         cfg = Config()
         if not data:
             return cfg
-        for section in ("clearances", "rooms", "search", "weights"):
+        for section in ("clearances", "rooms", "weights", "search"):
             overrides = data.get(section) or {}
             target = getattr(cfg, section)
             for key, value in overrides.items():
                 if hasattr(target, key):
-                    setattr(target, key, value)
+                    current = getattr(target, key)
+                    setattr(target, key, tuple(value) if isinstance(current, tuple) else type(current)(value))
         return cfg
-
-
-DEFAULT_CONFIG = Config()
