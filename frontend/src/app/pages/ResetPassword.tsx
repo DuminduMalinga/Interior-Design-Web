@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { Box, Eye, EyeOff, AlertCircle, CheckCircle2, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, AlertCircle, CheckCircle2, ArrowLeft } from "lucide-react";
+import AuthShell from "../components/marketing/AuthShell";
 import { motion } from "motion/react";
 import { useNavigate } from "react-router";
 import { supabase } from "../lib/supabaseClient";
@@ -167,72 +168,30 @@ export default function ResetPassword() {
 
   if (isSubmitted) {
     return (
-      <div className="min-h-screen w-full bg-background flex items-center justify-center p-4 relative overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
-        <div className="absolute -top-40 -right-40 w-[400px] h-[400px] bg-emerald-500/8 rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute inset-0 dot-grid" />
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="relative w-full max-w-[450px] glass-card rounded-3xl shadow-2xl shadow-black/50 p-8 md:p-10 text-center"
-        >
-          <div className="flex justify-center mb-6">
-            <div className="bg-emerald-500/10 p-4 rounded-full border border-emerald-500/20">
-              <CheckCircle2 className="w-16 h-16 text-emerald-400" />
-            </div>
-          </div>
-          <h2 className="text-2xl font-bold text-white mb-3">Password Updated</h2>
-          <p className="text-zinc-500 mb-8">Your password has been reset successfully. You can now sign in with your new password.</p>
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => navigate("/signin")}
-            className="w-full px-6 py-3 bg-gradient-to-r from-teal-500 to-teal-600 text-white font-semibold rounded-xl shadow-lg shadow-teal-500/20 hover:shadow-teal-500/30 transition-all duration-300"
-          >
-            Go to Sign In
-          </motion.button>
-        </motion.div>
-      </div>
+      <AuthShell
+        title="Password updated"
+        subtitle="Your password has been reset successfully. You can now sign in with your new password."
+        icon={
+          <span className="grid h-12 w-12 place-items-center rounded-full border border-emerald-500/20 bg-emerald-500/10">
+            <CheckCircle2 className="h-6 w-6 text-emerald-400" aria-hidden="true" />
+          </span>
+        }
+      >
+        <button onClick={() => navigate("/signin")} className="lv-btn w-full min-h-12 text-base">
+          Go to sign in
+        </button>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="min-h-screen w-full bg-background flex items-center justify-center p-4 relative overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
-      <div className="absolute -top-40 -left-40 w-[400px] h-[400px] bg-violet-500/8 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute -bottom-40 -right-40 w-[400px] h-[400px] bg-teal-500/8 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute inset-0 dot-grid" />
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="relative w-full max-w-[500px] glass-card rounded-3xl shadow-2xl shadow-black/50 p-8 md:p-10"
-      >
-        <div className="flex justify-center mb-6">
-          <motion.div
-            whileHover={{ scale: 1.05, rotate: 5 }}
-            transition={{ type: "spring", stiffness: 300 }}
-            className="relative cursor-pointer"
-            onClick={() => navigate("/")}
-          >
-            <div className="bg-gradient-to-br from-teal-400 to-teal-600 p-5 rounded-2xl shadow-lg shadow-teal-500/20">
-              <Box className="w-12 h-12 text-white" strokeWidth={1.5} />
-            </div>
-            <div className="absolute -top-1 -right-1 w-4 h-4 bg-violet-500 rounded-full animate-pulse"></div>
-          </motion.div>
-        </div>
-
-        <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold bg-gradient-to-r from-teal-300 to-cyan-400 bg-clip-text text-transparent mb-2">
-            Reset Password
-          </h2>
-          <p className="text-zinc-500">Set your new password for your account.</p>
-        </div>
-
+    <AuthShell title="Reset password" subtitle="Set your new password for your account.">
         {isLoadingProfile ? (
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-zinc-400">
+          <div className="rounded-xl border border-lv-line p-4 text-sm text-lv-muted">
             Loading account details...
           </div>
         ) : (
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             {profileError && (
               <div className="flex items-start gap-2 p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">
                 <AlertCircle className="w-5 h-5 text-amber-300 mt-0.5 shrink-0" />
@@ -248,27 +207,27 @@ export default function ResetPassword() {
             )}
 
             <div>
-              <label className="block text-sm font-semibold text-zinc-400 mb-2">Username</label>
+              <label className="block text-sm font-medium text-lv-ink mb-1.5">Username</label>
               <input
                 type="text"
                 value={profile?.username ?? ""}
                 readOnly
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-zinc-300 cursor-not-allowed"
+                className="lv-input opacity-70 cursor-not-allowed"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-zinc-400 mb-2">Email Address</label>
+              <label className="block text-sm font-medium text-lv-ink mb-1.5">Email Address</label>
               <input
                 type="email"
                 value={profile?.email ?? ""}
                 readOnly
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-zinc-300 cursor-not-allowed"
+                className="lv-input opacity-70 cursor-not-allowed"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-zinc-400 mb-2">New Password</label>
+              <label className="block text-sm font-medium text-lv-ink mb-1.5">New Password</label>
               <div className="relative">
                 <input
                   {...register("newPassword", {
@@ -279,16 +238,16 @@ export default function ResetPassword() {
                   })}
                   type={showNewPassword ? "text" : "password"}
                   placeholder="Enter your new password"
-                  className={`w-full px-4 py-3 pr-12 bg-white/5 border rounded-xl outline-none transition-all duration-200 text-white placeholder-zinc-600 ${
+                  className={`lv-input pr-12 ${
                     errors.newPassword
                       ? "border-red-500/50 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
-                      : "border-white/10 focus:border-teal-500/50 focus:ring-2 focus:ring-teal-500/20"
+                      : ""
                   }`}
                 />
                 <button
                   type="button"
                   onClick={() => setShowNewPassword(!showNewPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-lv-muted hover:text-lv-ink"
                 >
                   {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -302,7 +261,7 @@ export default function ResetPassword() {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-zinc-400 mb-2">Confirm New Password</label>
+              <label className="block text-sm font-medium text-lv-ink mb-1.5">Confirm New Password</label>
               <div className="relative">
                 <input
                   {...register("confirmNewPassword", {
@@ -311,16 +270,16 @@ export default function ResetPassword() {
                   })}
                   type={showConfirmPassword ? "text" : "password"}
                   placeholder="Confirm your new password"
-                  className={`w-full px-4 py-3 pr-12 bg-white/5 border rounded-xl outline-none transition-all duration-200 text-white placeholder-zinc-600 ${
+                  className={`lv-input pr-12 ${
                     errors.confirmNewPassword
                       ? "border-red-500/50 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
-                      : "border-white/10 focus:border-teal-500/50 focus:ring-2 focus:ring-teal-500/20"
+                      : ""
                   }`}
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-lv-muted hover:text-lv-ink"
                 >
                   {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -338,23 +297,22 @@ export default function ResetPassword() {
               whileTap={{ scale: 0.98 }}
               type="submit"
               disabled={isSubmitting || !profile?.userId}
-              className="w-full px-6 py-4 bg-gradient-to-r from-teal-500 to-teal-600 text-white text-lg font-semibold rounded-xl shadow-lg shadow-teal-500/20 hover:shadow-teal-500/30 hover:from-teal-400 hover:to-teal-500 transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-60"
+              className="lv-btn w-full min-h-12 text-base disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSubmitting ? "Updating Password..." : "Update Password"}
             </motion.button>
           </form>
         )}
 
-        <div className="text-center mt-6">
+        <div className="text-center mt-5">
           <button
             onClick={() => navigate("/signin")}
-            className="inline-flex items-center gap-2 text-teal-400 font-semibold hover:text-teal-300 transition-colors"
+            className="inline-flex items-center gap-2 lv-link"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Sign In
           </button>
         </div>
-      </motion.div>
-    </div>
+    </AuthShell>
   );
 }

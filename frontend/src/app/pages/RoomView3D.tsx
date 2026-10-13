@@ -321,7 +321,7 @@ export default function RoomView3D() {
   return (
     <div
       className="min-h-screen w-full relative transition-colors duration-500 bg-background"
-      style={{ fontFamily: "'Inter', sans-serif" }}
+     
     >
       {/* Dot grid / blueprint grid */}
       <div className="absolute inset-0 dot-grid pointer-events-none" />

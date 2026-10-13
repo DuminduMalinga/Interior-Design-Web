@@ -1033,10 +1033,8 @@ export default function ViewLayouts() {
   // ── Living room / bedroom: real structure + layout from the rule-based engine ────
   if (hasEngine && apiRoom) {
     return (
-      <div className="min-h-screen w-full bg-background relative" style={{ fontFamily: "'Inter', sans-serif" }}>
+      <div className="min-h-screen w-full bg-background relative">
         <div className="absolute inset-0 dot-grid pointer-events-none" />
-        <div className="absolute top-1/4 right-1/4 w-[400px] h-[400px] bg-teal-500/5 rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute bottom-1/4 left-1/4 w-[300px] h-[300px] bg-violet-500/5 rounded-full blur-[100px] pointer-events-none" />
 
         {/* Nav */}
         <AppNavbar />
@@ -1290,10 +1288,8 @@ export default function ViewLayouts() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-background relative" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="min-h-screen w-full bg-background relative">
       <div className="absolute inset-0 dot-grid pointer-events-none" />
-      <div className="absolute top-1/4 right-1/4 w-[400px] h-[400px] bg-teal-500/5 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-1/4 left-1/4 w-[300px] h-[300px] bg-violet-500/5 rounded-full blur-[100px] pointer-events-none" />
 
       {/* Compare Modal */}
       <CompareModal layouts={MOCK_LAYOUTS} open={compareOpen} onClose={() => setCompareOpen(false)} />
@@ -1312,7 +1308,7 @@ export default function ViewLayouts() {
         >
           <h2 className="text-lg font-semibold text-white">Generated Furniture Layouts</h2>
           <StepIndicator current={4} />
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2">
             <ScoreTooltip />
             <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
               onClick={() => setCompareOpen(true)}
@@ -1417,11 +1413,11 @@ export default function ViewLayouts() {
                 <svg viewBox="0 0 160 110" width="100%" height="100%">
                   {[20, 40, 60, 80, 100, 120, 140].map((v) => (<g key={v}><line x1={v} y1="5" x2={v} y2="105" stroke="rgba(255,255,255,0.04)" strokeWidth="0.5" /></g>))}
                   {[20, 40, 60, 80, 100].map((v) => (<g key={v}><line x1="5" y1={v} x2="155" y2={v} stroke="rgba(255,255,255,0.04)" strokeWidth="0.5" /></g>))}
-                  <rect x="8" y="8" width="144" height="94" rx="4" fill="none" stroke="#14b8a6" strokeWidth="2" />
-                  <line x1="60" y1="8" x2="80" y2="8" stroke="#2dd4bf" strokeWidth="3" />
-                  <path d="M 8 94 Q 18 94 18 84" fill="none" stroke="#14b8a6" strokeWidth="1.2" strokeDasharray="2,1.5" />
-                  <text x="80" y="58" textAnchor="middle" fill="#2dd4bf" fontSize="9" fontFamily="sans-serif" fontWeight="bold">{SELECTED_ROOM.name}</text>
-                  <text x="80" y="72" textAnchor="middle" fill="#5eead4" fontSize="7.5" fontFamily="sans-serif">{SELECTED_ROOM.width}ft × {SELECTED_ROOM.height}ft</text>
+                  <rect x="8" y="8" width="144" height="94" rx="4" fill="none" stroke="var(--lv-accent)" strokeWidth="2" />
+                  <line x1="60" y1="8" x2="80" y2="8" stroke="var(--lv-accent)" strokeWidth="3" />
+                  <path d="M 8 94 Q 18 94 18 84" fill="none" stroke="var(--lv-accent)" strokeWidth="1.2" strokeDasharray="2,1.5" />
+                  <text x="80" y="58" textAnchor="middle" fill="var(--lv-accent)" fontSize="9" fontFamily="sans-serif" fontWeight="bold">{SELECTED_ROOM.name}</text>
+                  <text x="80" y="72" textAnchor="middle" fill="var(--lv-accent)" fontSize="7.5" fontFamily="sans-serif">{SELECTED_ROOM.width}ft × {SELECTED_ROOM.height}ft</text>
                 </svg>
               </div>
               <div className="mt-3 flex items-center justify-between">

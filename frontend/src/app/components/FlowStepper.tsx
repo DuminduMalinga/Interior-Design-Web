@@ -1,4 +1,4 @@
-import { ArrowRight, Check } from "lucide-react";
+import { Check } from "lucide-react";
 import { useLocation, useNavigate } from "react-router";
 
 export type FlowStep = "upload" | "detect" | "layout" | "view3d";
@@ -33,41 +33,38 @@ export default function FlowStepper({ current }: { current: FlowStep }) {
   const currentIndex = STEPS.findIndex((s) => s.id === current);
 
   return (
-    <div className="glass-card rounded-2xl border border-white/5 px-2 py-1.5 flex items-center select-none">
+    <div className="rounded-full border border-lv-line bg-lv-surface/70 backdrop-blur-xl p-1 flex items-center select-none">
       {STEPS.map((step, i) => {
         const isDone = i < currentIndex;
         const isActive = i === currentIndex;
         const enabled = !isActive && step.ready(state);
-        const circle = isDone || isActive
-          ? "bg-gradient-to-br from-teal-400 to-teal-600 text-white"
-          : "bg-white/5 text-zinc-500 border border-white/10";
-        const label = isActive ? "text-teal-400" : isDone ? "text-teal-500" : "text-zinc-500";
-        const line = i <= currentIndex ? "bg-teal-500/40" : "bg-white/10";
+        const circle = isActive
+          ? "bg-lv-on-ink/20 text-lv-on-ink"
+          : isDone
+            ? "bg-lv-accent text-white"
+            : "border border-lv-line text-lv-muted";
+        const line = i <= currentIndex ? "bg-lv-accent/50" : "bg-lv-line";
         return (
           <div key={step.id} className={`flex items-center ${i > 0 ? "flex-1" : ""}`}>
-            {i > 0 && (
-              <div className="flex flex-1 items-center gap-2 px-1 sm:px-3">
-                <span className={`h-px flex-1 ${line}`} />
-                <ArrowRight className="hidden sm:block w-3.5 h-3.5 text-zinc-600" />
-                <span className={`hidden sm:block h-px flex-1 ${line}`} />
-              </div>
-            )}
+            {i > 0 && <span aria-hidden="true" className={`mx-1 sm:mx-2 h-px flex-1 ${line}`} />}
             <button
               type="button"
               disabled={!enabled}
               onClick={() => navigate(step.path, { state })}
               aria-current={isActive ? "step" : undefined}
               title={isActive ? undefined : enabled ? `Go to ${step.label}` : "Upload a floor plan first"}
-              className={`flex items-center gap-2.5 px-2 sm:px-3 py-1 rounded-lg transition-colors ${
-                isActive ? "bg-teal-500/10 cursor-default" : enabled ? "cursor-pointer hover:bg-white/5" : "cursor-not-allowed opacity-60"
+              className={`flex items-center gap-2.5 h-9 pl-1.5 pr-1.5 sm:pr-4 rounded-full transition-colors ${
+                isActive
+                  ? "bg-lv-ink text-lv-on-ink cursor-default"
+                  : enabled
+                    ? "text-lv-ink cursor-pointer hover:bg-lv-ink/8"
+                    : "text-lv-muted cursor-not-allowed opacity-70"
               }`}
             >
-              <span className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${circle} ${
-                isActive ? "shadow-md shadow-teal-500/25" : ""
-              }`}>
-                {isDone ? <Check className="w-3.5 h-3.5" /> : i + 1}
+              <span className={`w-6 h-6 rounded-full grid place-items-center font-semibold text-xs shrink-0 ${circle}`}>
+                {isDone ? <Check className="w-3.5 h-3.5" aria-hidden="true" /> : i + 1}
               </span>
-              <span className={`text-sm font-semibold whitespace-nowrap ${isActive ? "" : "hidden md:inline"} ${label}`}>
+              <span className={`text-sm font-medium whitespace-nowrap ${isActive ? "pr-2 sm:pr-0" : "hidden md:inline"}`}>
                 {step.label}
               </span>
             </button>

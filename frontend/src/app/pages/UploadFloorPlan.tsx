@@ -1,16 +1,5 @@
 import { useState, useRef, DragEvent } from "react";
-import {
-  Box,
-  Upload as UploadIcon,
-  FileUp,
-  X,
-  CheckCircle2,
-  AlertCircle,
-  Loader2,
-  Image as ImageIcon,
-  FileText,
-  LayoutDashboard,
-} from "lucide-react";
+import { Upload as UploadIcon, FileUp, X, CheckCircle2, AlertCircle, Loader2, FileText } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router";
 import SiteNavbar from "../components/SiteNavbar";
@@ -163,199 +152,147 @@ export default function UploadFloorPlan() {
     }
   };
 
-  const howItWorks = [
-    { icon: FileUp, label: "Upload", desc: "Submit your 2D floor plan", color: "from-teal-400 to-teal-600" },
-    { icon: ImageIcon, label: "Detect", desc: "AI detects rooms & walls", color: "from-violet-400 to-violet-600" },
-    { icon: LayoutDashboard, label: "Layout", desc: "Optimize furniture placement", color: "from-amber-400 to-amber-600" },
-    { icon: Box, label: "3D View", desc: "View interactive 3D model", color: "from-emerald-400 to-emerald-600" },
+  const nextSteps = [
+    { title: "Rooms are detected", desc: "Walls, doors and room names are read from your plan." },
+    { title: "You pick a room", desc: "Choose which room to furnish first." },
+    { title: "Layouts are scored", desc: "Compare the ranked options and open one in 3D." },
   ];
 
   return (
-    <div className="min-h-screen w-full bg-background relative flex flex-col" style={{ fontFamily: "'Inter', sans-serif" }}>
-      <div className="absolute top-1/4 left-1/3 w-[400px] h-[400px] bg-teal-500/5 rounded-full blur-[100px] pointer-events-none" />
-
-      {/* Nav */}
+    <div className="min-h-screen w-full bg-background relative flex flex-col">
       <SiteNavbar />
 
-      <main className="relative flex-1 w-full px-4 md:px-8 py-4">
+      <main className="relative flex-1 w-full px-4 md:px-8 pt-2 pb-12">
         <div className="max-w-5xl mx-auto">
-          {/* Step Indicator */}
-          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-4">
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="max-w-2xl mx-auto">
             <FlowStepper current="upload" />
           </motion.div>
 
-          <div className="max-w-3xl mx-auto">
-            {/* Header */}
-            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mb-3">
-              <h2 className="text-xl md:text-2xl font-bold text-white leading-tight">Upload Floor Plan</h2>
-              <p className="text-sm text-zinc-500 mt-0.5">Add a 2D floor plan and we'll detect its rooms and walls for you.</p>
-            </motion.div>
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="mt-10 md:mt-12 max-w-2xl">
+            <h1 className="text-4xl md:text-5xl leading-[1.05] tracking-tight text-lv-ink">Upload a floor plan</h1>
+            <p className="mt-3 text-base md:text-lg text-lv-muted">
+              Add a 2D plan as an image and we'll find its rooms and walls for you.
+            </p>
+          </motion.div>
 
-            {/* Upload Card */}
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-              className="glass-card rounded-3xl border border-white/5 p-4 md:p-6 mb-6">
+          <div className="mt-8 grid gap-5 lg:grid-cols-[1.6fr_1fr] lg:items-start">
+            {/* Upload card */}
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+              className="rounded-[28px] bg-lv-surface border border-lv-line p-4 md:p-5">
 
-              {/* Error */}
               <AnimatePresence>
                 {error && (
-                  <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-                    className="flex items-start gap-2 p-4 mb-6 bg-red-500/10 border border-red-500/20 rounded-xl">
+                  <motion.div role="alert" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+                    className="flex items-start gap-2 p-4 mb-4 bg-red-500/10 border border-red-500/20 rounded-2xl">
                     <AlertCircle className="w-5 h-5 text-red-400 mt-0.5 shrink-0" />
                     <span className="text-sm text-red-300">{error}</span>
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              {/* Success */}
               <AnimatePresence>
                 {success && !isUploading && (
-                  <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-                    className="flex items-start gap-2 p-4 mb-6 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                  <motion.div role="status" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+                    className="flex items-start gap-2 p-4 mb-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl">
                     <CheckCircle2 className="w-5 h-5 text-emerald-400 mt-0.5 shrink-0" />
                     <span className="text-sm text-emerald-300">{success}</span>
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              {/* Drop Zone */}
+              {/* Drop zone */}
               {!selectedFile && (
-                <motion.div
+                <div
                   onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}
-                  whileHover={{ scale: 1.005 }}
-                  className={`rounded-2xl px-6 py-7 text-center cursor-pointer transition-all duration-300 border-2 border-dashed ${
-                    isDragging
-                      ? "border-teal-500 bg-teal-500/5"
-                      : "border-white/10 hover:border-teal-500/40 hover:bg-teal-500/[0.03]"
-                  }`}
-                  onClick={() => fileInputRef.current?.click()}>
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`rounded-[20px] px-6 py-12 md:py-16 text-center cursor-pointer transition-colors duration-200 border-2 border-dashed ${
+                    isDragging ? "border-lv-accent bg-lv-wash/60" : "border-lv-line hover:border-lv-accent/60 hover:bg-lv-wash/30"
+                  }`}>
                   <div className="flex flex-col items-center">
-                    <div className={`p-4 rounded-2xl transition-all duration-300 mb-4 ${
-                      isDragging
-                        ? "bg-gradient-to-br from-teal-400 to-teal-600 scale-110 shadow-lg shadow-teal-500/25"
-                        : "bg-gradient-to-br from-teal-500/20 to-teal-600/10 border border-teal-500/20"
+                    <span className={`grid h-16 w-16 place-items-center rounded-full transition-colors ${
+                      isDragging ? "bg-lv-ink text-lv-on-ink" : "bg-lv-wash text-lv-ink"
                     }`}>
-                      <FileUp className={`w-10 h-10 ${isDragging ? "text-white" : "text-teal-400"}`} strokeWidth={1.5} />
-                    </div>
-                    <h3 className="text-xl md:text-2xl font-bold text-white leading-tight">
-                      {isDragging ? "Drop your file here" : "Drag & drop your floor plan"}
-                    </h3>
-                    <p className="text-sm text-zinc-500 my-2">or</p>
-                    <span className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-500 to-teal-600 text-white font-semibold rounded-xl shadow-lg shadow-teal-500/20 hover:shadow-teal-500/30 transition-all cursor-pointer">
-                      <UploadIcon className="w-4 h-4" /> Choose File
+                      <FileUp className="w-7 h-7" strokeWidth={1.5} aria-hidden="true" />
                     </span>
-                    <div className="flex flex-wrap items-center justify-center gap-2 mt-6 pt-5 border-t border-white/5 w-full">
-                      {["PNG", "JPG", "JPEG"].map((format) => (
-                        <span key={format} className="px-2.5 py-1 rounded-md bg-white/5 border border-white/10 text-[11px] font-semibold text-zinc-400">
-                          {format}
-                        </span>
-                      ))}
-                      <span className="text-xs text-zinc-500 ml-1">Maximum file size: 10MB</span>
-                    </div>
+                    <h2 className="mt-5 text-2xl leading-tight text-lv-ink">
+                      {isDragging ? "Drop your file here" : "Drag and drop your floor plan"}
+                    </h2>
+                    <p className="mt-1.5 text-sm text-lv-muted">PNG or JPG, up to 10 MB</p>
+                    <span className="lv-btn mt-6">
+                      <UploadIcon className="w-4 h-4" aria-hidden="true" /> Choose a file
+                    </span>
                   </div>
-                </motion.div>
+                </div>
               )}
 
-              {/* File Preview */}
+              {/* Selected file */}
               {selectedFile && !isUploading && (
-                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="space-y-5">
-                  <div className="relative bg-white/[0.03] rounded-2xl p-6 border border-white/10">
-                    <div className="flex flex-col md:flex-row items-center gap-6">
-                      <div className="flex-shrink-0">
-                        {previewUrl ? (
-                          <img src={previewUrl} alt="Floor plan preview"
-                            className="w-32 h-32 md:w-40 md:h-40 object-cover rounded-xl border border-white/10 shadow-md" />
-                        ) : (
-                          <div className="w-32 h-32 md:w-40 md:h-40 bg-teal-500/10 rounded-xl flex items-center justify-center border border-teal-500/20">
-                            <FileText className="w-16 h-16 text-teal-400" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1 text-center md:text-left">
-                        <h4 className="text-base font-bold text-zinc-200 mb-1 break-all">{selectedFile.name}</h4>
-                        <p className="text-sm text-zinc-500 mb-3">{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
-                        <div className="flex items-center gap-2 justify-center md:justify-start">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                          <span className="text-sm text-emerald-400 font-medium">Ready to upload</span>
+                <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}>
+                  <div className="relative rounded-[20px] bg-lv-wash/40 border border-lv-line p-5">
+                    <div className="flex flex-col sm:flex-row items-center gap-5">
+                      {previewUrl ? (
+                        <img src={previewUrl} alt="Floor plan preview"
+                          className="w-32 h-32 md:w-40 md:h-40 shrink-0 object-cover rounded-2xl border border-lv-line bg-white" />
+                      ) : (
+                        <div className="w-32 h-32 md:w-40 md:h-40 shrink-0 grid place-items-center rounded-2xl bg-lv-wash">
+                          <FileText className="w-12 h-12 text-lv-ink" aria-hidden="true" />
                         </div>
+                      )}
+                      <div className="flex-1 min-w-0 text-center sm:text-left">
+                        <p className="text-base font-medium text-lv-ink break-all">{selectedFile.name}</p>
+                        <p className="mt-1 text-sm text-lv-muted">{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                        <button onClick={() => fileInputRef.current?.click()} className="lv-link mt-3 text-sm">
+                          Choose a different file
+                        </button>
                       </div>
-                      <button onClick={handleRemoveFile}
-                        className="absolute top-4 right-4 p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors border border-red-500/20">
-                        <X className="w-5 h-5" />
-                      </button>
                     </div>
+                    <button onClick={handleRemoveFile} aria-label="Remove file"
+                      className="absolute top-3 right-3 grid h-10 w-10 place-items-center rounded-full text-lv-muted hover:text-lv-ink hover:bg-lv-ink/8 transition-colors cursor-pointer">
+                      <X className="w-5 h-5" aria-hidden="true" />
+                    </button>
                   </div>
-                  <button onClick={() => fileInputRef.current?.click()}
-                    className="text-sm text-teal-400 hover:text-teal-300 font-semibold transition-colors">
-                    Change File
+                  <button onClick={handleUpload} disabled={!selectedFile} className="lv-btn w-full min-h-12 text-base mt-4">
+                    <UploadIcon className="w-5 h-5" aria-hidden="true" /> Upload and analyse
                   </button>
                 </motion.div>
               )}
 
-              {/* Uploading state */}
+              {/* Uploading */}
               {isUploading && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-                  <div className="flex items-center justify-center gap-3 mb-4">
-                    <Loader2 className="w-7 h-7 text-teal-400 animate-spin" />
-                    <span className="text-lg font-semibold text-zinc-200">Uploading and processing...</span>
+                <div className="px-4 py-10 md:py-14" role="status" aria-live="polite">
+                  <div className="flex items-center justify-center gap-3">
+                    <Loader2 className="w-6 h-6 text-lv-accent animate-spin" aria-hidden="true" />
+                    <span className="text-lg text-lv-ink">Uploading and analysing your plan</span>
                   </div>
-                  <div className="w-full bg-white/10 rounded-full h-2.5 overflow-hidden">
+                  <div className="mt-6 w-full bg-lv-line rounded-full h-2 overflow-hidden">
                     <motion.div initial={{ width: 0 }} animate={{ width: `${uploadProgress}%` }} transition={{ duration: 0.3 }}
-                      className="h-full bg-gradient-to-r from-teal-400 to-cyan-400 rounded-full" />
+                      className="h-full bg-lv-accent rounded-full" />
                   </div>
-                  <p className="text-center text-sm text-zinc-500">{uploadProgress}% complete</p>
-                  <div className="bg-teal-500/5 border border-teal-500/10 rounded-xl p-4 mt-4">
-                    <div className="space-y-2">
-                      {["Uploading file to server...", "Detecting rooms and boundaries...", "Generating 3D layout..."].map((step, i) => (
-                        <div key={step} className="flex items-center gap-2 text-sm">
-                          <div className={`w-2 h-2 rounded-full ${i === 0 ? "bg-teal-400 animate-pulse" : "bg-white/10"}`} />
-                          <span className={i === 0 ? "text-teal-300" : "text-zinc-600"}>{step}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </motion.div>
+                  <p className="mt-3 text-center text-sm text-lv-muted tabular-nums">{uploadProgress}% complete</p>
+                </div>
               )}
 
-              {/* Hidden input */}
               <input ref={fileInputRef} type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" onChange={handleFileInputChange} className="hidden" />
-
-              {/* Upload Button */}
-              {selectedFile && !isUploading && (
-                <motion.button initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                  whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                  onClick={handleUpload} disabled={!selectedFile}
-                  className="w-full mt-6 px-6 py-4 bg-gradient-to-r from-teal-500 to-teal-600 text-white text-lg font-bold rounded-xl shadow-lg shadow-teal-500/20 hover:shadow-teal-500/30 transition-all flex items-center justify-center gap-2 disabled:opacity-50">
-                  <UploadIcon className="w-5 h-5" /> Upload & Process
-                </motion.button>
-              )}
             </motion.div>
 
-            {/* How It Works */}
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
-              className="glass-card rounded-3xl border border-white/5 p-6 md:p-8 mb-6">
-              <h3 className="text-lg font-bold text-white mb-6 text-center">How It Works</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-                {howItWorks.map(({ icon: Icon, label, desc, color }, i) => (
-                  <div key={label} className="relative flex flex-col items-center text-center">
-                    {i < howItWorks.length - 1 && (
-                      <span className="hidden md:block absolute top-6 left-[calc(50%+2.25rem)] right-[calc(-50%+2.25rem)] h-px bg-white/10" />
-                    )}
-                    <div className={`bg-gradient-to-br ${color} p-3 rounded-xl mb-3 shadow-lg`}>
-                      <Icon className="w-6 h-6 text-white" />
+            {/* What happens next */}
+            <motion.aside initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}
+              className="rounded-[28px] bg-lv-deep text-lv-on-deep p-6 md:p-7">
+              <h2 className="text-xl leading-tight">What happens next</h2>
+              <ol className="mt-5 space-y-5">
+                {nextSteps.map((step, i) => (
+                  <li key={step.title} className="flex gap-3.5">
+                    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-lv-on-deep/15 text-xs font-semibold tabular-nums">
+                      {i + 1}
+                    </span>
+                    <div>
+                      <p className="text-sm font-medium">{step.title}</p>
+                      <p className="mt-0.5 text-sm text-lv-on-deep/70 leading-relaxed">{step.desc}</p>
                     </div>
-                    <h4 className="font-bold text-zinc-200 mb-1 text-sm">{i + 1}. {label}</h4>
-                    <p className="text-xs text-zinc-500">{desc}</p>
-                  </div>
+                  </li>
                 ))}
-              </div>
-            </motion.div>
-
-            <div className="text-center mb-4">
-              <button onClick={() => navigate("/dashboard")}
-                className="text-zinc-500 hover:text-zinc-300 font-medium transition-colors text-sm">
-                ← Back to Dashboard
-              </button>
-            </div>
+              </ol>
+            </motion.aside>
           </div>
         </div>
       </main>

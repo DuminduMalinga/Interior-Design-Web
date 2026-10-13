@@ -11,8 +11,8 @@ export default function PublicOnlyRoute({ children }: PublicOnlyRouteProps) {
   // 1. Initial auth resolution in progress
   if (authStatus === "loading" || isAuthLoading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+      <div className="lv min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-lv-accent border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -22,8 +22,8 @@ export default function PublicOnlyRoute({ children }: PublicOnlyRouteProps) {
     // If profile is still resolving from database, wait for role
     if (isProfileLoading) {
       return (
-        <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-          <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+        <div className="lv min-h-screen flex items-center justify-center">
+          <div className="w-8 h-8 border-2 border-lv-accent border-t-transparent rounded-full animate-spin" />
         </div>
       );
     }
