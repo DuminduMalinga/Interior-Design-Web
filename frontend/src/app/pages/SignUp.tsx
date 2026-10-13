@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import { Box, Eye, EyeOff, CheckCircle2, XCircle } from "lucide-react";
+import { Eye, EyeOff, CheckCircle2, XCircle } from "lucide-react";
+import AuthShell from "../components/marketing/AuthShell";
 import { motion } from "motion/react";
 import { useNavigate } from "react-router";
 import { supabase } from "../lib/supabaseClient";
@@ -168,43 +169,7 @@ export default function SignUp() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-background flex items-center justify-center p-4 relative overflow-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
-      {/* Ambient orbs */}
-      <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-violet-500/8 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute -bottom-40 -right-40 w-[400px] h-[400px] bg-teal-500/8 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute inset-0 dot-grid" />
-
-      {/* Sign Up Card */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="relative w-full max-w-[500px] glass-card rounded-3xl shadow-2xl shadow-black/50 p-8 md:p-10"
-      >
-        {/* Logo */}
-        <div className="flex justify-center mb-6">
-          <motion.div
-            whileHover={{ scale: 1.05, rotate: 5 }}
-            transition={{ type: "spring", stiffness: 300 }}
-            className="relative"
-          >
-            <div className="bg-gradient-to-br from-teal-400 to-teal-600 p-5 rounded-2xl shadow-lg shadow-teal-500/20">
-              <Box className="w-12 h-12 text-white" strokeWidth={1.5} />
-            </div>
-            <div className="absolute -top-1 -right-1 w-4 h-4 bg-violet-500 rounded-full animate-pulse"></div>
-          </motion.div>
-        </div>
-
-        {/* Title */}
-        <div className="text-center mb-8">
-          <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-teal-300 to-cyan-400 bg-clip-text text-transparent mb-2">
-            Create Your Account
-          </h2>
-          <p className="text-zinc-500">
-            Register to start designing optimized 3D bedroom layouts.
-          </p>
-        </div>
-
+    <AuthShell title="Create your account" subtitle="Register to start designing optimized 3D bedroom layouts." wide>
         {submitError && (
           <div className="mb-6 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
             {submitError}
@@ -218,10 +183,10 @@ export default function SignUp() {
           type="button"
           onClick={handleGoogleSignUp}
           disabled={isGoogleLoading || isSubmitting}
-          className="w-full flex items-center justify-center gap-3 px-6 py-3.5 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-xl text-white font-medium transition-all duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed mb-6"
+          className="lv-btn-quiet w-full min-h-11 gap-3 mb-4"
         >
           {isGoogleLoading ? (
-            <div className="w-5 h-5 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
+            <div className="w-5 h-5 border-2 border-lv-accent border-t-transparent rounded-full animate-spin" />
           ) : (
             <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
               <path
@@ -246,17 +211,18 @@ export default function SignUp() {
         </motion.button>
 
         {/* Divider */}
-        <div className="flex items-center gap-4 mb-6">
-          <div className="flex-1 h-px bg-white/10" />
-          <span className="text-xs uppercase tracking-wider text-zinc-500 font-medium">or</span>
-          <div className="flex-1 h-px bg-white/10" />
+        <div className="flex items-center gap-4 mb-4">
+          <div className="flex-1 h-px bg-lv-line" />
+          <span className="text-xs text-lv-muted">or</span>
+          <div className="flex-1 h-px bg-lv-line" />
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="grid items-start gap-4 sm:grid-cols-2">
           {/* Full Name */}
           <div>
-            <label className="block text-sm font-semibold text-zinc-400 mb-2">Full Name</label>
+            <label className="block text-sm font-medium text-lv-ink mb-1.5">Full Name</label>
             <input
               {...register("fullName", {
                 required: "Full name is required",
@@ -264,7 +230,7 @@ export default function SignUp() {
               })}
               type="text"
               placeholder="Enter your full name"
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:border-teal-500/50 focus:ring-2 focus:ring-teal-500/20 outline-none transition-all duration-200 text-white placeholder-zinc-600"
+              className="lv-input"
             />
             {errors.fullName && (
               <div className="flex items-center gap-1 mt-1 text-red-400 text-sm">
@@ -276,7 +242,7 @@ export default function SignUp() {
 
           {/* Username */}
           <div>
-            <label className="block text-sm font-semibold text-zinc-400 mb-2">Username</label>
+            <label className="block text-sm font-medium text-lv-ink mb-1.5">Username</label>
             <input
               {...register("username", {
                 required: "Username is required",
@@ -289,7 +255,7 @@ export default function SignUp() {
               })}
               type="text"
               placeholder="Choose a username"
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:border-teal-500/50 focus:ring-2 focus:ring-teal-500/20 outline-none transition-all duration-200 text-white placeholder-zinc-600"
+              className="lv-input"
             />
             {errors.username && (
               <div className="flex items-center gap-1 mt-1 text-red-400 text-sm">
@@ -311,9 +277,11 @@ export default function SignUp() {
             )}
           </div>
 
+          </div>
+
           {/* Email */}
           <div>
-            <label className="block text-sm font-semibold text-zinc-400 mb-2">Email</label>
+            <label className="block text-sm font-medium text-lv-ink mb-1.5">Email</label>
             <input
               {...register("email", {
                 required: "Email is required",
@@ -324,7 +292,7 @@ export default function SignUp() {
               })}
               type="email"
               placeholder="your.email@example.com"
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:border-teal-500/50 focus:ring-2 focus:ring-teal-500/20 outline-none transition-all duration-200 text-white placeholder-zinc-600"
+              className="lv-input"
             />
             {errors.email && (
               <div className="flex items-center gap-1 mt-1 text-red-400 text-sm">
@@ -334,9 +302,10 @@ export default function SignUp() {
             )}
           </div>
 
+          <div className="grid items-start gap-4 sm:grid-cols-2">
           {/* Password */}
           <div>
-            <label className="block text-sm font-semibold text-zinc-400 mb-2">Password</label>
+            <label className="block text-sm font-medium text-lv-ink mb-1.5">Password</label>
             <div className="relative">
               <input
                 {...register("password", {
@@ -346,13 +315,13 @@ export default function SignUp() {
                     "Password must contain at least 8 characters, uppercase, lowercase, number, and special character",
                 })}
                 type={showPassword ? "text" : "password"}
-                placeholder="Create a strong password"
-                className="w-full px-4 py-3 pr-12 bg-white/5 border border-white/10 rounded-xl focus:border-teal-500/50 focus:ring-2 focus:ring-teal-500/20 outline-none transition-all duration-200 text-white placeholder-zinc-600"
+                placeholder="Create a password"
+                className="lv-input pr-12"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-lv-muted hover:text-lv-ink"
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
@@ -362,7 +331,7 @@ export default function SignUp() {
             {password && (
               <div className="mt-2">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-zinc-500">Password Strength</span>
+                  <span className="text-xs text-lv-muted">Password Strength</span>
                   <span className={`text-xs font-semibold ${
                     passwordStrength.strength === 100 ? "text-emerald-400" :
                     passwordStrength.strength >= 75 ? "text-yellow-400" :
@@ -372,7 +341,7 @@ export default function SignUp() {
                     {passwordStrength.label}
                   </span>
                 </div>
-                <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                <div className="w-full h-2 bg-lv-line rounded-full overflow-hidden">
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${passwordStrength.strength}%` }}
@@ -399,7 +368,7 @@ export default function SignUp() {
 
           {/* Confirm Password */}
           <div>
-            <label className="block text-sm font-semibold text-zinc-400 mb-2">Confirm Password</label>
+            <label className="block text-sm font-medium text-lv-ink mb-1.5">Confirm Password</label>
             <div className="relative">
               <input
                 {...register("confirmPassword", {
@@ -408,13 +377,13 @@ export default function SignUp() {
                     value === password || "Passwords do not match",
                 })}
                 type={showConfirmPassword ? "text" : "password"}
-                placeholder="Re-enter your password"
-                className="w-full px-4 py-3 pr-12 bg-white/5 border border-white/10 rounded-xl focus:border-teal-500/50 focus:ring-2 focus:ring-teal-500/20 outline-none transition-all duration-200 text-white placeholder-zinc-600"
+                placeholder="Re-enter password"
+                className="lv-input pr-12"
               />
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-lv-muted hover:text-lv-ink"
               >
                 {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
@@ -433,41 +402,32 @@ export default function SignUp() {
             )}
           </div>
 
+          </div>
+
           {/* Register Button */}
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             type="submit"
             disabled={isSubmitting}
-            className="w-full px-6 py-4 bg-gradient-to-r from-teal-500 to-teal-600 text-white text-lg font-semibold rounded-xl shadow-lg shadow-teal-500/20 hover:shadow-teal-500/30 hover:from-teal-400 hover:to-teal-500 transition-all duration-300 mt-2 disabled:cursor-not-allowed disabled:opacity-60"
+            className="lv-btn w-full min-h-12 text-base mt-2 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting ? "Creating Account..." : "Register"}
           </motion.button>
         </form>
 
         {/* Sign In Link */}
-        <div className="text-center mt-6">
-          <p className="text-zinc-500">
+        <div className="text-center mt-5">
+          <p className="text-lv-muted">
             Already have an account?{" "}
             <button
               onClick={() => navigate("/signin")}
-              className="text-teal-400 font-semibold hover:text-teal-300 transition-colors"
+              className="lv-link"
             >
               Sign In
             </button>
           </p>
         </div>
-
-        {/* Back to Home */}
-        <div className="text-center mt-4">
-          <button
-            onClick={() => navigate("/")}
-            className="text-sm text-zinc-600 hover:text-zinc-400 transition-colors"
-          >
-            ← Back to Home
-          </button>
-        </div>
-      </motion.div>
-    </div>
+    </AuthShell>
   );
 }

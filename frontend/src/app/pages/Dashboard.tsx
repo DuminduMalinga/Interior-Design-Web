@@ -1,15 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import {
-  LayoutDashboard,
   Upload,
-  History,
   User,
-  FileUp,
-  Boxes,
-  Menu,
   X,
-  TrendingUp,
-  Clock,
   Mail,
   Phone,
   MapPin,
@@ -20,21 +13,23 @@ import {
   Camera,
   CheckCircle2,
   Bell,
-  ShieldCheck,
   Shield,
   Pencil,
   Trash2,
-  Download,
-  ExternalLink,
   AlertTriangle,
   Loader2,
-  ClockAlert
+  ClockAlert,
+  ArrowRight,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useLocation, useNavigate } from "react-router";
 import { useCurrentUserProfile } from "../context/UserContext";
 import { supabase } from "../lib/supabaseClient";
-import AppNavbar from "../components/AppNavbar";
+import SiteNavbar from "../components/SiteNavbar";
+import DesignCard from "../components/DesignCard";
+import PlanSketch from "../components/marketing/PlanSketch";
+import { useUserDesigns, type UserDesign } from "../lib/useUserDesigns";
+import AppFooter from "../components/AppFooter";
 type ProfileState = {
   fullName: string;
   username: string;
@@ -56,11 +51,16 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { profile: currentUser } = useCurrentUserProfile();
   const location = useLocation();
-  // The shared navbar's "My Profile" arrives here from other pages with { menu: "profile" }.
+  // The shared navbar's page links and "My Profile" arrive here with { menu } in router state.
+  const requestedMenu = (location.state as { menu?: string } | null)?.menu;
   const [activeMenu, setActiveMenu] = useState(
-    (location.state as { menu?: string } | null)?.menu === "profile" ? "profile" : "dashboard",
+    requestedMenu === "profile" || requestedMenu === "designs" ? requestedMenu : "dashboard",
   );
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  useEffect(() => {
+    if (requestedMenu === "dashboard" || requestedMenu === "designs" || requestedMenu === "profile") {
+      setActiveMenu(requestedMenu);
+    }
+  }, [location.key, requestedMenu]);
   // Profile state
   const [profileEdit, setProfileEdit] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
@@ -181,32 +181,29 @@ export default function Dashboard() {
       setDeleteSubmitting(false);
     }
   };
-  const isAdmin = currentUser.role.trim().toLowerCase() === "admin";
-  const menuItems = [
-    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
-    { id: "upload", label: "Upload Floor Plan", icon: Upload, path: "/upload" },
-    { id: "designs", label: "View Previous Designs", icon: History, path: null },
-    { id: "profile", label: "Profile", icon: User, path: null },
-    ...(isAdmin ? [{ id: "admin-accounts", label: "Manage Accounts", icon: ShieldCheck, path: "/admin/accounts" }] : []),
-  ];
+  // ── Designs (real data) ─────────────────────
+  const { designs, loading: designsLoading, error: designsError, reload: reloadDesigns } = useUserDesigns();
+  const scores = designs.flatMap((d) => (d.score === null ? [] : [d.score]));
   const stats = [
-    { label: "Total Uploads", value: "24", icon: FileUp, color: "text-teal-400", bg: "bg-teal-500/10", glow: "shadow-teal-500/10" },
-    { label: "Designs Generated", value: "18", icon: Boxes, color: "text-violet-400", bg: "bg-violet-500/10", glow: "shadow-violet-500/10" },
-    { label: "Success Rate", value: "98%", icon: TrendingUp, color: "text-emerald-400", bg: "bg-emerald-500/10", glow: "shadow-emerald-500/10" },
+    { label: "Floor plans uploaded", value: String(designs.length) },
+    { label: "Rooms furnished", value: String(scores.length) },
+    { label: "Best layout score", value: scores.length ? `${Math.max(...scores)}` : "–", suffix: scores.length ? "/100" : "" },
   ];
-  const recentActivity = [
-    { id: 1, name: "Modern Bedroom Layout", date: "2 hours ago", status: "Completed" },
-    { id: 2, name: "Master Suite Design", date: "1 day ago", status: "Completed" },
-    { id: 3, name: "Guest Room Optimization", date: "2 days ago", status: "Completed" },
-  ];
-  const previousDesigns = [
-    { id: 1, name: "Modern Bedroom Layout", date: "Feb 23, 2026", rooms: "Bedroom 1", score: 92, thumb: "MB" },
-    { id: 2, name: "Master Suite Design", date: "Feb 22, 2026", rooms: "Bedroom 2", score: 87, thumb: "MS" },
-    { id: 3, name: "Guest Room Optimization", date: "Feb 20, 2026", rooms: "Guest Room", score: 78, thumb: "GR" },
-    { id: 4, name: "Living Room Layout", date: "Feb 18, 2026", rooms: "Living Room", score: 85, thumb: "LR" },
-    { id: 5, name: "Home Office Setup", date: "Feb 15, 2026", rooms: "Study Room", score: 91, thumb: "HO" },
-    { id: 6, name: "Kids Bedroom Plan", date: "Feb 10, 2026", rooms: "Bedroom 3", score: 74, thumb: "KB" },
-  ];
+  const firstName = displayName.trim().split(/\s+/)[0] || "there";
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+
+  // Reopen a saved plan at the step it reached. The flow pages rebuild from the
+  // stored detection, the same router state the upload flow hands them.
+  const openDesign = (design: UserDesign) => {
+    if (!design.detection) return;
+    const state = { floorPlanId: design.floorPlanId, detection: design.detection, planImage: design.imageUrl };
+    if (design.selectedRoom) {
+      navigate("/view-layouts", { state: { ...state, room: design.selectedRoom } });
+    } else {
+      navigate("/select-room", { state });
+    }
+  };
   const handleSaveProfile = async () => {
     setIsSaving(true);
     try {
@@ -254,154 +251,135 @@ export default function Dashboard() {
   const inputCls = "w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-teal-500/50 focus:ring-2 focus:ring-teal-500/15 transition-all";
   const cardCls = "glass-card rounded-2xl p-6 border border-white/5";
   // ── Tab renderers ──────────────────────────
-  const renderDashboard = () => (
-    <>
-      <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-        <h2 className="text-3xl md:text-4xl font-bold text-white mb-1">Dashboard</h2>
-        <p className="text-zinc-500">Manage your floor plans and 3D layouts</p>
-      </motion.div>
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-        {stats.map((stat, i) => {
-          const Icon = stat.icon;
-          return (
-            <motion.div key={stat.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.1 }} whileHover={{ y: -4, transition: { duration: 0.2 } }}
-              className={`${cardCls} flex items-center justify-between shadow-lg ${stat.glow}`}>
-              <div>
-                <p className="text-sm text-zinc-500 mb-1">{stat.label}</p>
-                <p className="text-3xl font-extrabold text-white">{stat.value}</p>
-              </div>
-              <div className={`${stat.bg} p-3.5 rounded-xl`}>
-                <Icon className={`w-7 h-7 ${stat.color}`} />
-              </div>
-            </motion.div>
-          );
-        })}
-      </div>
-      {/* Action Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}
-          whileHover={{ y: -6, transition: { duration: 0.25 } }}
-          className={`${cardCls} cursor-pointer hover:bg-white/[0.07] transition-all glow-teal`}
-          onClick={() => navigate("/upload")}>
-          <div className="flex flex-col items-center text-center space-y-5">
-            <div className="bg-gradient-to-br from-teal-400 to-teal-600 p-6 rounded-2xl shadow-lg shadow-teal-500/25">
-              <FileUp className="w-14 h-14 text-white" strokeWidth={1.5} />
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-white mb-2">Upload Floor Plan</h3>
-              <p className="text-zinc-500 text-sm leading-relaxed">Upload your 2D floor plan to generate optimized 3D bedroom layouts with AI-powered furniture placement.</p>
-            </div>
-            <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-              onClick={(e) => { e.stopPropagation(); navigate("/upload"); }}
-              className="w-full px-6 py-3.5 bg-gradient-to-r from-teal-500 to-teal-600 text-white font-bold rounded-xl shadow-lg shadow-teal-500/20 hover:shadow-teal-500/30 transition-all">
-              Start Upload
-            </motion.button>
-          </div>
-        </motion.div>
-        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}
-          whileHover={{ y: -6, transition: { duration: 0.25 } }}
-          className={`${cardCls} cursor-pointer hover:bg-white/[0.07] transition-all glow-violet`}
-          onClick={() => setActiveMenu("designs")}>
-          <div className="flex flex-col items-center text-center space-y-5">
-            <div className="bg-gradient-to-br from-violet-400 to-violet-600 p-6 rounded-2xl shadow-lg shadow-violet-500/25">
-              <Boxes className="w-14 h-14 text-white" strokeWidth={1.5} />
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-white mb-2">View Previous Designs</h3>
-              <p className="text-zinc-500 text-sm leading-relaxed">View and manage your previously generated 3D layouts. Download, edit, or share your designs.</p>
-            </div>
-            <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-              onClick={(e) => { e.stopPropagation(); setActiveMenu("designs"); }}
-              className="w-full px-6 py-3.5 bg-white/5 border border-violet-500/30 text-violet-400 font-bold rounded-xl hover:bg-violet-500/10 transition-all">
-              View Designs
-            </motion.button>
-          </div>
-        </motion.div>
-      </div>
-      {/* Recent Activity */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
-        className={cardCls}>
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="text-lg font-bold text-white flex items-center gap-2">
-            <Clock className="w-5 h-5 text-teal-400" /> Recent Activity
-          </h3>
-          <button onClick={() => setActiveMenu("designs")}
-            className="text-sm text-teal-400 hover:text-teal-300 font-semibold transition-colors">View All</button>
-        </div>
-        <div className="space-y-2">
-          {recentActivity.map((activity, i) => (
-            <motion.div key={activity.id} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.5 + i * 0.08 }} whileHover={{ x: 4 }}
-              className="flex items-center justify-between p-4 bg-white/[0.03] hover:bg-white/[0.06] rounded-xl transition-all cursor-pointer border border-white/5">
-              <div className="flex items-center gap-3">
-                <div className="bg-teal-500/10 p-2 rounded-lg">
-                  <Boxes className="w-4 h-4 text-teal-400" />
-                </div>
-                <div>
-                  <p className="font-semibold text-zinc-200 text-sm">{activity.name}</p>
-                  <p className="text-xs text-zinc-500">{activity.date}</p>
-                </div>
-              </div>
-              <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded-full border border-emerald-500/20">{activity.status}</span>
-            </motion.div>
-          ))}
-        </div>
-      </motion.div>
-    </>
+  const pageTitleCls = "text-4xl md:text-5xl leading-[1.05] tracking-tight text-lv-ink";
+
+  const uploadButton = (
+    <button type="button" onClick={() => navigate("/upload")} className="lv-btn min-h-12 px-6 shrink-0">
+      <Upload className="w-4 h-4" aria-hidden="true" /> Upload a floor plan
+    </button>
   );
+
+  const designsErrorBox = designsError && (
+    <div role="alert" className="mt-8 flex flex-wrap items-center gap-3 rounded-2xl border border-red-500/20 bg-red-500/10 p-4">
+      <AlertTriangle className="w-5 h-5 shrink-0 text-red-400" aria-hidden="true" />
+      <p className="flex-1 min-w-0 text-sm text-red-300">Your designs could not be loaded. {designsError}</p>
+      <button type="button" onClick={() => void reloadDesigns()} className="lv-btn-quiet">Try again</button>
+    </div>
+  );
+
+  const designsSkeleton = (
+    <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true" aria-label="Loading your designs">
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="rounded-[24px] border border-lv-line bg-lv-surface p-3">
+          <div className="aspect-[4/3] rounded-2xl bg-lv-line animate-pulse" />
+          <div className="mt-4 mx-2 h-3 w-1/3 rounded-full bg-lv-line animate-pulse" />
+          <div className="mt-3 mx-2 mb-3 h-5 w-2/3 rounded-full bg-lv-line animate-pulse" />
+        </div>
+      ))}
+    </div>
+  );
+
+  const emptyState = (
+    <div className="mt-10 flex flex-col items-center rounded-[28px] border border-lv-line bg-lv-surface px-6 py-14 text-center md:py-20">
+      <div className="grid w-36 place-items-center rounded-t-[72px] rounded-b-3xl bg-lv-wash px-4 pb-6 pt-12">
+        <PlanSketch className="w-full" />
+      </div>
+      <h2 className="mt-8 text-2xl leading-tight text-lv-ink md:text-3xl">Upload your first floor plan</h2>
+      <p className="mt-3 max-w-sm text-base leading-relaxed text-lv-muted">
+        Add a 2D plan and we'll detect its rooms, score furniture layouts and show the one you pick in 3D.
+      </p>
+      <div className="mt-7">{uploadButton}</div>
+    </div>
+  );
+
+  const renderDashboard = () => {
+    const [latest, ...older] = designs;
+    return (
+      <>
+        <header className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h1 className={pageTitleCls}>{greeting}, {firstName}</h1>
+            <p className="mt-3 text-base text-lv-muted md:text-lg">
+              {designs.length > 0 ? "Pick up where you left off, or start a new room." : "Your designs will appear here."}
+            </p>
+          </div>
+          {designs.length > 0 && uploadButton}
+        </header>
+
+        {designsErrorBox}
+
+        {designsLoading ? designsSkeleton : designs.length === 0 ? (!designsError && emptyState) : (
+          <>
+            <dl className="mt-10 grid grid-cols-3 gap-3 sm:gap-4">
+              {stats.map((stat) => (
+                <div key={stat.label} className="flex flex-col-reverse justify-end rounded-[20px] border border-lv-line bg-lv-surface p-4 sm:rounded-[24px] sm:p-6">
+                  <dt className="mt-1 text-xs text-lv-muted sm:text-sm">{stat.label}</dt>
+                  <dd className="text-2xl font-medium tracking-tight tabular-nums text-lv-ink sm:text-4xl">
+                    {stat.value}
+                    {stat.suffix && <span className="ml-0.5 text-xs font-normal text-lv-muted sm:ml-1 sm:text-base">{stat.suffix}</span>}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+
+            <section className="mt-14">
+              <div className="flex items-end justify-between gap-4">
+                <h2 className="text-2xl leading-tight text-lv-ink md:text-3xl">Recent designs</h2>
+                {designs.length > 1 && (
+                  <button type="button" onClick={() => setActiveMenu("designs")} className="lv-btn-quiet shrink-0">
+                    View all <span className="hidden sm:inline">designs</span>
+                    <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+              <div className="mt-6">
+                <DesignCard design={latest} onOpen={openDesign} featured />
+              </div>
+              {older.length > 0 && (
+                <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {older.slice(0, 3).map((design) => (
+                    <DesignCard key={design.floorPlanId} design={design} onOpen={openDesign} />
+                  ))}
+                </div>
+              )}
+            </section>
+          </>
+        )}
+      </>
+    );
+  };
+
   const renderDesigns = () => (
     <>
-      <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-        <h2 className="text-3xl md:text-4xl font-bold text-white mb-1">Previous Designs</h2>
-        <p className="text-zinc-500">All your AI-generated 3D layouts in one place.</p>
-      </motion.div>
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-        {previousDesigns.map((design, i) => (
-          <motion.div key={design.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.07 }} whileHover={{ y: -5, transition: { duration: 0.2 } }}
-            className="glass-card rounded-2xl overflow-hidden border border-white/5 hover:bg-white/[0.07] transition-all">
-            <div className="h-36 bg-gradient-to-br from-teal-500/10 to-violet-500/10 flex items-center justify-center relative border-b border-white/5">
-              <span className="text-5xl font-black text-white/10 select-none">{design.thumb}</span>
-              <span className={`absolute top-3 right-3 px-2.5 py-1 text-xs font-bold rounded-full ${design.score >= 90 ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20" :
-                design.score >= 80 ? "bg-teal-500/15 text-teal-400 border border-teal-500/20" :
-                  "bg-amber-500/15 text-amber-400 border border-amber-500/20"
-                }`}>
-                {design.score}/100
-              </span>
-            </div>
-            <div className="p-5">
-              <h4 className="font-bold text-zinc-200 text-sm mb-1 truncate">{design.name}</h4>
-              <p className="text-xs text-zinc-500 mb-0.5">{design.rooms}</p>
-              <p className="text-xs text-zinc-600 mb-4">{design.date}</p>
-              <div className="flex gap-2">
-                <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-                  onClick={() => navigate("/room-view-3d")}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-teal-500/10 text-teal-400 text-xs font-semibold rounded-xl hover:bg-teal-500/20 transition-colors border border-teal-500/20">
-                  <ExternalLink className="w-3.5 h-3.5" /> Open
-                </motion.button>
-                <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-white/5 text-zinc-400 text-xs font-semibold rounded-xl hover:bg-white/10 transition-colors border border-white/10">
-                  <Download className="w-3.5 h-3.5" /> Export
-                </motion.button>
-                <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-                  className="py-2 px-3 bg-red-500/10 text-red-400 text-xs rounded-xl hover:bg-red-500/20 transition-colors border border-red-500/20">
-                  <Trash2 className="w-3.5 h-3.5" />
-                </motion.button>
-              </div>
-            </div>
-          </motion.div>
-        ))}
-      </div>
+      <header className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className={pageTitleCls}>My designs</h1>
+          <p className="mt-3 text-base text-lv-muted md:text-lg">
+            {designs.length > 0
+              ? `${designs.length} floor ${designs.length === 1 ? "plan" : "plans"}, newest first.`
+              : "Every floor plan you upload is kept here."}
+          </p>
+        </div>
+        {designs.length > 0 && uploadButton}
+      </header>
+
+      {designsErrorBox}
+
+      {designsLoading ? designsSkeleton : designs.length === 0 ? (!designsError && emptyState) : (
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {designs.map((design) => (
+            <DesignCard key={design.floorPlanId} design={design} onOpen={openDesign} />
+          ))}
+        </div>
+      )}
     </>
   );
   const renderProfile = () => (
     <>
       <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} className="mb-8 flex items-center justify-between">
         <div>
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-1">Profile</h2>
-          <p className="text-zinc-500">Manage your personal information and account settings.</p>
+          <h1 className={pageTitleCls}>Profile</h1>
+          <p className="mt-3 text-base text-lv-muted md:text-lg">Manage your personal information and account settings.</p>
         </div>
         {profileSaved && (
           <motion.div initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }}
@@ -431,16 +409,18 @@ export default function Dashboard() {
               { icon: Mail, value: profile.email },
               { icon: Phone, value: profile.phone },
               { icon: MapPin, value: profile.location },
-            ].map(({ icon: Icon, value }) => (
-              <div key={value} className="flex items-center gap-2 text-xs text-zinc-500">
+            ].filter(({ value }) => value.trim() !== "").map(({ icon: Icon, value }, i) => (
+              <div key={i} className="flex items-center gap-2 text-xs text-zinc-500">
                 <Icon className="w-3.5 h-3.5 text-teal-400 shrink-0" />
                 <span className="truncate">{value}</span>
               </div>
             ))}
           </div>
-          <div className="w-full pt-3 border-t border-white/5">
-            <p className="text-xs text-zinc-600 italic text-left">{profile.bio}</p>
-          </div>
+          {profile.bio.trim() !== "" && (
+            <div className="w-full pt-3 border-t border-white/5">
+              <p className="text-xs text-zinc-500 text-left">{profile.bio}</p>
+            </div>
+          )}
         </motion.div>
         {/* Right Column */}
         <div className="lg:col-span-2 space-y-5">
@@ -480,7 +460,7 @@ export default function Dashboard() {
                       onChange={e => setProfileDraft(d => ({ ...d, [field]: e.target.value }))}
                       className={inputCls} />
                   ) : (
-                    <p className="w-full border border-white/5 bg-white/[0.02] rounded-xl px-4 py-2.5 text-sm text-zinc-400">{profile[field]}</p>
+                    <p className="w-full border border-white/5 bg-white/[0.02] rounded-xl px-4 py-2.5 text-sm text-zinc-400">{profile[field] || "Not set"}</p>
                   )}
                 </div>
               ))}
@@ -491,7 +471,7 @@ export default function Dashboard() {
                     onChange={e => setProfileDraft(d => ({ ...d, bio: e.target.value }))}
                     className={`${inputCls} resize-none`} />
                 ) : (
-                  <p className="w-full border border-white/5 bg-white/[0.02] rounded-xl px-4 py-2.5 text-sm text-zinc-400">{profile.bio}</p>
+                  <p className="w-full border border-white/5 bg-white/[0.02] rounded-xl px-4 py-2.5 text-sm text-zinc-400">{profile.bio || "Not set"}</p>
                 )}
               </div>
             </div>
@@ -640,7 +620,7 @@ export default function Dashboard() {
     </>
   );
   return (
-    <div className="min-h-screen w-full bg-background relative" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="min-h-screen w-full bg-background relative flex flex-col">
       {/* Delete Account Modal */}
       <AnimatePresence>
         {showDeleteModal && (
@@ -712,89 +692,27 @@ export default function Dashboard() {
           </motion.div>
         )}
       </AnimatePresence>
-      {/* Dot grid overlay */}
-      <div className="absolute inset-0 dot-grid pointer-events-none" />
       {/* Top Nav */}
-      <AppNavbar
-        leading={
-          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="lg:hidden text-zinc-400 hover:text-white">
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
-        }
+      <SiteNavbar
+        activeNav={activeMenu}
         name={displayName}
         email={profile.email}
-        onProfile={() => {
-          setActiveMenu("profile");
-          setMobileMenuOpen(false);
-        }}
+        onProfile={() => setActiveMenu("profile")}
       />
-      <div className="flex">
-        {/* Desktop Sidebar */}
-        <aside className="hidden lg:flex flex-col w-64 glass-sidebar min-h-[calc(100vh-69px)] relative border-r border-white/5">
-          <nav className="p-4 space-y-1.5 flex-1">
-            {menuItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeMenu === item.id;
-              return (
-                <motion.button key={item.id} whileHover={{ x: 4 }}
-                  onClick={() => { setActiveMenu(item.id); if (item.path) navigate(item.path); }}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${isActive
-                    ? "bg-gradient-to-r from-teal-500/20 to-teal-600/10 text-teal-300 border border-teal-500/20"
-                    : "text-zinc-500 hover:text-zinc-200 hover:bg-white/5"
-                    }`}>
-                  <Icon className={`w-5 h-5 ${isActive ? "text-teal-400" : ""}`} />
-                  {item.label}
-                </motion.button>
-              );
-            })}
-          </nav>
-        </aside>
-        {/* Mobile Sidebar */}
-        <AnimatePresence>
-          {mobileMenuOpen && (
-            <motion.aside initial={{ x: -300 }} animate={{ x: 0 }} exit={{ x: -300 }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="lg:hidden fixed left-0 top-[69px] bottom-0 w-64 glass-sidebar shadow-2xl z-50 border-r border-white/5">
-              <nav className="p-4 space-y-1.5 flex-1">
-                {menuItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = activeMenu === item.id;
-                  return (
-                    <button key={item.id}
-                      onClick={() => { setActiveMenu(item.id); setMobileMenuOpen(false); if (item.path) navigate(item.path); }}
-                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${isActive
-                        ? "bg-teal-500/15 text-teal-300 border border-teal-500/20"
-                        : "text-zinc-500 hover:text-zinc-200 hover:bg-white/5"
-                        }`}>
-                      <Icon className={`w-5 h-5 ${isActive ? "text-teal-400" : ""}`} />
-                      {item.label}
-                    </button>
-                  );
-                })}
-              </nav>
-            </motion.aside>
-          )}
-        </AnimatePresence>
-        {/* Main Content */}
-        <main className="flex-1 p-4 md:p-8 relative overflow-x-hidden">
-          <div className="max-w-7xl mx-auto">
-            {/* Mobile greeting */}
-            <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }}
-              className="md:hidden mb-6 glass-card rounded-2xl p-5 border border-white/5">
-              <h2 className="text-xl font-bold text-white">Welcome back, {displayName} 👋</h2>
-              <p className="text-zinc-500 text-sm mt-1">Ready to create amazing 3D layouts?</p>
+      {/* Main Content */}
+      <main className="flex-1 w-full px-4 md:px-8 pt-8 pb-16 md:pt-12 relative overflow-x-clip">
+        <div className="max-w-6xl mx-auto">
+          <AnimatePresence mode="wait">
+            <motion.div key={activeMenu} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }}>
+              {activeMenu === "dashboard" && renderDashboard()}
+              {activeMenu === "designs" && renderDesigns()}
+              {activeMenu === "profile" && renderProfile()}
             </motion.div>
-            <AnimatePresence mode="wait">
-              <motion.div key={activeMenu} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }}>
-                {activeMenu === "dashboard" && renderDashboard()}
-                {activeMenu === "designs" && renderDesigns()}
-                {activeMenu === "profile" && renderProfile()}
-              </motion.div>
-            </AnimatePresence>
-          </div>
-        </main>
-      </div>
+          </AnimatePresence>
+        </div>
+      </main>
+      <AppFooter />
     </div>
   );
 }

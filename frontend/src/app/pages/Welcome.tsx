@@ -1,447 +1,525 @@
-import { Box, Zap, ScanLine, Boxes, ArrowRight, CheckCircle2, Star, ChevronRight } from "lucide-react";
-import { motion, useScroll, useTransform } from "motion/react";
-import { ImageWithFallback } from "../components/figma/ImageWithFallback";
-import ThemeToggle from "../components/ThemeToggle";
-import { useNavigate } from "react-router";
-import { useRef } from "react";
+import { useRef, useState, type KeyboardEvent } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { Link } from "react-router";
+import { ArrowUp, Check } from "lucide-react";
+import PageGlows from "../components/marketing/PageGlows";
+import BrandMark from "../components/marketing/BrandMark";
+import LandingNav from "../components/marketing/LandingNav";
+import PlanSketch from "../components/marketing/PlanSketch";
+import IsoRoom from "../components/marketing/IsoRoom";
+import { useLandingMotion } from "../components/marketing/useLandingMotion";
 
-const FEATURES = [
+const NAV_LINKS = [
+  { href: "#features", label: "Features" },
+  { href: "#use-cases", label: "Who it's for" },
+  { href: "#how-it-works", label: "How it works" },
+];
+
+const STATS = [
+  { prefix: "", value: 98, suffix: "%", label: "Accuracy rate" },
+  { prefix: "< ", value: 15, suffix: "s", label: "Processing time" },
+  { prefix: "", value: 500, suffix: "+", label: "Layouts scored" },
+  { prefix: "", value: 10, suffix: "k+", label: "Rooms designed" },
+];
+
+const HEADLINE = ["Floor plan in.", "Furnished", "room out."];
+
+const SUMMARY =
+  "3D Layout System reads a 2D floor plan, works out where the rooms are, and arranges furniture in the room you pick, so you can judge a layout before moving a single chair.";
+
+const RANKED = [
+  { name: "Layout A", score: 92 },
+  { name: "Layout B", score: 88 },
+  { name: "Layout C", score: 81 },
+];
+
+const USE_CASES = [
   {
-    icon: ScanLine,
-    title: "AI Room Detection",
-    desc: "Upload any 2D floor plan and our AI instantly identifies every room, wall, door, and window with precision.",
-    color: "from-teal-400 to-teal-600",
-    glow: "glow-teal",
+    title: "Interior designers",
+    desc: "Go from a client's floor plan to a furnished concept in one sitting, with a score behind every layout you present.",
+    image: "/dashboard/design-living-room.jpg",
+    alt: "Living room with a grey sofa, leather poufs and a brass arc lamp",
+    quote: "Cut my concept-to-presentation time by 70%. The AI nails functional layouts on the first try.",
+    name: "Sarah D.",
   },
   {
-    icon: Zap,
-    title: "Smart Furniture Placement",
-    desc: "Our optimization engine scores hundreds of layout combinations and surfaces only the best-fit arrangements.",
-    color: "from-violet-400 to-violet-600",
-    glow: "glow-violet",
+    title: "Architects",
+    desc: "Show clients the furnished room in 3D while the building is still a drawing.",
+    image: "/dashboard/design-modern-bedroom.jpg",
+    alt: "Dark bedroom with a white tufted bed and a brass chandelier",
+    quote: "The 3D viewer alone is worth it. Clients can see exactly what they are getting before we break ground.",
+    name: "James W.",
   },
   {
-    icon: Boxes,
-    title: "Interactive 3D View",
-    desc: "Explore your optimized layout in a real-time isometric 3D viewer. Rotate, zoom, and export in one click.",
-    color: "from-amber-400 to-amber-600",
-    glow: "glow-amber",
+    title: "Property developers",
+    desc: "Furnish each unit type straight from its plan and compare the ranked layouts side by side.",
+    image: "/dashboard/design-guest-room.jpg",
+    alt: "Bright guest bedroom in white and grey",
+    quote: "We use it across every stage-ready unit. The scored layouts save hours of manual back-and-forth.",
+    name: "Megan R.",
   },
 ];
 
 const STEPS = [
-  { num: "01", title: "Upload Floor Plan",     desc: "Drop your 2D image or PDF floor plan into the system." },
-  { num: "02", title: "AI Detects Rooms",      desc: "Our model maps every room boundary in seconds." },
-  { num: "03", title: "Pick a Room",           desc: "Choose the room you want to optimize." },
-  { num: "04", title: "View Scored Layouts",   desc: "Browse AI-ranked furniture arrangements by score." },
-  { num: "05", title: "Explore in 3D",         desc: "Visualize the winning layout in an interactive 3D view." },
+  { title: "Upload a floor plan", desc: "Drop in a 2D image or PDF of your plan." },
+  { title: "Rooms are detected", desc: "Every room boundary is mapped in seconds." },
+  { title: "Pick a room", desc: "Choose the room you want to furnish." },
+  { title: "Compare scored layouts", desc: "Browse furniture arrangements ranked by score." },
+  { title: "Explore it in 3D", desc: "Open the layout you like in an interactive 3D view." },
 ];
 
-const STATS = [
-  { value: "98%",  label: "Accuracy Rate" },
-  { value: "< 15s", label: "Processing Time" },
-  { value: "500+", label: "Layouts Scored" },
-  { value: "10k+", label: "Rooms Designed" },
-];
+/* Hero chips. They sit on the photo, which is light in both themes, hence lv-on-photo. */
+function ScoreChip() {
+  return (
+    <div data-hero-chip className="lv-on-photo">
+      <div data-float className="rounded-2xl bg-lv-surface/85 backdrop-blur-md border border-lv-line px-4 py-3 shadow-lg">
+        <p className="text-xs text-lv-muted">Layout score</p>
+        <p className="mt-0.5 flex items-baseline gap-1 text-lv-ink">
+          <span className="text-2xl font-medium tracking-tight">92</span>
+          <span className="text-xs text-lv-muted">/100</span>
+        </p>
+        <div className="mt-1.5 h-1.5 w-24 rounded-full bg-lv-line overflow-hidden">
+          <div className="h-full w-[92%] rounded-full bg-lv-accent" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
-const TESTIMONIALS = [
-  {
-    name: "Sarah D.",
-    role: "Interior Designer",
-    text: "Cut my concept-to-presentation time by 70%. The AI nails functional layouts on the first try.",
-    avatar: "SD",
-  },
-  {
-    name: "James W.",
-    role: "Architect",
-    text: "The 3D viewer alone is worth it. Clients can see exactly what they are getting before we break ground.",
-    avatar: "JW",
-  },
-  {
-    name: "Megan R.",
-    role: "Property Developer",
-    text: "We use it across every stage-ready unit. The scored layouts save hours of manual back-and-forth.",
-    avatar: "MR",
-  },
-];
+const PLACED = ["Sofa", "Coffee table", "Armchair", "Rug"];
+
+function PlacedChip() {
+  return (
+    <div data-hero-chip className="lv-on-photo">
+      <div data-float className="rounded-2xl bg-lv-surface/85 backdrop-blur-md border border-lv-line p-4 shadow-lg">
+        <p className="text-sm font-medium text-lv-ink">Furniture placed</p>
+        <ul className="mt-3 space-y-2">
+          {PLACED.map((item) => (
+            <li key={item} className="flex items-center gap-2.5 text-xs text-lv-ink">
+              <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-lv-accent text-white">
+                <Check className="h-2.5 w-2.5" strokeWidth={3} aria-hidden="true" />
+              </span>
+              {item}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
 
 export default function Welcome() {
-  const navigate = useNavigate();
-  const heroRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
-  const heroY = useTransform(scrollYProgress, [0, 1], ["0%", "25%"]);
-  const heroOpacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
+  const reduceMotion = useReducedMotion();
+  const rootRef = useRef<HTMLDivElement>(null);
+  useLandingMotion(rootRef);
+
+  const [useCase, setUseCase] = useState(0);
+  const useCaseTabs = useRef<(HTMLButtonElement | null)[]>([]);
+  const activeCase = USE_CASES[useCase];
+  const onUseCaseKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    const last = USE_CASES.length - 1;
+    let next: number;
+    if (e.key === "ArrowDown" || e.key === "ArrowRight") next = useCase === last ? 0 : useCase + 1;
+    else if (e.key === "ArrowUp" || e.key === "ArrowLeft") next = useCase === 0 ? last : useCase - 1;
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = last;
+    else return;
+    e.preventDefault();
+    setUseCase(next);
+    useCaseTabs.current[next]?.focus();
+  };
 
   return (
-    <div className="min-h-screen w-full bg-background overflow-x-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div ref={rootRef} id="top" className="lv lv-flow min-h-screen w-full overflow-x-clip">
+      <PageGlows />
 
-      {/* ── Sticky Navbar ── */}
-      <motion.header
-        initial={{ y: -60, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.5 }}
-        className="fixed top-0 left-0 right-0 z-50 glass-nav"
-      >
-        <div className="max-w-7xl mx-auto px-4 md:px-8 py-3.5 flex items-center justify-between">
-          {/* Logo */}
-          <div className="flex items-center gap-3">
-            <div className="bg-gradient-to-br from-teal-400 to-teal-600 p-2 rounded-xl shadow-lg shadow-teal-500/20">
-              <Box className="w-6 h-6 text-white" strokeWidth={1.5} />
-            </div>
-            <div className="hidden sm:block">
-              <p className="text-sm font-bold text-white leading-none tracking-tight">3D Layout System</p>
-              <p className="text-[10px] text-teal-400 font-medium">AI-Powered Design</p>
-            </div>
-          </div>
+      <LandingNav links={NAV_LINKS} />
 
-          {/* Nav Links */}
-          <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-zinc-400">
-            <a href="#features"    className="hover:text-teal-400 transition-colors">Features</a>
-            <a href="#how-it-works" className="hover:text-teal-400 transition-colors">How It Works</a>
-            <a href="#testimonials" className="hover:text-teal-400 transition-colors">Reviews</a>
-          </nav>
-
-          {/* CTA Buttons */}
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
-            <motion.button
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.96 }}
-              onClick={() => navigate("/signin")}
-              className="hidden sm:inline-flex px-4 py-2 text-sm font-semibold text-zinc-300 hover:text-white transition-colors"
-            >
-              Sign In
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.96 }}
-              onClick={() => navigate("/signup")}
-              className="px-5 py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-teal-500/25 hover:shadow-teal-500/40 hover:from-teal-400 hover:to-teal-500 transition-all"
-            >
-              Get Started
-            </motion.button>
-          </div>
-        </div>
-      </motion.header>
-
-      {/* ── Hero ── */}
-      <section ref={heroRef} className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
-        {/* Ambient mesh orbs */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="mesh-orb absolute -top-40 -left-40 w-[600px] h-[600px] bg-teal-500/10 rounded-full" />
-          <div className="mesh-orb absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-violet-500/10 rounded-full" style={{ animationDelay: '-3s' }} />
-          <div className="mesh-orb absolute top-1/3 right-1/4 w-[400px] h-[400px] bg-amber-500/5 rounded-full" style={{ animationDelay: '-5s' }} />
-        </div>
-        {/* Dot grid */}
-        <div className="absolute inset-0 dot-grid" />
-
-        <motion.div style={{ y: heroY, opacity: heroOpacity }} className="relative z-10 max-w-7xl mx-auto px-4 md:px-8 py-16">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-14 items-center">
-
-            {/* Left */}
-            <motion.div initial={{ opacity: 0, x: -40 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.7 }}
-              className="flex flex-col items-center lg:items-start text-center lg:text-left space-y-7">
-
-              {/* Badge */}
-              <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-                className="flex items-center gap-2 bg-teal-500/10 text-teal-400 px-4 py-2 rounded-full text-xs font-bold border border-teal-500/20 w-fit mx-auto lg:mx-0">
-                <span className="w-2 h-2 bg-teal-400 rounded-full animate-pulse" />
-                AI-Powered Interior Design System
-              </motion.div>
-
-              {/* Headline */}
-              <div className="space-y-2">
-                <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold leading-tight tracking-tight">
-                  <span className="bg-gradient-to-r from-teal-300 via-teal-400 to-cyan-400 bg-clip-text text-transparent">
-                    Smart Floor Plan
+      <main>
+        {/* ── Hero ── */}
+        <section data-hero className="relative lg:-mt-[72px] lg:h-svh lg:min-h-[640px] overflow-hidden">
+          <div className="relative z-10 lg:h-full max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-14 xl:px-20 pt-8 sm:pt-12 lg:pt-20 lg:pb-6 flex flex-col justify-center pointer-events-none">
+            <div data-hero-copy className="lg:max-w-[46%] pointer-events-auto">
+              <h1
+                aria-label={HEADLINE.join(" ")}
+                className="text-[clamp(2.3rem,5.25vw,5.5rem)] leading-[0.98] text-lv-ink"
+              >
+                {HEADLINE.map((line) => (
+                  <span key={line} aria-hidden="true" className="block">
+                    {line.split(" ").map((word, i) => (
+                      <span key={i} className="inline-block overflow-hidden align-bottom pb-[0.16em] -mb-[0.16em] mr-[0.22em] last:mr-0">
+                        <span data-hero-word className="inline-block">{word}</span>
+                      </span>
+                    ))}
                   </span>
-                  <br />
-                  <span className="text-white">to 3D Layout</span>
-                  <br />
-                  <span className="bg-gradient-to-r from-violet-400 to-violet-500 bg-clip-text text-transparent">
-                    in Seconds.
-                  </span>
-                </h1>
-              </div>
-
-              {/* Sub */}
-              <p className="text-lg text-zinc-400 max-w-lg leading-relaxed">
-                Upload your 2D floor plan and let our AI detect rooms, score hundreds of furniture arrangements, and render an interactive 3D view — all automatically.
+                ))}
+              </h1>
+              <p data-hero-fade className="mt-5 lg:mt-7 max-w-sm xl:max-w-[26rem] text-[15px] md:text-base leading-relaxed text-lv-muted">
+                Upload a 2D floor plan and get furniture layouts ranked by score, each one ready to explore in 3D.
               </p>
+              <div data-hero-fade className="mt-6 flex flex-wrap items-center gap-3">
+                <Link to="/signup" className="lv-btn">
+                  Get started free
+                </Link>
+                <a href="#how-it-works" className="lv-btn-quiet">
+                  See how it works
+                </a>
+              </div>
+              <dl data-hero-fade className="mt-9 lg:mt-12 grid grid-cols-3 gap-4 sm:flex sm:gap-9 border-t border-lv-line pt-5">
+                {STATS.slice(0, 3).map((s) => (
+                  <div key={s.label} className="flex flex-col-reverse">
+                    <dt className="text-xs text-lv-muted">{s.label}</dt>
+                    <dd className="text-lg md:text-xl font-medium tracking-tight tabular-nums text-lv-ink">
+                      {s.prefix}{s.value}{s.suffix}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          </div>
 
-              {/* Checks */}
-              <ul className="space-y-2 text-sm text-zinc-400 text-left w-fit mx-auto lg:mx-0">
-                {["No 3D modelling skills required", "Results in under 15 seconds", "Export-ready 3D visualization"].map(t => (
-                  <li key={t} className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" />
-                    {t}
+          {/* The arch: a framed view below lg, a clipped full-bleed layer from lg up that opens on scroll */}
+          <div className="px-5 sm:px-8 mt-10 lg:mt-0 lg:px-0 lg:absolute lg:inset-0">
+            <div data-hero-stage className="lv-hero-stage relative overflow-hidden aspect-[4/5] sm:aspect-[16/11] lg:aspect-auto lg:h-full">
+              <div data-hero-shift className="absolute inset-0">
+                <div data-hero-wipe className="absolute inset-0">
+                  <img
+                    data-hero-img
+                    src="/landing/lavender-valley.webp"
+                    alt="Open terrace lounge with a curved white sofa and an armchair, surrounded by lavender and overlooking a misty valley"
+                    width={1672}
+                    height={941}
+                    {...{ fetchpriority: "high" }}
+                    className="h-full w-full object-cover object-bottom"
+                  />
+                </div>
+              </div>
+              <div className="lg:hidden absolute bottom-4 right-4">
+                <ScoreChip />
+              </div>
+              <div className="hidden sm:block lg:hidden absolute bottom-4 left-4 w-52">
+                <PlacedChip />
+              </div>
+            </div>
+          </div>
+
+          <div data-hero-chip-move="plan" className="hidden lg:block absolute z-20 w-44 xl:w-52 left-[calc(57%-4.5rem)] xl:left-[calc(57%-7.5rem)] top-[56%] xl:top-[52%]">
+            <PlacedChip />
+          </div>
+          <div data-hero-chip-move="score" className="hidden lg:block absolute z-20 right-[calc(11%-3rem)] top-[28%]">
+            <ScoreChip />
+          </div>
+        </section>
+
+        {/* ── What it does ── */}
+        <section id="features" className="max-w-6xl mx-auto px-4 md:px-6 pt-20 md:pt-28">
+          <div className="grid gap-8 md:grid-cols-[1.2fr_1fr] md:items-end">
+            <h2 data-reveal className="text-4xl md:text-5xl leading-[1.08] text-lv-ink">What does it do?</h2>
+            <p data-words className="text-xl md:text-[1.375rem] leading-snug text-lv-ink max-w-md md:justify-self-end">
+              {SUMMARY.split(" ").map((word, i) => (
+                <span key={i} data-word>{word} </span>
+              ))}
+            </p>
+          </div>
+
+          <div data-stagger className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <article className="md:col-span-2 rounded-[24px] bg-lv-wash p-6 md:p-7 min-h-[300px] flex flex-col sm:flex-row gap-6">
+              <div className="flex flex-col justify-between sm:w-[38%]">
+                <h3 className="text-2xl leading-tight text-lv-ink">Rooms found for you</h3>
+                <p className="mt-6 text-sm leading-relaxed text-lv-ink">
+                  Walls, doors and windows are read from your plan and every room is outlined and named. No tracing.
+                </p>
+              </div>
+              <PlanSketch className="w-full sm:w-[62%] self-center" />
+            </article>
+
+            <article className="rounded-[24px] bg-lv-deep text-lv-on-deep p-6 md:p-7 min-h-[240px] lg:min-h-[300px] flex flex-col justify-between">
+              <h3 className="text-2xl leading-tight">Layouts, ranked</h3>
+              <ul data-bars className="mt-6 space-y-3" aria-label="Example layout scores">
+                {RANKED.map((r) => (
+                  <li key={r.name} className="text-xs text-lv-on-deep/80">
+                    <div className="flex justify-between">
+                      <span>{r.name}</span>
+                      <span className="tabular-nums">{r.score}</span>
+                    </div>
+                    <div className="mt-1.5 h-1.5 rounded-full bg-lv-on-deep/15 overflow-hidden">
+                      <div data-bar className="h-full rounded-full bg-lv-on-deep/85" style={{ width: `${r.score}%` }} />
+                    </div>
                   </li>
                 ))}
               </ul>
-
-              {/* CTA Buttons */}
-              <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto pt-1">
-                <motion.button
-                  whileHover={{ scale: 1.04 }}
-                  whileTap={{ scale: 0.96 }}
-                  onClick={() => navigate("/signup")}
-                  className="flex items-center justify-center gap-2 px-8 py-4 bg-gradient-to-r from-teal-500 to-teal-600 text-white text-base font-bold rounded-2xl shadow-xl shadow-teal-500/25 hover:shadow-teal-500/40 transition-all"
-                >
-                  Start for Free
-                  <ArrowRight className="w-4 h-4" />
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.04 }}
-                  whileTap={{ scale: 0.96 }}
-                  onClick={() => navigate("/signin")}
-                  className="flex items-center justify-center gap-2 px-8 py-4 bg-white/5 border border-white/10 text-zinc-300 text-base font-bold rounded-2xl hover:bg-white/10 hover:border-white/20 transition-all"
-                >
-                  Sign In
-                  <ChevronRight className="w-4 h-4" />
-                </motion.button>
-              </div>
-
-              {/* Social proof micro-text */}
-              <p className="text-xs text-zinc-500 flex items-center gap-1.5 mx-auto lg:mx-0">
-                <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                <span className="text-zinc-400 font-medium">Trusted by 10,000+ designers</span>
+              <p className="mt-6 text-sm leading-relaxed text-lv-on-deep/80">
+                Hundreds of furniture arrangements are scored for fit and flow. You see the best ones first.
               </p>
-            </motion.div>
+            </article>
 
-            {/* Right — Hero Image */}
-            <motion.div initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.7, delay: 0.15 }}
-              className="relative hidden lg:block">
-              <div className="relative rounded-3xl overflow-hidden shadow-2xl shadow-black/50 ring-1 ring-white/10">
-                <ImageWithFallback
-                  src="https://images.unsplash.com/photo-1757344454271-bad02eff9fda?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBtaW5pbWFsaXN0JTIwYmVkcm9vbSUyMDNEJTIwcmVuZGVyfGVufDF8fHx8MTc3MjAwMTI1MHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
-                  alt="3D Room Layout Preview"
-                  className="w-full h-auto object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-background/60 to-transparent" />
+            <article className="rounded-[24px] bg-lv-deep text-lv-on-deep p-6 md:p-7 min-h-[240px] lg:min-h-[300px] flex flex-col justify-between">
+              <h3 className="text-2xl leading-tight">Walk through it in 3D</h3>
+              <IsoRoom className="mt-4 w-full max-w-[220px] self-center text-lv-on-deep" />
+              <p className="mt-6 text-sm leading-relaxed text-lv-on-deep/80">
+                Open any layout in the 3D viewer, then rotate and zoom until the room makes sense.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        {/* ── Facts ── */}
+        <section aria-label="In numbers" className="max-w-6xl mx-auto px-4 md:px-6 pt-14">
+          <dl data-stagger className="grid grid-cols-2 md:grid-cols-4 gap-y-8 gap-x-6 border-y border-lv-line py-8">
+            {STATS.map((s) => (
+              <div key={s.label} className="flex flex-col-reverse">
+                <dt className="mt-1 text-sm text-lv-muted">{s.label}</dt>
+                <dd className="text-3xl md:text-4xl font-medium tracking-tight tabular-nums text-lv-ink">{s.prefix}<span data-count={s.value}>{s.value}</span>{s.suffix}</dd>
               </div>
-
-              {/* Floating card — score */}
-              <motion.div animate={{ y: [0, -12, 0] }} transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute -top-5 -right-5 glass-card rounded-2xl shadow-xl shadow-black/30 p-4">
-                <p className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider mb-1">Layout Score</p>
-                <div className="flex items-end gap-1">
-                  <span className="text-3xl font-extrabold bg-gradient-to-r from-teal-400 to-cyan-400 bg-clip-text text-transparent">92</span>
-                  <span className="text-zinc-500 text-sm mb-1">/100</span>
-                </div>
-                <div className="w-28 h-1.5 bg-white/10 rounded-full mt-1.5 overflow-hidden">
-                  <div className="h-full w-[92%] bg-gradient-to-r from-teal-400 to-cyan-400 rounded-full" />
-                </div>
-              </motion.div>
-
-              {/* Floating card — processing */}
-              <motion.div animate={{ y: [0, 14, 0] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: 0.6 }}
-                className="absolute -bottom-5 -left-5 glass-card rounded-2xl shadow-xl shadow-black/30 p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 bg-gradient-to-br from-teal-400 to-teal-600 rounded-xl flex items-center justify-center">
-                    <Zap className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-white">Room Detected</p>
-                    <p className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full inline-block" />
-                      AI ready
-                    </p>
-                  </div>
-                </div>
-              </motion.div>
-            </motion.div>
-
-          </div>
-        </motion.div>
-      </section>
-
-      {/* ── Stats Bar ── */}
-      <section className="relative border-y border-white/5">
-        <div className="absolute inset-0 bg-gradient-to-r from-teal-500/5 via-violet-500/5 to-amber-500/5" />
-        <div className="relative max-w-5xl mx-auto px-4 md:px-8 py-12">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {STATS.map((s, i) => (
-              <motion.div key={s.label} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }} transition={{ delay: i * 0.09 }}
-                className="text-center">
-                <p className="text-4xl font-extrabold bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent">{s.value}</p>
-                <p className="text-zinc-500 text-sm font-medium mt-1">{s.label}</p>
-              </motion.div>
             ))}
-          </div>
-        </div>
-      </section>
+          </dl>
+        </section>
 
-      {/* ── Features ── */}
-      <section id="features" className="py-24 relative">
-        <div className="absolute inset-0 dot-grid" />
-        <div className="relative max-w-7xl mx-auto px-4 md:px-8">
-          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-            className="text-center mb-16 space-y-3">
-            <span className="inline-block bg-violet-500/10 text-violet-400 text-xs font-bold px-4 py-1.5 rounded-full border border-violet-500/20">
-              Core Features
-            </span>
-            <h2 className="text-4xl md:text-5xl font-extrabold text-white">
-              Everything you need,<br />
-              <span className="bg-gradient-to-r from-teal-400 to-cyan-400 bg-clip-text text-transparent">nothing you don't.</span>
-            </h2>
-            <p className="text-zinc-500 max-w-xl mx-auto text-lg">Three powerful AI modules working together to turn a flat image into a fully realized 3D interior.</p>
-          </motion.div>
+        {/* ── Who it's for ── */}
+        <section id="use-cases" className="max-w-6xl mx-auto px-4 md:px-6 pt-20 md:pt-28">
+          <div className="grid gap-10 lg:grid-cols-[1fr_1.5fr] lg:items-start">
+            <div data-reveal>
+              <h2 className="text-4xl md:text-5xl leading-[1.08] text-lv-ink">Who it's for</h2>
+              <p className="mt-5 max-w-sm text-base leading-relaxed text-lv-muted">
+                Anyone who has a floor plan and needs to know how the room will actually work once it is furnished.
+              </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {FEATURES.map((f, i) => {
-              const Icon = f.icon;
-              return (
-                <motion.div key={f.title} initial={{ opacity: 0, y: 28 }} whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }} transition={{ delay: i * 0.12 }}
-                  whileHover={{ y: -8, transition: { duration: 0.25 } }}
-                  className={`glass-card rounded-3xl p-8 hover:bg-white/[0.06] transition-all duration-300 ${f.glow}`}>
-                  <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${f.color} flex items-center justify-center mb-6 shadow-lg`}>
-                    <Icon className="w-7 h-7 text-white" strokeWidth={1.5} />
+              <div role="tablist" aria-label="Who it's for" onKeyDown={onUseCaseKey} className="mt-8 flex flex-col gap-2">
+                {USE_CASES.map((u, i) => {
+                  const selected = i === useCase;
+                  return (
+                    <button
+                      key={u.title}
+                      ref={(el) => { useCaseTabs.current[i] = el; }}
+                      type="button"
+                      role="tab"
+                      id={`use-case-tab-${i}`}
+                      aria-selected={selected}
+                      aria-controls="use-case-panel"
+                      tabIndex={selected ? 0 : -1}
+                      onClick={() => setUseCase(i)}
+                      className={`flex items-center gap-3 min-h-14 px-5 rounded-2xl border text-left text-lg cursor-pointer transition-colors ${
+                        selected
+                          ? "bg-lv-surface border-lv-line text-lv-ink"
+                          : "border-transparent text-lv-muted hover:text-lv-ink"
+                      }`}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={`h-2 w-2 rounded-full ${selected ? "bg-lv-accent" : "bg-lv-line"}`}
+                      />
+                      {u.title}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div
+              data-reveal
+              role="tabpanel"
+              id="use-case-panel"
+              aria-labelledby={`use-case-tab-${useCase}`}
+              tabIndex={0}
+              className="rounded-[24px] bg-lv-surface border border-lv-line overflow-hidden"
+            >
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={activeCase.title}
+                  initial={reduceMotion ? false : { opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={reduceMotion ? undefined : { opacity: 0 }}
+                  transition={{ duration: 0.18 }}
+                >
+                  <div className="relative aspect-[16/9] bg-lv-wash">
+                    <img
+                      src={activeCase.image}
+                      alt={activeCase.alt}
+                      width={720}
+                      height={480}
+                      loading="lazy"
+                      className="lv-photo absolute inset-0 h-full w-full object-cover"
+                    />
+                    <div className="absolute inset-0 lv-tint" aria-hidden="true" />
                   </div>
-                  <h3 className="text-xl font-bold text-white mb-3">{f.title}</h3>
-                  <p className="text-zinc-500 text-sm leading-relaxed">{f.desc}</p>
+                  <div className="grid gap-6 p-6 md:p-8 md:grid-cols-2 md:min-h-[168px]">
+                    <p className="text-lg md:text-xl leading-snug text-lv-ink">{activeCase.desc}</p>
+                    <figure className="border-l-2 border-lv-accent pl-4">
+                      <blockquote className="text-sm leading-relaxed text-lv-ink">“{activeCase.quote}”</blockquote>
+                      <figcaption className="mt-2 text-sm text-lv-muted">{activeCase.name}</figcaption>
+                    </figure>
+                  </div>
                 </motion.div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ── How It Works ── */}
-      <section id="how-it-works" className="py-24 relative">
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-teal-500/[0.02] to-transparent" />
-        <div className="relative max-w-5xl mx-auto px-4 md:px-8">
-          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-            className="text-center mb-16 space-y-3">
-            <span className="inline-block bg-white/5 text-teal-400 text-xs font-bold px-4 py-1.5 rounded-full border border-white/10">
-              How It Works
-            </span>
-            <h2 className="text-4xl md:text-5xl font-extrabold text-white">
-              From upload to 3D in{" "}
-              <span className="bg-gradient-to-r from-violet-400 to-violet-500 bg-clip-text text-transparent">5 steps.</span>
-            </h2>
-          </motion.div>
-
-          <div className="relative">
-            {/* Connector line */}
-            <div className="absolute left-[28px] top-8 bottom-8 w-0.5 bg-gradient-to-b from-teal-500/30 to-violet-500/30 hidden md:block" />
-            <div className="space-y-4">
-              {STEPS.map((step, i) => (
-                <motion.div key={step.num} initial={{ opacity: 0, x: -24 }} whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true }} transition={{ delay: i * 0.1 }}
-                  className="flex items-start gap-6 glass-card rounded-2xl p-6 hover:bg-white/[0.06] transition-all">
-                  <div className="w-14 h-14 shrink-0 rounded-2xl bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center shadow-lg shadow-teal-500/20">
-                    <span className="text-white font-extrabold text-lg">{step.num}</span>
-                  </div>
-                  <div className="pt-1">
-                    <p className="font-bold text-white text-base mb-1">{step.title}</p>
-                    <p className="text-zinc-500 text-sm">{step.desc}</p>
-                  </div>
-                </motion.div>
-              ))}
+              </AnimatePresence>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ── Testimonials ── */}
-      <section id="testimonials" className="py-24 relative">
-        <div className="absolute inset-0 dot-grid" />
-        <div className="relative max-w-7xl mx-auto px-4 md:px-8">
-          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-            className="text-center mb-16 space-y-3">
-            <span className="inline-block bg-amber-500/10 text-amber-400 text-xs font-bold px-4 py-1.5 rounded-full border border-amber-500/20">
-              Testimonials
-            </span>
-            <h2 className="text-4xl md:text-5xl font-extrabold text-white">
-              Loved by{" "}
-              <span className="bg-gradient-to-r from-teal-400 to-cyan-400 bg-clip-text text-transparent">design professionals.</span>
-            </h2>
-          </motion.div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {TESTIMONIALS.map((t, i) => (
-              <motion.div key={t.name} initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }} transition={{ delay: i * 0.12 }}
-                whileHover={{ y: -6, transition: { duration: 0.22 } }}
-                className="glass-card rounded-3xl p-7 hover:bg-white/[0.06] transition-all">
-                <div className="flex gap-1 mb-4">
-                  {[...Array(5)].map((_, k) => (
-                    <Star key={k} className="w-4 h-4 text-amber-400 fill-amber-400" />
-                  ))}
-                </div>
-                <p className="text-zinc-300 text-sm leading-relaxed mb-6 italic">"{t.text}"</p>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white text-xs font-bold shadow">
-                    {t.avatar}
-                  </div>
-                  <div>
-                    <p className="font-bold text-white text-sm">{t.name}</p>
-                    <p className="text-xs text-teal-400 font-medium">{t.role}</p>
-                  </div>
-                </div>
-              </motion.div>
+        {/* ── How it works ── */}
+        <section id="how-it-works" className="max-w-6xl mx-auto px-4 md:px-6 pt-20 md:pt-28">
+          <h2 data-reveal className="max-w-xl text-4xl md:text-5xl leading-[1.08] text-lv-ink">From upload to 3D in five steps</h2>
+          <div data-steps-line aria-hidden="true" className="hidden lg:block mt-12 -mb-px h-px origin-left bg-lv-accent" />
+          <ol data-stagger className="mt-12 lg:mt-0 grid gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-5">
+            {STEPS.map((step, i) => (
+              <li key={step.title} className="border-t border-lv-line pt-5">
+                <span className="text-sm font-medium tabular-nums text-lv-accent">{i + 1}</span>
+                <h3 className="mt-3 text-lg leading-snug text-lv-ink">{step.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-lv-muted">{step.desc}</p>
+              </li>
             ))}
-          </div>
-        </div>
-      </section>
+          </ol>
+        </section>
 
-      {/* ── Bottom CTA ── */}
-      <section className="py-24 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-teal-500/10 via-violet-500/10 to-amber-500/5" />
-        <div className="absolute inset-0 dot-grid" />
-        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-          className="relative z-10 max-w-3xl mx-auto px-4 md:px-8 text-center space-y-7">
-          <h2 className="text-4xl md:text-5xl font-extrabold text-white leading-tight">
-            Ready to transform your floor plan?
-          </h2>
-          <p className="text-zinc-400 text-lg">
-            Join thousands of designers and architects already using AI to create better spaces.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.96 }}
-              onClick={() => navigate("/signup")}
-              className="px-10 py-4 bg-gradient-to-r from-teal-500 to-teal-600 text-white font-extrabold text-base rounded-2xl shadow-xl shadow-teal-500/25 hover:shadow-teal-500/40 transition-all flex items-center justify-center gap-2"
-            >
-              Create Free Account
-              <ArrowRight className="w-4 h-4" />
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.96 }}
-              onClick={() => navigate("/signin")}
-              className="px-10 py-4 bg-white/5 border border-white/10 text-zinc-300 font-bold text-base rounded-2xl hover:bg-white/10 transition-all"
-            >
-              Sign In
-            </motion.button>
+        {/* ── Closing ── */}
+        <section className="max-w-6xl mx-auto px-4 md:px-6 pt-20 md:pt-28">
+          <div
+            data-reveal
+            className="relative overflow-hidden rounded-[32px] bg-lv-deep text-lv-on-deep"
+          >
+            {/* Lavender light from the top right, and arch outlines echoing the hero */}
+            <div
+              aria-hidden="true"
+              className="absolute inset-0"
+              style={{
+                background:
+                  "radial-gradient(60% 80% at 88% 8%, rgba(139,122,240,0.45), transparent 65%), radial-gradient(40% 50% at 0% 100%, rgba(129,140,248,0.22), transparent 70%)",
+              }}
+            />
+
+            <div className="relative grid gap-12 px-6 py-14 sm:px-10 md:px-14 md:py-20 lg:grid-cols-[1.15fr_1fr] lg:items-center lg:gap-6 lg:py-24">
+              <div>
+                <h2 className="text-[2.5rem] leading-[1.04] md:text-6xl text-balance">
+                  Start with one floor plan.
+                </h2>
+                <p className="mt-5 max-w-md text-base md:text-lg leading-relaxed text-lv-on-deep/75">
+                  Create an account, upload a plan and see your first scored layouts in under a minute.
+                </p>
+
+                <div className="mt-8 flex flex-wrap items-center gap-3">
+                  <Link to="/signup" className="lv-btn-invert">
+                    Create free account
+                  </Link>
+                  <Link
+                    to="/signin"
+                    className="inline-flex min-h-11 items-center rounded-full border border-lv-on-deep/25 px-6 text-sm font-medium text-lv-on-deep transition-colors hover:bg-lv-on-deep/10"
+                  >
+                    Sign in
+                  </Link>
+                </div>
+
+                <ul className="mt-9 flex flex-wrap gap-x-7 gap-y-3 text-sm text-lv-on-deep/75">
+                  {["No 3D modelling skills needed", "Layouts ready in under 15 seconds"].map((t) => (
+                    <li key={t} className="flex items-center gap-2.5">
+                      <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-lv-on-deep/15">
+                        <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" />
+                      </span>
+                      {t}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* The arch: outline rings behind, the room inside */}
+              <div className="relative mx-auto w-full max-w-[300px] sm:max-w-[340px] lg:ml-auto lg:mr-6">
+                <div aria-hidden="true" className="absolute -inset-4 rounded-t-full rounded-b-[2rem] border border-lv-on-deep/15" />
+                <div aria-hidden="true" className="absolute -inset-8 rounded-t-full rounded-b-[2.5rem] border border-lv-on-deep/[0.07]" />
+                <div className="relative aspect-[3/4] overflow-hidden rounded-t-full rounded-b-3xl shadow-2xl">
+                  <img
+                    src="/landing/lavender-valley.webp"
+                    alt=""
+                    width={1672}
+                    height={941}
+                    loading="lazy"
+                    className="h-full w-full origin-bottom-right scale-[1.35] object-cover object-[100%_100%]"
+                  />
+                </div>
+                <div className="lv-on-photo absolute -left-3 bottom-8 sm:-left-8">
+                  <div className="flex items-center gap-3 rounded-2xl border border-lv-line bg-lv-surface/90 px-4 py-3 shadow-lg backdrop-blur-md">
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-lv-accent text-white">
+                      <Check className="h-4 w-4" strokeWidth={3} aria-hidden="true" />
+                    </span>
+                    <div>
+                      <p className="text-sm font-medium leading-tight text-lv-ink">Layout ready</p>
+                      <p className="text-xs text-lv-muted">Score 92 / 100</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-        </motion.div>
-      </section>
+        </section>
+      </main>
 
       {/* ── Footer ── */}
-      <footer className="border-t border-white/5 py-10">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="bg-gradient-to-br from-teal-400 to-teal-600 p-2 rounded-xl">
-              <Box className="w-5 h-5 text-white" strokeWidth={1.5} />
-            </div>
-            <span className="text-white font-bold text-sm">3D Layout System</span>
+      <footer className="max-w-6xl mx-auto px-4 md:px-6 pt-20 md:pt-28 pb-8">
+        <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr]">
+          <div className="sm:col-span-2 lg:col-span-1">
+            <Link to="/" aria-label="3D Layout System home" className="inline-block rounded-lg">
+              <BrandMark size={30} />
+            </Link>
+            <p className="mt-5 max-w-xs text-sm leading-relaxed text-lv-muted">
+              Upload a floor plan and get furniture layouts ranked by score, each one ready to explore in 3D.
+            </p>
+            <Link to="/signup" className="lv-btn mt-6">
+              Get started free
+            </Link>
           </div>
-          <p className="text-zinc-600 text-xs">© 2026 Smart Floor Plan to 3D Layout Optimization System. All rights reserved.</p>
-          <div className="flex gap-5 text-xs text-zinc-500">
-            <a href="#features" className="hover:text-teal-400 transition-colors">Features</a>
-            <a href="#how-it-works" className="hover:text-teal-400 transition-colors">How It Works</a>
-            <a href="#testimonials" className="hover:text-teal-400 transition-colors">Reviews</a>
-          </div>
-        </div>
-      </footer>
 
+          <nav aria-label="Explore">
+            <p className="text-sm font-medium text-lv-ink">Explore</p>
+            <ul className="mt-4 space-y-1">
+              {NAV_LINKS.map((l) => (
+                <li key={l.href}>
+                  <a href={l.href} className="inline-flex min-h-9 items-center text-sm text-lv-muted transition-colors hover:text-lv-ink">
+                    {l.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+
+          <nav aria-label="Account">
+            <p className="text-sm font-medium text-lv-ink">Account</p>
+            <ul className="mt-4 space-y-1">
+              <li>
+                <Link to="/signin" className="inline-flex min-h-9 items-center text-sm text-lv-muted transition-colors hover:text-lv-ink">
+                  Sign in
+                </Link>
+              </li>
+              <li>
+                <Link to="/signup" className="inline-flex min-h-9 items-center text-sm text-lv-muted transition-colors hover:text-lv-ink">
+                  Create an account
+                </Link>
+              </li>
+              <li>
+                <Link to="/forgot-password" className="inline-flex min-h-9 items-center text-sm text-lv-muted transition-colors hover:text-lv-ink">
+                  Forgot password
+                </Link>
+              </li>
+            </ul>
+          </nav>
+        </div>
+
+        <div className="mt-14 flex flex-col-reverse gap-4 border-t border-lv-line pt-6 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-lv-muted">
+            © {new Date().getFullYear()} Smart Floor Plan to 3D Layout Optimization System. All rights reserved.
+          </p>
+          <a
+            href="#top"
+            className="inline-flex min-h-11 items-center gap-2 self-start rounded-full border border-lv-line px-4 text-sm text-lv-ink transition-colors hover:bg-lv-ink/8 sm:self-auto"
+          >
+            Back to top
+            <ArrowUp className="h-4 w-4" aria-hidden="true" />
+          </a>
+        </div>
+
+        <p
+          aria-hidden="true"
+          className="mt-10 select-none overflow-hidden whitespace-nowrap text-center text-[clamp(2rem,8vw,7rem)] font-medium leading-[0.9] tracking-tighter bg-gradient-to-b from-lv-accent/35 to-transparent bg-clip-text text-transparent"
+        >
+          3D Layout System
+        </p>
+      </footer>
     </div>
   );
 }

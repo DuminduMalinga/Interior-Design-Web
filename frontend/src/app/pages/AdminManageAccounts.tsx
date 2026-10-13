@@ -789,10 +789,8 @@ export default function AdminManageAccounts() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-background flex flex-col" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="min-h-screen w-full bg-background flex flex-col">
       <div className="absolute inset-0 dot-grid pointer-events-none" />
-      <div className="absolute top-1/4 right-1/3 w-[500px] h-[500px] bg-teal-500/5 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-1/4 left-1/4 w-[400px] h-[400px] bg-violet-500/5 rounded-full blur-[120px] pointer-events-none" />
 
       {/* ── Modals ── */}
       <AnimatePresence>
@@ -1036,7 +1034,7 @@ export default function AdminManageAccounts() {
         <main className="flex-1 p-4 md:p-6 lg:p-7 overflow-x-hidden relative">
           <div className="max-w-7xl mx-auto space-y-5">
 
-            Page Header
+            {/* Page Header */}
             <motion.div initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
               <div>
                 <h2 className="text-2xl md:text-3xl font-extrabold bg-gradient-to-r from-teal-300 to-cyan-400 bg-clip-text text-transparent">

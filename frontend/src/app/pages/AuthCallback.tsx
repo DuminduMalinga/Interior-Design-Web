@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { Box, AlertCircle, Loader2 } from "lucide-react";
-import { motion } from "motion/react";
+import { AlertCircle, Loader2 } from "lucide-react";
+import AuthShell from "../components/marketing/AuthShell";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabaseClient";
 
@@ -114,53 +114,27 @@ export default function AuthCallback() {
     };
   }, [navigate]);
 
-  return (
-    <div
-      className="min-h-screen w-full bg-background flex items-center justify-center p-4 relative overflow-hidden"
-      style={{ fontFamily: "'Inter', sans-serif" }}
-    >
-      {/* Ambient orbs */}
-      <div className="absolute -top-40 -right-40 w-[500px] h-[500px] bg-teal-500/8 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute -bottom-40 -left-40 w-[400px] h-[400px] bg-violet-500/8 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute inset-0 dot-grid" />
-
-      {/* Card */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.4 }}
-        className="relative w-full max-w-[420px] glass-card rounded-3xl shadow-2xl shadow-black/50 p-8 md:p-10 text-center"
-      >
-        {/* Logo */}
-        <div className="flex justify-center mb-6">
-          <div className="bg-gradient-to-br from-teal-400 to-teal-600 p-5 rounded-2xl shadow-lg shadow-teal-500/20">
-            <Box className="w-12 h-12 text-white" strokeWidth={1.5} />
-          </div>
+  if (errorMsg) {
+    return (
+      <AuthShell title="Sign-in failed" subtitle="We couldn't finish signing you in.">
+        <div className="mb-5 flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
+          <span>{errorMsg}</span>
         </div>
+        <button onClick={() => navigate("/signin")} className="lv-btn w-full min-h-12 text-base">
+          Return to sign in
+        </button>
+      </AuthShell>
+    );
+  }
 
-        {errorMsg ? (
-          <div>
-            <div className="flex items-center justify-center gap-2 p-4 mb-6 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-sm">
-              <AlertCircle className="w-5 h-5 flex-shrink-0 text-red-400" />
-              <span>{errorMsg}</span>
-            </div>
-            <button
-              onClick={() => navigate("/signin")}
-              className="w-full px-6 py-3 bg-white/10 hover:bg-white/15 text-white font-semibold rounded-xl transition-all duration-200"
-            >
-              Return to Sign In
-            </button>
-          </div>
-        ) : (
-          <div>
-            <div className="flex justify-center mb-4">
-              <Loader2 className="w-8 h-8 text-teal-400 animate-spin" />
-            </div>
-            <h2 className="text-xl font-semibold text-white mb-2">Completing Sign In...</h2>
-            <p className="text-zinc-500 text-sm">Please wait while we finalize your account session.</p>
-          </div>
-        )}
-      </motion.div>
-    </div>
+  return (
+    <AuthShell
+      title="Completing sign in..."
+      subtitle="Please wait while we finalize your account session."
+      icon={<Loader2 className="h-8 w-8 animate-spin text-lv-accent" aria-hidden="true" />}
+    >
+      <p className="sr-only" role="status">Signing you in</p>
+    </AuthShell>
   );
 }
