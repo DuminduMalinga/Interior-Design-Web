@@ -177,24 +177,23 @@ export default function UploadFloorPlan() {
       {/* Nav */}
       <SiteNavbar />
 
-      <main className="relative flex-1 w-full px-4 md:px-8 py-5 md:py-6">
+      <main className="relative flex-1 w-full px-4 md:px-8 py-4">
         <div className="max-w-5xl mx-auto">
           {/* Step Indicator */}
-          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-4">
             <FlowStepper current="upload" />
           </motion.div>
 
           <div className="max-w-3xl mx-auto">
             {/* Header */}
-            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mb-5">
-              <p className="text-xs font-semibold uppercase tracking-widest text-teal-400 mb-1.5">Step 1 of 4</p>
-              <h2 className="text-2xl md:text-3xl font-bold text-white leading-tight">Upload Floor Plan</h2>
-              <p className="text-sm text-zinc-500 mt-1">Add a 2D floor plan and we'll detect its rooms and walls for you.</p>
+            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mb-3">
+              <h2 className="text-xl md:text-2xl font-bold text-white leading-tight">Upload Floor Plan</h2>
+              <p className="text-sm text-zinc-500 mt-0.5">Add a 2D floor plan and we'll detect its rooms and walls for you.</p>
             </motion.div>
 
             {/* Upload Card */}
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-              className="glass-card rounded-3xl border border-white/5 p-5 md:p-8 mb-6">
+              className="glass-card rounded-3xl border border-white/5 p-4 md:p-6 mb-6">
 
               {/* Error */}
               <AnimatePresence>
@@ -223,28 +222,28 @@ export default function UploadFloorPlan() {
                 <motion.div
                   onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}
                   whileHover={{ scale: 1.005 }}
-                  className={`rounded-2xl px-6 py-10 md:py-12 text-center cursor-pointer transition-all duration-300 border-2 border-dashed ${
+                  className={`rounded-2xl px-6 py-7 text-center cursor-pointer transition-all duration-300 border-2 border-dashed ${
                     isDragging
                       ? "border-teal-500 bg-teal-500/5"
                       : "border-white/10 hover:border-teal-500/40 hover:bg-teal-500/[0.03]"
                   }`}
                   onClick={() => fileInputRef.current?.click()}>
                   <div className="flex flex-col items-center">
-                    <div className={`p-5 rounded-2xl transition-all duration-300 mb-5 ${
+                    <div className={`p-4 rounded-2xl transition-all duration-300 mb-4 ${
                       isDragging
                         ? "bg-gradient-to-br from-teal-400 to-teal-600 scale-110 shadow-lg shadow-teal-500/25"
                         : "bg-gradient-to-br from-teal-500/20 to-teal-600/10 border border-teal-500/20"
                     }`}>
-                      <FileUp className={`w-11 h-11 md:w-12 md:h-12 ${isDragging ? "text-white" : "text-teal-400"}`} strokeWidth={1.5} />
+                      <FileUp className={`w-10 h-10 ${isDragging ? "text-white" : "text-teal-400"}`} strokeWidth={1.5} />
                     </div>
                     <h3 className="text-xl md:text-2xl font-bold text-white leading-tight">
                       {isDragging ? "Drop your file here" : "Drag & drop your floor plan"}
                     </h3>
-                    <p className="text-sm text-zinc-500 my-3">or</p>
+                    <p className="text-sm text-zinc-500 my-2">or</p>
                     <span className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-500 to-teal-600 text-white font-semibold rounded-xl shadow-lg shadow-teal-500/20 hover:shadow-teal-500/30 transition-all cursor-pointer">
                       <UploadIcon className="w-4 h-4" /> Choose File
                     </span>
-                    <div className="flex flex-wrap items-center justify-center gap-2 mt-7 pt-6 border-t border-white/5 w-full">
+                    <div className="flex flex-wrap items-center justify-center gap-2 mt-6 pt-5 border-t border-white/5 w-full">
                       {["PNG", "JPG", "JPEG"].map((format) => (
                         <span key={format} className="px-2.5 py-1 rounded-md bg-white/5 border border-white/10 text-[11px] font-semibold text-zinc-400">
                           {format}

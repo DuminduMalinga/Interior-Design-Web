@@ -33,7 +33,7 @@ export default function FlowStepper({ current }: { current: FlowStep }) {
   const currentIndex = STEPS.findIndex((s) => s.id === current);
 
   return (
-    <div className="glass-card rounded-2xl border border-white/5 p-2 flex items-center select-none">
+    <div className="glass-card rounded-2xl border border-white/5 px-2 py-1.5 flex items-center select-none">
       {STEPS.map((step, i) => {
         const isDone = i < currentIndex;
         const isActive = i === currentIndex;
@@ -58,14 +58,14 @@ export default function FlowStepper({ current }: { current: FlowStep }) {
               onClick={() => navigate(step.path, { state })}
               aria-current={isActive ? "step" : undefined}
               title={isActive ? undefined : enabled ? `Go to ${step.label}` : "Upload a floor plan first"}
-              className={`flex items-center gap-3 px-2 sm:px-4 py-2 rounded-xl transition-colors ${
+              className={`flex items-center gap-2.5 px-2 sm:px-3 py-1 rounded-lg transition-colors ${
                 isActive ? "bg-teal-500/10 cursor-default" : enabled ? "cursor-pointer hover:bg-white/5" : "cursor-not-allowed opacity-60"
               }`}
             >
-              <span className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${circle} ${
+              <span className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${circle} ${
                 isActive ? "shadow-md shadow-teal-500/25" : ""
               }`}>
-                {isDone ? <Check className="w-4 h-4" /> : i + 1}
+                {isDone ? <Check className="w-3.5 h-3.5" /> : i + 1}
               </span>
               <span className={`text-sm font-semibold whitespace-nowrap ${isActive ? "" : "hidden md:inline"} ${label}`}>
                 {step.label}

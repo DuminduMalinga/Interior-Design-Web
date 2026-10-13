@@ -33,8 +33,8 @@ export default function Processing() {
         }`,
         duration: 900,
       },
-      { label: "Preparing layout candidates", duration: 900 },
-      { label: "Generating 3D visualization", duration: 900 },
+      { label: "Reading room labels", duration: 900 },
+      { label: "Separating the rooms", duration: 900 },
     ];
   }, [detection]);
 
@@ -64,38 +64,29 @@ export default function Processing() {
       <div className="absolute bottom-1/4 right-1/4 w-[300px] h-[300px] bg-violet-500/5 rounded-full blur-[100px] pointer-events-none" />
 
       {/* Main Content */}
-      <main className="relative flex items-center justify-center p-4 md:p-8 min-h-[calc(100vh-73px)]">
+      <main className="relative flex items-center justify-center px-4 py-4 md:px-8 min-h-[calc(100vh-73px)]">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-2xl glass-card rounded-3xl shadow-2xl shadow-black/50 p-8 md:p-12"
+          className="w-full max-w-2xl glass-card rounded-3xl shadow-2xl shadow-black/50 p-6 md:p-7"
         >
           {/* Processing Icon */}
-          <div className="flex justify-center mb-8">
-            <div className="relative">
-              <div className="bg-gradient-to-br from-teal-400 to-teal-600 p-6 rounded-2xl shadow-lg shadow-teal-500/25">
-                <Sparkles className="w-16 h-16 text-white" strokeWidth={1.5} />
-              </div>
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                className="absolute -top-2 -right-2"
-              >
-                <Loader2 className="w-8 h-8 text-teal-400" />
-              </motion.div>
+          <div className="flex justify-center mb-4">
+            <div className="bg-gradient-to-br from-teal-400 to-teal-600 p-3.5 rounded-2xl shadow-lg shadow-teal-500/25">
+              <Sparkles className="w-9 h-9 text-white" strokeWidth={1.5} />
             </div>
           </div>
 
           {/* Title */}
-          <h2 className="text-3xl font-bold text-center bg-gradient-to-r from-teal-300 to-cyan-400 bg-clip-text text-transparent mb-3">
+          <h2 className="text-2xl font-bold text-center bg-gradient-to-r from-teal-300 to-cyan-400 bg-clip-text text-transparent mb-1.5">
             Processing Your Floor Plan
           </h2>
-          <p className="text-center text-zinc-500 mb-8">
-            Our AI is analyzing your floor plan and creating optimized layouts...
+          <p className="text-center text-sm text-zinc-500 mb-5">
+            Our AI is analyzing your floor plan and separating it into rooms...
           </p>
 
           {/* Processing Steps */}
-          <div className="space-y-3 mb-8">
+          <div className="space-y-2 mb-5">
             {processingSteps.map((step, index) => {
               const isComplete = index < currentStep;
               const isActive = index === currentStep;
@@ -106,7 +97,7 @@ export default function Processing() {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className={`flex items-center gap-4 p-4 rounded-xl transition-all duration-300 ${
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 ${
                     isActive ? "bg-teal-500/10 border border-teal-500/20" :
                     isComplete ? "bg-emerald-500/10 border border-emerald-500/20" :
                     "bg-white/[0.02] border border-white/5"
@@ -114,14 +105,14 @@ export default function Processing() {
                 >
                   <div className="flex-shrink-0">
                     {isComplete ? (
-                      <CheckCircle2 className="w-6 h-6 text-emerald-400" />
+                      <CheckCircle2 className="w-5 h-5 text-emerald-400" />
                     ) : isActive ? (
-                      <Loader2 className="w-6 h-6 text-teal-400 animate-spin" />
+                      <Loader2 className="w-5 h-5 text-teal-400 animate-spin" />
                     ) : (
-                      <div className="w-6 h-6 rounded-full border-2 border-zinc-700"></div>
+                      <div className="w-5 h-5 rounded-full border-2 border-zinc-700"></div>
                     )}
                   </div>
-                  <span className={`font-medium ${
+                  <span className={`text-sm font-medium ${
                     isActive ? "text-teal-300" :
                     isComplete ? "text-emerald-300" :
                     "text-zinc-600"
@@ -134,7 +125,7 @@ export default function Processing() {
           </div>
 
           {/* Overall Progress Bar */}
-          <div className="mb-4">
+          <div className="mb-3">
             <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
               <motion.div
                 initial={{ width: 0 }}
@@ -149,11 +140,9 @@ export default function Processing() {
           </div>
 
           {/* Info Message */}
-          <div className="bg-teal-500/5 border border-teal-500/10 rounded-xl p-4 text-center">
-            <p className="text-sm text-teal-300/70">
-              This process typically takes 10-20 seconds. Please don't close this window.
-            </p>
-          </div>
+          <p className="text-center text-xs text-teal-300/70">
+            This only takes a few seconds. Please don't close this window.
+          </p>
         </motion.div>
       </main>
     </div>
