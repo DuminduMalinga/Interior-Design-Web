@@ -96,7 +96,7 @@ function PlacedChip() {
         <ul className="mt-3 space-y-2">
           {PLACED.map((item) => (
             <li key={item} className="flex items-center gap-2.5 text-xs text-lv-ink">
-              <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-lv-accent text-white">
+              <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-lv-accent text-[#fff]">
                 <Check className="h-2.5 w-2.5" strokeWidth={3} aria-hidden="true" />
               </span>
               {item}
@@ -137,7 +137,7 @@ export default function Welcome() {
 
       <main>
         {/* ── Hero ── */}
-        <section data-hero className="relative lg:-mt-[72px] lg:h-svh lg:min-h-[640px] overflow-hidden">
+        <section data-hero className="relative lg:-mt-20 lg:h-svh lg:min-h-[640px] overflow-hidden">
           <div className="relative z-10 lg:h-full max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-14 xl:px-20 pt-8 sm:pt-12 lg:pt-20 lg:pb-6 flex flex-col justify-center pointer-events-none">
             <div data-hero-copy className="lg:max-w-[46%] pointer-events-auto">
               <h1
@@ -435,7 +435,7 @@ export default function Welcome() {
                 </div>
                 <div className="lv-on-photo absolute -left-3 bottom-8 sm:-left-8">
                   <div className="flex items-center gap-3 rounded-2xl border border-lv-line bg-lv-surface/90 px-4 py-3 shadow-lg backdrop-blur-md">
-                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-lv-accent text-white">
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-lv-accent text-[#fff]">
                       <Check className="h-4 w-4" strokeWidth={3} aria-hidden="true" />
                     </span>
                     <div>

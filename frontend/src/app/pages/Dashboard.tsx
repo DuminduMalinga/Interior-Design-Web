@@ -26,6 +26,7 @@ import { useLocation, useNavigate } from "react-router";
 import { useCurrentUserProfile } from "../context/UserContext";
 import { supabase } from "../lib/supabaseClient";
 import SiteNavbar from "../components/SiteNavbar";
+import PageGlows from "../components/marketing/PageGlows";
 import DesignCard from "../components/DesignCard";
 import PlanSketch from "../components/marketing/PlanSketch";
 import { useUserDesigns, type UserDesign } from "../lib/useUserDesigns";
@@ -620,7 +621,8 @@ export default function Dashboard() {
     </>
   );
   return (
-    <div className="min-h-screen w-full bg-background relative flex flex-col">
+    <div className="min-h-screen w-full bg-background relative isolate flex flex-col">
+      <PageGlows />
       {/* Delete Account Modal */}
       <AnimatePresence>
         {showDeleteModal && (

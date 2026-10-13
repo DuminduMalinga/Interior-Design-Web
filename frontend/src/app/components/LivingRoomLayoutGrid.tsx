@@ -1,254 +1,82 @@
-import { useState } from "react";
-import { CheckCircle2, Star, AlertTriangle, ChevronRight } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
+import { useEffect, useRef } from "react";
+import { AlertTriangle, Star } from "lucide-react";
 import { isLayoutError, type LayoutOrError } from "../lib/livingRoomLayout";
-import RoomSvg, { scoreTone } from "./RoomSvg";
+import RoomSvg from "./RoomSvg";
 
-const COMPONENT_LABELS: Record<string, string> = {
-  circulation: "Circulation",
-  relationships: "Relationships",
-  wall_alignment: "Wall alignment",
-  window_access: "Window access",
-  door_access: "Door access",
-  symmetry: "Symmetry",
-  usability: "Usability",
-  completeness: "Completeness",
-  layout_specific: "Layout-specific",
-  // living-room engine: one component per rule
-  face_to_face: "1 · Face-to-face conversation",
-  views: "2 · Views of other people",
-  zones: "3 · Zones where needed",
-  clear_openings: "4 · Doors, windows and paths clear",
-  furniture_fit: "5 · Furniture sized to the room",
-  within_reach: "6 · Tables within reach",
-  daily_activities: "7 · Arranged for daily activities",
-  openness: "8 · Open, uncrowded room",
-  movement: "9 · Easy movement between areas",
-  accessibility: "10 · Occupants' physical needs",
-  // bedroom engine: one component per rule
-  entrance_view: "1 · Bed sees the entrance",
-  door_distance: "2 · Distance from the doorway",
-  door_swing: "3 · Door opening direction",
-  bed_windows: "4 · Bed and windows",
-  bed_access: "5 · Space beside the bed",
-  bedside_tables: "6 · Bedside tables in reach",
-  storage_clearance: "7 · Clearance at wardrobe and drawers",
-  walking_path: "8 · Clear walking path",
-  desk_and_chair: "9 · Desk and chair off the path",
-  tall_furniture: "10 · Tall furniture clear of windows",
-  room_fit: "11 · Fit to room and occupants",
-  reach_and_height: "12 · Convenient heights and reach",
-  // kitchen engine: one component per rule
-  sink_location: "1 · Sink in a convenient place",
-  prep_by_sink: "2 · Preparation worktop by the sink",
-  safe_workflow: "3 · Safe sink-to-stove workflow",
-  work_triangle: "4 · Work triangle",
-  stove_counter: "5 · Worktop beside the stove",
-  fridge_door: "6 · Refrigerator door opens fully",
-  opened_units: "7 · Open cupboards off the path",
-  utensils: "8 · Utensils by the cooking area",
-  working_route: "9 · Clear working route",
-  dining: "10 · Dining clear of the cooking",
-  food_separation: "11 · Raw and ready-to-eat apart",
-  appliances_and_space: "12 · Appliances, doors and floor space",
-  // bathroom engine: one component per rule
-  basin_entrance: "1 · Basin near the entrance",
-  toilet_space: "2 · Space at the toilet",
-  shower_entry: "3 · Safe way in and out of the shower",
-  walking_paths: "4 · Clear walking paths",
-  basin_standing: "5 · Standing room at the basin",
-  cabinet_position: "6 · Cabinets out of the way",
-  cabinet_doors: "7 · Cabinet doors clear of the path",
-  towel_reach: "8 · Towels within reach",
-  mirror: "9 · Mirror at the basin",
-  toiletries_reach: "10 · Toiletries within reach",
-  splash_control: "11 · Water kept off the walking area",
-  clear_floor: "12 · Unobstructed floor",
-  wheelchair_access: "13 · Wheelchair access",
-  floor_and_drainage: "14 · Non-slip floor and drainage",
-  grab_bars: "15 · Grab bars",
-  // dining engine: one component per rule
-  table_access: "1 · Table easy to reach",
-  chair_pullout: "2 · Room to pull chairs out",
-  table_paths: "3 · Clear paths round the table",
-  table_size: "4 · Table sized to the floor",
-  seating_comfort: "5 · Comfortable seating",
-  openings_clear: "6 · Doors and windows clear",
-  furniture_gap: "7 · Space to nearby furniture",
-  kitchen_proximity: "8 · Close to the kitchen",
-  main_route: "9 · Main route unobstructed",
-  lighting: "10 · Light over the table",
-  items_in_reach: "11 · Dining items within reach",
-  occupants_fit: "12 · Fit to occupants and use",
-  // master-bedroom engine: one component per rule
-  bed_position: "1 · Bed placed for room, doors, windows",
-  bed_sides: "2 · Space on both sides of the bed",
-  entrance_path: "3 · Path from the entrance to the bed",
-  bedside_reach: "4 · Bedside tables in reach",
-  wardrobe_clearance: "5 · Clearance at the wardrobe",
-  wardrobe_position: "6 · Wardrobe clear of doors and windows",
-  dressing_mirror: "7 · Dressing table and mirror",
-  standing_space: "8 · Standing room at dressing table",
-  desk_and_bed: "9 · Desk clear of the bed",
-  personal_reach: "10 · Personal items within reach",
-  no_overcrowding: "11 · Room not overcrowded",
-  window_reach: "12 · Windows reachable",
-  bedroom_lighting: "13 · Light for reading",
-  all_occupants: "14 · Every occupant provided for",
-  connecting_route: "15 · Bed, wardrobe, bathroom, exit route",
-};
-
-function ScoreBreakdown({ components }: { components: Record<string, number> }) {
-  const entries = Object.entries(components).filter(([, v]) => v !== 0);
-  if (entries.length === 0) return <p className="text-xs text-zinc-600 px-1">No scoring components.</p>;
-  return (
-    <div className="space-y-1.5 px-1">
-      {entries.map(([key, value]) => (
-        <div key={key} className="flex items-center justify-between text-xs">
-          <span className="text-zinc-500">{COMPONENT_LABELS[key] ?? key}</span>
-          <span className={value >= 0 ? "text-emerald-400 font-semibold" : "text-red-400 font-semibold"}>
-            {value >= 0 ? "+" : ""}
-            {value.toFixed(1)}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function LayoutCard({
+/** One layout in the list: thumbnail, title, score and anything worth flagging. */
+function LayoutRow({
   entry,
   isRecommended,
   selected,
-  showBreakdown,
   onSelect,
-  onToggleBreakdown,
+  rowRef,
 }: {
   entry: LayoutOrError;
   isRecommended: boolean;
   selected: boolean;
-  showBreakdown: boolean;
   onSelect: () => void;
-  onToggleBreakdown: () => void;
+  rowRef: (el: HTMLButtonElement | null) => void;
 }) {
   if (isLayoutError(entry)) {
     return (
-      <div className="rounded-2xl border-2 border-red-500/20 bg-red-500/[0.03] p-4 opacity-70">
-        <div className="w-full rounded-lg bg-black/20 flex items-center justify-center" style={{ height: 140 }}>
-          <AlertTriangle className="w-8 h-8 text-red-400/60" />
-        </div>
-        <h3 className="font-bold text-zinc-300 text-sm mt-3">{entry.layout.title}</h3>
-        <p className="text-xs text-red-400/80 mt-1 leading-snug">Could not generate: {entry.error}</p>
+      <div className="flex w-[78vw] max-w-[320px] shrink-0 items-center gap-3 rounded-[20px] border border-lv-line bg-lv-surface/60 p-2.5 lg:w-auto lg:max-w-none">
+        <span className="grid h-20 w-24 shrink-0 place-items-center rounded-xl bg-red-500/10">
+          <AlertTriangle className="h-6 w-6 text-red-400" aria-hidden="true" />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-sm font-medium leading-snug text-lv-ink line-clamp-2">{entry.layout.title}</span>
+          <span className="mt-1 block text-xs leading-snug text-red-400 line-clamp-2">Could not be generated: {entry.error}</span>
+        </span>
       </div>
     );
   }
 
-  const valid = entry.validation.valid;
-  const missing = entry.unplaced_furniture.filter((f) => f.required);
-  const summary = entry.reason[0] ?? "";
+  const missing = entry.unplaced_furniture.filter((f) => f.required).length;
+  const compromised = !entry.validation.valid;
 
   return (
-    <motion.div
-      whileHover={{ y: -4, scale: 1.015 }}
-      whileTap={{ scale: 0.99 }}
-      layout
+    <button
+      ref={rowRef}
+      type="button"
       onClick={onSelect}
-      className={`relative rounded-2xl border-2 bg-white/[0.02] transition-all duration-300 overflow-hidden cursor-pointer ${
-        selected
-          ? "border-teal-400 shadow-xl shadow-teal-500/10 ring-2 ring-teal-400/30 ring-offset-1 ring-offset-[#0a0a0f]"
-          : "border-white/10 hover:border-white/20 hover:bg-white/[0.04]"
+      aria-pressed={selected}
+      className={`flex w-[78vw] max-w-[320px] shrink-0 cursor-pointer items-center gap-3 rounded-[20px] border p-2.5 text-left transition-colors lg:w-auto lg:max-w-none ${
+        selected ? "border-lv-accent bg-lv-wash/60 ring-1 ring-lv-accent/40" : "border-lv-line bg-lv-surface hover:border-lv-accent/50"
       }`}
     >
-      {isRecommended && (
-        <div className="absolute top-3 left-3 z-10 flex items-center gap-1 bg-gradient-to-r from-amber-400 to-yellow-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md">
-          <Star className="w-3 h-3" /> Recommended
-        </div>
-      )}
-      <AnimatePresence>
-        {selected && (
-          <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }}
-            className="absolute top-3 right-3 z-10 bg-gradient-to-br from-teal-400 to-teal-600 text-white rounded-full w-7 h-7 flex items-center justify-center shadow-lg">
-            <CheckCircle2 className="w-4 h-4" />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <span className="block h-20 w-24 shrink-0 overflow-hidden rounded-xl border border-lv-line bg-[var(--lv-plan-floor)]">
+        <RoomSvg layout={entry} compact />
+      </span>
 
-      <div className="p-4">
-        <div className={`w-full rounded-lg overflow-hidden border ${selected ? "border-teal-400/40" : "border-white/5"}`} style={{ height: 140 }}>
-          <RoomSvg layout={entry} compact />
-        </div>
-
-        <div className="mt-3 space-y-2.5">
-          <div className="flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <h3 className="font-bold text-zinc-100 text-sm truncate">{entry.layout.title}</h3>
-              <p className="text-xs text-zinc-500 mt-0.5 leading-snug line-clamp-2">{summary}</p>
-            </div>
-            <div className={`shrink-0 text-lg font-extrabold ${scoreTone(entry.layout.score)}`}>
-              {Math.round(entry.layout.score)}
-              <span className="text-[10px] text-zinc-600 font-medium ml-0.5">pts</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-              valid ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-amber-500/10 text-amber-400 border-amber-500/20"
-            }`}>
-              {valid ? "Valid" : "Compromised"}
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium leading-snug text-lv-ink line-clamp-2">{entry.layout.title}</span>
+        <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
+          {isRecommended && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-lv-accent px-2 py-0.5 text-[11px] font-medium text-[#fff]">
+              <Star className="h-3 w-3" aria-hidden="true" /> Recommended
             </span>
-            {missing.length > 0 && (
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">
-                {missing.length} unplaced
-              </span>
-            )}
-            <span className="text-[10px] text-zinc-600 px-2 py-0.5 rounded-full bg-white/5 border border-white/10">
-              suitability {Math.round(entry.layout.suitability_score)}
-            </span>
-          </div>
+          )}
+          {compromised && (
+            <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-400">Compromised</span>
+          )}
+          {missing > 0 && (
+            <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-medium text-red-400">{missing} unplaced</span>
+          )}
+        </span>
+      </span>
 
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleBreakdown();
-            }}
-            className={`w-full flex items-center justify-between text-[11px] font-semibold px-3 py-2 rounded-lg transition-colors ${
-              selected ? "bg-teal-500/10 text-teal-300 hover:bg-teal-500/20" : "bg-white/5 text-zinc-400 hover:bg-white/10"
-            }`}
-          >
-            <span>Score Breakdown</span>
-            <ChevronRight className={`w-3.5 h-3.5 transition-transform duration-200 ${showBreakdown ? "rotate-90" : ""}`} />
-          </button>
-
-          <AnimatePresence>
-            {showBreakdown && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
-                <div className="rounded-xl p-3 mt-1 border border-white/10 bg-white/[0.03]" onClick={(e) => e.stopPropagation()}>
-                  <ScoreBreakdown components={entry.scoring.components} />
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelect();
-            }}
-            className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
-              selected
-                ? "bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-md shadow-teal-500/20"
-                : "bg-white/5 text-zinc-300 hover:bg-teal-500/10 hover:text-teal-300"
-            }`}
-          >
-            {selected ? "Selected ✓" : "View This Layout"}
-          </button>
-        </div>
-      </div>
-    </motion.div>
+      <span className="shrink-0 pr-1 text-right">
+        <span className="block text-2xl font-medium leading-none tabular-nums text-lv-ink">{Math.round(entry.layout.score)}</span>
+        <span className="mt-1 block text-[11px] text-lv-muted">score</span>
+      </span>
+    </button>
   );
 }
 
+/**
+ * The generated layouts, best first, as a list of rows. On small screens the
+ * rows sit side by side and swipe; from lg up they stack and the parent scrolls.
+ */
 export default function LivingRoomLayoutGrid({
   layouts,
   bestLayout,
@@ -260,23 +88,24 @@ export default function LivingRoomLayoutGrid({
   selectedType: string | null;
   onSelectType: (type: string) => void;
 }) {
-  const [openBreakdown, setOpenBreakdown] = useState<string | null>(null);
+  const rowRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  useEffect(() => {
+    if (selectedType) rowRefs.current[selectedType]?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [selectedType]);
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-      {layouts.map((entry, i) => {
+    <div role="group" aria-label="Layouts" className="flex gap-3 overflow-x-auto pb-2 lg:flex-col lg:overflow-x-visible lg:pb-0">
+      {layouts.map((entry) => {
         const type = entry.layout.type;
         return (
-          <motion.div key={type} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}>
-            <LayoutCard
-              entry={entry}
-              isRecommended={type === bestLayout}
-              selected={type === selectedType}
-              showBreakdown={openBreakdown === type}
-              onSelect={() => !isLayoutError(entry) && onSelectType(type)}
-              onToggleBreakdown={() => setOpenBreakdown((prev) => (prev === type ? null : type))}
-            />
-          </motion.div>
+          <LayoutRow
+            key={type}
+            entry={entry}
+            isRecommended={type === bestLayout}
+            selected={type === selectedType}
+            onSelect={() => onSelectType(type)}
+            rowRef={(el) => { rowRefs.current[type] = el; }}
+          />
         );
       })}
     </div>

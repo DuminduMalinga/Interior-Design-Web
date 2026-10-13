@@ -35,6 +35,7 @@ import { useNavigate } from "react-router";
 import { supabase } from "../lib/supabaseClient";
 import { useCurrentUserProfile } from "../context/UserContext";
 import AppNavbar from "../components/AppNavbar";
+import PageGlows from "../components/marketing/PageGlows";
 
 // ─────────────────────────────────────────────
 // Types
@@ -789,8 +790,8 @@ export default function AdminManageAccounts() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-background flex flex-col">
-      <div className="absolute inset-0 dot-grid pointer-events-none" />
+    <div className="min-h-screen w-full bg-background relative isolate flex flex-col">
+      <PageGlows />
 
       {/* ── Modals ── */}
       <AnimatePresence>

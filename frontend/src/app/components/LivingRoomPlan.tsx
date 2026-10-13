@@ -1,115 +1,129 @@
-import { useMemo, useState } from "react";
-import {
-  CheckCircle2,
-  AlertTriangle,
-  Info,
-  Footprints,
-  Sparkles,
-  ChevronDown,
-} from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
+import { useMemo, useState, type ReactNode } from "react";
+import { AlertTriangle, ArrowLeft, Check } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
 import type { GenerateLivingRoomLayoutResponse, LayoutFurnitureItem } from "../lib/livingRoomLayout";
 import type { BedroomRuleResult } from "../lib/bedroomLayout";
-import RoomSvg, { DEFAULT_FURNITURE_COLOR, FURNITURE_COLORS, fmtMm, scoreTone } from "./RoomSvg";
+import RoomSvg, { DEFAULT_FURNITURE_COLOR, FURNITURE_COLORS, fmtMm } from "./RoomSvg";
+import { COMPONENT_LABELS } from "./layoutLabels";
 
-// ─────────────────────────────────────────────
-// Rule-by-rule report (bedroom engine)
-// ─────────────────────────────────────────────
+type Tab = "why" | "rules" | "details";
+const TABS: { id: Tab; label: string }[] = [
+  { id: "why", label: "Why" },
+  { id: "rules", label: "Rules" },
+  { id: "details", label: "Details" },
+];
+
 const RULE_TONE: Record<BedroomRuleResult["status"], string> = {
   satisfied: "bg-emerald-400",
   partly_satisfied: "bg-amber-400",
   not_satisfied: "bg-red-400",
-  not_applicable: "bg-zinc-600",
+  not_applicable: "bg-lv-line",
 };
 
-function RuleCheck({ rules }: { rules: BedroomRuleResult[] }) {
+const RULE_STATUS: Record<BedroomRuleResult["status"], string> = {
+  satisfied: "Met",
+  partly_satisfied: "Partly met",
+  not_satisfied: "Not met",
+  not_applicable: "Does not apply",
+};
+
+const titleCase = (value: string) => value.replace(/_/g, " ");
+
+/** "99 / 100" when the engine's rule maximums add up to a round total, otherwise "99 pts". */
+function scoreParts(score: number, rules: BedroomRuleResult[] | null): { value: number; unit: string } {
+  const max = rules ? Math.round(rules.reduce((sum, r) => sum + (r.status === "not_applicable" ? 0 : r.max_points), 0)) : 0;
+  return { value: Math.round(score), unit: max === 100 ? "/ 100" : "pts" };
+}
+
+function RuleList({ rules }: { rules: BedroomRuleResult[] }) {
   return (
-    <div className="glass-card rounded-2xl border border-white/5 p-5">
-      <h4 className="text-sm font-bold text-zinc-300 mb-3 flex items-center gap-2">
-        <CheckCircle2 className="w-4 h-4 text-teal-400" /> Rule check
-      </h4>
-      <ul className="space-y-1.5">
-        {rules.map((r, i) => (
-          <li key={r.id} title={`${r.rule}\n\n${r.detail}`} className="flex items-center gap-2 text-xs">
-            <span className={`w-2 h-2 rounded-full shrink-0 ${RULE_TONE[r.status]}`} />
-            <span className="text-zinc-400 flex-1 min-w-0 truncate">{i + 1}. {r.title}</span>
-            <span className="text-zinc-200 font-semibold shrink-0">
-              {r.status === "not_applicable" ? "n/a" : `${r.points.toFixed(1)} / ${r.max_points.toFixed(0)}`}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <ol className="space-y-3">
+      {rules.map((r) => (
+        <li key={r.id} className="flex gap-3">
+          <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${RULE_TONE[r.status]}`} aria-hidden="true" />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="text-sm font-medium leading-snug text-lv-ink">{r.title}</p>
+              <p className="shrink-0 text-xs tabular-nums text-lv-muted">
+                {r.status === "not_applicable" ? "n/a" : `${r.points.toFixed(1)} / ${r.max_points.toFixed(0)}`}
+              </p>
+            </div>
+            <p className="mt-0.5 text-xs leading-relaxed text-lv-muted">
+              <span className="sr-only">{RULE_STATUS[r.status]}. </span>
+              {r.detail}
+            </p>
+          </div>
+        </li>
+      ))}
+    </ol>
   );
 }
 
-// ─────────────────────────────────────────────
-// Furniture detail (explainability) panel
-// ─────────────────────────────────────────────
+/** For engines that report score components and not rule-by-rule results. */
+function ComponentList({ components }: { components: Record<string, number> }) {
+  const entries = Object.entries(components).filter(([, v]) => v !== 0);
+  if (entries.length === 0) return <p className="text-sm text-lv-muted">This layout has no score breakdown.</p>;
+  return (
+    <ul className="space-y-2">
+      {entries.map(([key, value]) => (
+        <li key={key} className="flex items-baseline justify-between gap-3 text-sm">
+          <span className="text-lv-ink">{(COMPONENT_LABELS[key] ?? titleCase(key)).replace(/^\d+\s·\s/, "")}</span>
+          <span className={`shrink-0 tabular-nums font-medium ${value >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+            {value >= 0 ? "+" : ""}
+            {value.toFixed(1)}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function FurnitureDetail({ item }: { item: LayoutFurnitureItem }) {
   const color = FURNITURE_COLORS[item.type] ?? DEFAULT_FURNITURE_COLOR;
+  const facts = [
+    { label: "Size", value: `${fmtMm(item.width)} × ${fmtMm(item.depth)}` },
+    { label: "Height", value: fmtMm(item.height) },
+    { label: "Facing", value: item.facing },
+    { label: "Placed by", value: item.placement_strategy || "Not recorded" },
+  ];
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-      className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-      <div className="flex items-center gap-2 mb-2">
-        <span className="w-3 h-3 rounded-full shrink-0" style={{ background: color.stroke }} />
-        <h4 className="font-bold text-zinc-100 text-sm capitalize">{(item.role || item.type).replace(/_/g, " ")}</h4>
-      </div>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-zinc-400 mb-3">
-        <span>Size: <span className="text-zinc-200 font-medium">{fmtMm(item.width)} × {fmtMm(item.depth)}</span></span>
-        <span>Facing: <span className="text-zinc-200 font-medium capitalize">{item.facing}</span></span>
-        <span>Height: <span className="text-zinc-200 font-medium">{fmtMm(item.height)}</span></span>
-        <span>Strategy: <span className="text-zinc-200 font-medium">{item.placement_strategy || "—"}</span></span>
-      </div>
+    <div>
+      <h3 className="flex items-center gap-2.5 text-lg capitalize leading-tight text-lv-ink">
+        <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: color.stroke }} aria-hidden="true" />
+        {titleCase(item.role || item.type)}
+      </h3>
+      <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
+        {facts.map((fact) => (
+          <div key={fact.label}>
+            <dt className="text-xs text-lv-muted">{fact.label}</dt>
+            <dd className="mt-0.5 text-sm font-medium capitalize text-lv-ink">{fact.value}</dd>
+          </div>
+        ))}
+      </dl>
       {item.reasons.length > 0 && (
-        <ul className="space-y-1.5">
-          {item.reasons.map((r, i) => (
-            <li key={i} className="flex gap-1.5 text-xs text-zinc-400">
-              <span className="text-teal-400 mt-0.5">•</span> {r}
-            </li>
-          ))}
-        </ul>
+        <>
+          <p className="mt-5 text-xs text-lv-muted">Why it is here</p>
+          <ul className="mt-2 space-y-2">
+            {item.reasons.map((reason, i) => (
+              <li key={i} className="text-sm leading-relaxed text-lv-ink">{reason}</li>
+            ))}
+          </ul>
+        </>
       )}
-    </motion.div>
-  );
-}
-
-// ─────────────────────────────────────────────
-// Collapsible list (explanation / reason)
-// ─────────────────────────────────────────────
-function CollapsibleList({ title, icon, items, defaultOpen = false }: {
-  title: string; icon: React.ReactNode; items: string[]; defaultOpen?: boolean;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-  if (items.length === 0) return null;
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden">
-      <button onClick={() => setOpen((p) => !p)}
-        className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-zinc-200">
-        <span className="flex items-center gap-2">{icon} {title}</span>
-        <ChevronDown className={`w-4 h-4 text-zinc-500 transition-transform ${open ? "rotate-180" : ""}`} />
-      </button>
-      <AnimatePresence>
-        {open && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-            <ul className="px-4 pb-4 space-y-1.5">
-              {items.map((line, i) => (
-                <li key={i} className="text-xs text-zinc-400 leading-relaxed">{line}</li>
-              ))}
-            </ul>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
 
-// ─────────────────────────────────────────────
-// Main component
-// ─────────────────────────────────────────────
-export default function LivingRoomPlan({ data }: { data: GenerateLivingRoomLayoutResponse }) {
+/**
+ * The chosen layout: title and score, the plan (furniture is clickable), and
+ * tabs for the reasoning, the rule-by-rule report and the remaining details.
+ * `footer` (the primary action) sits inline in the header from lg up, next to
+ * the score — freeing the card's full height for the plan below.
+ */
+export default function LivingRoomPlan({ data, footer }: { data: GenerateLivingRoomLayoutResponse; footer?: ReactNode }) {
   const { layout } = data;
+  const reduceMotion = useReducedMotion();
+  const [tab, setTab] = useState<Tab>("why");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selectedItem = useMemo(
     () => layout.furniture.find((f) => f.id === selectedId) ?? null,
@@ -119,117 +133,152 @@ export default function LivingRoomPlan({ data }: { data: GenerateLivingRoomLayou
   const circulation = layout.validation.circulation;
   const missingRequired = layout.unplaced_furniture.filter((f) => f.required);
   const rules = Array.isArray(layout.rules) ? (layout.rules as BedroomRuleResult[]) : null;
+  const score = scoreParts(layout.layout.score, rules);
+  const details = [
+    ...(circulation
+      ? [
+          { label: "Widest walking path", value: fmtMm(circulation.corridor_width_mm) },
+          { label: "Floor reachable from the entrance", value: `${Math.round(circulation.walkable_reached_ratio * 100)}%` },
+        ]
+      : []),
+    { label: "Suitability for this room", value: `${Math.round(layout.layout.suitability_score)}` },
+    { label: "Pieces placed", value: `${layout.furniture.length}` },
+  ];
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Plan */}
-      <div className="lg:col-span-2 glass-card rounded-3xl border border-white/5 p-4 md:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-          <div>
-            <p className="text-xs text-zinc-500 mb-0.5">Structure &amp; Layout</p>
-            <h3 className="text-xl font-bold text-white">{layout.layout.title}</h3>
-            <p className="text-xs text-zinc-500 mt-1">
-              {(layout.room.width / 1000).toFixed(2)}m × {(layout.room.length / 1000).toFixed(2)}m · {layout.room.area_m2} m²
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            {layout.validation.valid ? (
-              <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Valid layout
-              </span>
-            ) : (
-              <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                <AlertTriangle className="w-3.5 h-3.5" /> Compromised
-              </span>
-            )}
-            <span className={`px-3 py-1.5 rounded-full text-xs font-bold bg-white/5 border border-white/10 ${scoreTone(layout.layout.score)}`}>
-              {layout.layout.score} pts
+    <section aria-label="Selected layout" className="flex flex-col rounded-[28px] border border-lv-line bg-lv-surface lg:min-h-0 lg:overflow-hidden">
+      <header className="flex shrink-0 flex-wrap items-start justify-between gap-x-6 gap-y-3 px-5 pt-5">
+        <div className="min-w-0">
+          <h2 className="text-xl leading-tight text-lv-ink md:text-2xl">{layout.layout.title}</h2>
+          <p className="mt-1 text-sm text-lv-muted">
+            {(layout.room.width / 1000).toFixed(2)} × {(layout.room.length / 1000).toFixed(2)} m, {layout.room.area_m2} m²
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-3">
+          {layout.validation.valid ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-400">
+              <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" /> Valid layout
             </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-400">
+              <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" /> Compromised
+            </span>
+          )}
+          <p className="flex items-baseline gap-1 text-lv-ink">
+            <span className="text-3xl font-medium leading-none tabular-nums">{score.value}</span>
+            <span className="text-sm text-lv-muted">{score.unit}</span>
+          </p>
+          {footer && <span className="hidden lg:ml-6 lg:block">{footer}</span>}
+        </div>
+      </header>
+
+      <div className="grid flex-1 gap-5 p-5 lg:min-h-0 lg:grid-cols-[minmax(0,1.2fr)_minmax(220px,1fr)] lg:overflow-hidden xl:grid-cols-[minmax(0,1.25fr)_minmax(260px,1fr)]">
+        {/* Plan */}
+        <div className="flex flex-col lg:min-h-0">
+          <div className="aspect-[4/3] overflow-hidden rounded-2xl border border-lv-line bg-[var(--lv-plan-floor)] lg:aspect-auto lg:min-h-0 lg:flex-1">
+            <RoomSvg layout={layout} selectedId={selectedId} onSelect={setSelectedId} />
           </div>
-        </div>
-
-        <div className="rounded-2xl overflow-hidden border border-white/10">
-          <RoomSvg layout={layout} selectedId={selectedId} onSelect={setSelectedId} />
-        </div>
-
-        {/* Legend */}
-        <div className="flex flex-wrap gap-3 mt-4 text-[11px] text-zinc-500">
-          <span className="flex items-center gap-1.5"><span className="w-3 h-1 bg-zinc-500 inline-block rounded-sm" /> Wall</span>
-          <span className="flex items-center gap-1.5"><span className="w-3 h-1 bg-sky-400 inline-block rounded-sm" /> Window</span>
-          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-yellow-400 inline-block" /> Main entrance</span>
-          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-teal-500/60 border border-teal-400 inline-block" /> Furniture (click for details)</span>
-        </div>
-
-        {selectedItem && (
-          <div className="mt-4">
-            <FurnitureDetail item={selectedItem} />
-          </div>
-        )}
-      </div>
-
-      {/* Side panel */}
-      <div className="lg:col-span-1 flex flex-col gap-4">
-        <div className="glass-card rounded-2xl border border-white/5 p-5">
-          <h4 className="text-sm font-bold text-zinc-300 mb-3 flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-teal-400" /> Why this layout
-          </h4>
-          <ul className="space-y-1.5">
-            {layout.reason.slice(0, 4).map((r, i) => (
-              <li key={i} className="text-xs text-zinc-400 leading-relaxed flex gap-1.5">
-                <span className="text-teal-400 mt-0.5">•</span> {r}
-              </li>
-            ))}
+          <ul className="mt-3 flex shrink-0 flex-wrap gap-x-4 gap-y-1.5 text-xs text-lv-muted">
+            <li className="flex items-center gap-1.5"><span className="inline-block h-1 w-3 rounded-sm bg-[var(--lv-plan-wall)]" /> Wall</li>
+            <li className="flex items-center gap-1.5"><span className="inline-block h-1 w-3 rounded-sm bg-sky-400" /> Window</li>
+            <li className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-500" /> Main entrance</li>
+            <li>Click a piece of furniture for its details.</li>
           </ul>
         </div>
 
-        {rules && <RuleCheck rules={rules} />}
-
-        {circulation && (
-          <div className="glass-card rounded-2xl border border-white/5 p-5">
-            <h4 className="text-sm font-bold text-zinc-300 mb-3 flex items-center gap-2">
-              <Footprints className="w-4 h-4 text-teal-400" /> Circulation
-            </h4>
-            <div className="flex items-center justify-between text-xs mb-2">
-              <span className="text-zinc-500">Widest walking path</span>
-              <span className="text-zinc-200 font-semibold">{fmtMm(circulation.corridor_width_mm)}</span>
-            </div>
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-zinc-500">Reachable from entrance</span>
-              <span className="text-zinc-200 font-semibold">{Math.round(circulation.walkable_reached_ratio * 100)}%</span>
-            </div>
-          </div>
-        )}
-
-        {missingRequired.length > 0 && (
-          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5">
-            <h4 className="text-sm font-bold text-amber-400 mb-2 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4" /> Could not place
-            </h4>
-            <ul className="space-y-1">
-              {missingRequired.map((f, i) => (
-                <li key={i} className="text-xs text-amber-300/80">
-                  {(f.role || f.type).replace(/_/g, " ")}
-                  {f.reasons[0] ? ` — ${f.reasons[0]}` : ""}
-                </li>
+        {/* Reasoning */}
+        <div className="flex flex-col lg:min-h-0">
+          {selectedItem ? (
+            <button type="button" onClick={() => setSelectedId(null)}
+              className="inline-flex min-h-10 shrink-0 cursor-pointer items-center gap-2 self-start rounded-full text-sm text-lv-muted transition-colors hover:text-lv-ink">
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to the layout
+            </button>
+          ) : (
+            <div role="tablist" aria-label="Layout information" className="flex shrink-0 gap-1 self-start rounded-full border border-lv-line p-1">
+              {TABS.map((t) => (
+                <button key={t.id} type="button" role="tab" id={`layout-tab-${t.id}`} aria-selected={tab === t.id}
+                  aria-controls="layout-tabpanel" onClick={() => setTab(t.id)}
+                  className={`relative h-9 cursor-pointer rounded-full px-4 text-sm transition-colors ${
+                    tab === t.id ? "text-lv-on-ink" : "text-lv-ink hover:bg-lv-ink/8"
+                  }`}>
+                  {tab === t.id && (
+                    <motion.span
+                      layoutId="layout-tab-pill"
+                      className="absolute inset-0 rounded-full bg-lv-ink"
+                      transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 500, damping: 34 }}
+                    />
+                  )}
+                  <span className="relative">{t.label}</span>
+                </button>
               ))}
-            </ul>
+            </div>
+          )}
+
+          <div id="layout-tabpanel" role={selectedItem ? undefined : "tabpanel"}
+            aria-labelledby={selectedItem ? undefined : `layout-tab-${tab}`}
+            className="mt-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-2">
+            {selectedItem ? (
+              <FurnitureDetail item={selectedItem} />
+            ) : tab === "why" ? (
+              <>
+                <ul className="space-y-3">
+                  {layout.reason.map((reason, i) => (
+                    <li key={i} className="text-sm leading-relaxed text-lv-ink">{reason}</li>
+                  ))}
+                </ul>
+                {missingRequired.length > 0 && (
+                  <div className="mt-5 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
+                    <p className="flex items-center gap-2 text-sm font-medium text-amber-400">
+                      <AlertTriangle className="h-4 w-4" aria-hidden="true" /> Could not be placed
+                    </p>
+                    <ul className="mt-2 space-y-1.5">
+                      {missingRequired.map((f, i) => (
+                        <li key={i} className="text-sm leading-relaxed text-amber-300">
+                          <span className="capitalize">{titleCase(f.role || f.type)}</span>
+                          {f.reasons[0] ? `: ${f.reasons[0]}` : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </>
+            ) : tab === "rules" ? (
+              rules ? <RuleList rules={rules} /> : <ComponentList components={layout.scoring.components} />
+            ) : (
+              <>
+                <dl className="space-y-2.5">
+                  {details.map((d) => (
+                    <div key={d.label} className="flex items-baseline justify-between gap-3 text-sm">
+                      <dt className="text-lv-muted">{d.label}</dt>
+                      <dd className="shrink-0 font-medium tabular-nums text-lv-ink">{d.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+                {layout.explanation.length > 0 && (
+                  <>
+                    <p className="mt-6 text-xs text-lv-muted">Full explanation</p>
+                    <ul className="mt-2 space-y-2">
+                      {layout.explanation.map((line, i) => (
+                        <li key={i} className="text-sm leading-relaxed text-lv-ink">{line}</li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+                {data.notes.length > 0 && (
+                  <>
+                    <p className="mt-6 text-xs text-lv-muted">Detection notes</p>
+                    <ul className="mt-2 space-y-2">
+                      {data.notes.map((line, i) => (
+                        <li key={i} className="text-sm leading-relaxed text-lv-muted">{line}</li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </>
+            )}
           </div>
-        )}
-
-        <CollapsibleList
-          title="Full explanation"
-          icon={<Info className="w-4 h-4 text-teal-400" />}
-          items={layout.explanation}
-        />
-
-        {data.notes.length > 0 && (
-          <CollapsibleList
-            title="Detection notes"
-            icon={<Info className="w-4 h-4 text-zinc-500" />}
-            items={data.notes}
-          />
-        )}
+        </div>
       </div>
-    </div>
+    </section>
   );
 }

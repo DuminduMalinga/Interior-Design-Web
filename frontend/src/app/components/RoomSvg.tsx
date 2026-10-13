@@ -52,6 +52,8 @@ function solidSegments(length: number, openings: Array<{ start: number; end: num
 // ─────────────────────────────────────────────
 // Shared furniture styling / formatting
 // ─────────────────────────────────────────────
+// Each type's `stroke` is its accent: the piece is drawn as that colour at low
+// opacity with a solid outline, so the plan works on a light or a dark floor.
 export const FURNITURE_COLORS: Record<string, { fill: string; stroke: string }> = {
   sofa: { fill: "#134e4a", stroke: "#2dd4bf" },
   loveseat: { fill: "#134e4a", stroke: "#2dd4bf" },
@@ -160,7 +162,7 @@ export default function RoomSvg({
   return (
     <svg viewBox={`0 0 ${CANVAS_W} ${H}`} width="100%" height="100%" className="block">
       {/* floor */}
-      <rect x={0} y={0} width={CANVAS_W} height={H} fill="#0f1720" rx={2} />
+      <rect x={0} y={0} width={CANVAS_W} height={H} fill="var(--lv-plan-floor)" rx={2} />
 
       {/* solid wall segments */}
       {wallSegments.map(({ wall, segments }) =>
@@ -171,7 +173,7 @@ export default function RoomSvg({
             <line
               key={`${wall}-${i}`}
               x1={p0[0]} y1={p0[1]} x2={p1[0]} y2={p1[1]}
-              stroke="#52525b" strokeWidth={compact ? 3 : 5} strokeLinecap="square"
+              stroke="var(--lv-plan-wall)" strokeWidth={compact ? 3 : 5} strokeLinecap="square"
               vectorEffect="non-scaling-stroke"
             />
           );
@@ -211,12 +213,12 @@ export default function RoomSvg({
           return (
             <g key={d.id}>
               {!compact && (
-                <path d={path} fill="#14b8a6" fillOpacity={0.08} stroke="#2dd4bf" strokeOpacity={0.5}
+                <path d={path} fill="var(--lv-accent)" fillOpacity={0.08} stroke="var(--lv-accent)" strokeOpacity={0.5}
                   strokeDasharray="4 3" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
               )}
-              <line x1={p0[0]} y1={p0[1]} x2={p2[0]} y2={p2[1]} stroke="#2dd4bf" strokeWidth={compact ? 1.5 : 2}
+              <line x1={p0[0]} y1={p0[1]} x2={p2[0]} y2={p2[1]} stroke="var(--lv-accent)" strokeWidth={compact ? 1.5 : 2}
                 vectorEffect="non-scaling-stroke" />
-              {d.is_main && <circle cx={p0[0]} cy={p0[1]} r={compact ? 2.5 : 4} fill="#facc15" />}
+              {d.is_main && <circle cx={p0[0]} cy={p0[1]} r={compact ? 2.5 : 4} fill="#f59e0b" />}
               {!compact && (
                 <title>{`Door ${d.id} (${d.is_main ? "main entrance" : "interior"}) — ${fmtMm(d.width)} wide, swings inward`}</title>
               )}
@@ -226,10 +228,10 @@ export default function RoomSvg({
         const p1 = toScreen([hingeMM[0] + closedDir[0] * d.width, hingeMM[1] + closedDir[1] * d.width]);
         return (
           <g key={d.id}>
-            <line x1={p0[0]} y1={p0[1]} x2={p1[0]} y2={p1[1]} stroke="#5eead4" strokeWidth={compact ? 1.5 : 2}
+            <line x1={p0[0]} y1={p0[1]} x2={p1[0]} y2={p1[1]} stroke="var(--lv-accent)" strokeWidth={compact ? 1.5 : 2}
               strokeDasharray={d.swing === "sliding" ? "6 3" : undefined}
               vectorEffect="non-scaling-stroke" />
-            {d.is_main && <circle cx={p0[0]} cy={p0[1]} r={compact ? 2.5 : 4} fill="#facc15" />}
+            {d.is_main && <circle cx={p0[0]} cy={p0[1]} r={compact ? 2.5 : 4} fill="#f59e0b" />}
             {!compact && (
               <title>{`Door ${d.id} (${d.is_main ? "main entrance" : "interior"}) — ${fmtMm(d.width)} wide, ${d.swing}`}</title>
             )}
@@ -240,6 +242,8 @@ export default function RoomSvg({
       {/* furniture */}
       {layout.furniture.map((item) => {
         const color = FURNITURE_COLORS[item.type] ?? DEFAULT_FURNITURE_COLOR;
+        // Outline pulled toward the ink colour so it reads on both the light and the dark floor.
+        const outline = `color-mix(in srgb, ${color.stroke} 72%, var(--lv-ink))`;
         const isRug = item.type === "rug";
         // Wall fittings, the floor drain and lights are markers: no label, no facing notch.
         const isFitting = !!item.mounted && item.mounted !== "floor";
@@ -267,8 +271,8 @@ export default function RoomSvg({
                 <rect
                   key={i}
                   x={topLeft[0]} y={topLeft[1]} width={w} height={h}
-                  fill={color.fill} fillOpacity={selected ? 0.95 : 0.75}
-                  stroke={selected ? "#ffffff" : color.stroke}
+                  fill={color.stroke} fillOpacity={selected ? 0.42 : 0.2}
+                  stroke={selected ? "var(--lv-ink)" : outline}
                   strokeWidth={selected ? 2.5 : compact ? 1 : 1.5}
                   vectorEffect="non-scaling-stroke"
                   rx={2}
@@ -277,7 +281,7 @@ export default function RoomSvg({
             })}
             {!isRug && !isFitting && !compact && (
               <line x1={fp0[0]} y1={fp0[1]} x2={fp1[0]} y2={fp1[1]}
-                stroke={selected ? "#ffffff" : color.stroke} strokeWidth={2.5}
+                stroke={selected ? "var(--lv-ink)" : outline} strokeWidth={2.5}
                 vectorEffect="non-scaling-stroke" />
             )}
             {!isRug && !isFitting && !compact && (
@@ -285,8 +289,8 @@ export default function RoomSvg({
                 x={toScreen([(item.bbox[0] + item.bbox[2]) / 2, (item.bbox[1] + item.bbox[3]) / 2])[0]}
                 y={toScreen([(item.bbox[0] + item.bbox[2]) / 2, (item.bbox[1] + item.bbox[3]) / 2])[1]}
                 textAnchor="middle" dominantBaseline="middle"
-                fontSize={13} fill="#f4f4f5" fontFamily="Inter, sans-serif" fontWeight={600}
-                style={{ pointerEvents: "none", textShadow: "0 1px 2px rgba(0,0,0,0.6)" }}
+                fontSize={13} fill="var(--lv-ink)" fontFamily="'Plus Jakarta Sans', Inter, sans-serif" fontWeight={600}
+                style={{ pointerEvents: "none" }}
               >
                 {(item.role || item.type).replace(/_/g, " ")}
               </text>

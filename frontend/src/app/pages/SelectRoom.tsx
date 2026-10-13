@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, AlertCircle } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion } from "motion/react";
 import { useLocation, useNavigate } from "react-router";
 import SiteNavbar from "../components/SiteNavbar";
+import PageGlows from "../components/marketing/PageGlows";
 import AppFooter from "../components/AppFooter";
 import FlowStepper from "../components/FlowStepper";
 import type { DetectionResult } from "../lib/wallDetector";
@@ -84,39 +85,41 @@ function formatSize(room: DetectedRoom): { dims: string; area: string; note: str
   };
 }
 
-function RoomThumbnail({ shape, selected }: { shape: [number, number][]; selected: boolean }) {
-  const points = shape.map(([x, y]) => `${x},${y}`).join(" ");
-  return (
-    <div className={`h-24 w-full rounded-2xl transition-colors ${selected ? "bg-lv-wash text-lv-ink" : "bg-lv-wash/50 text-lv-muted"}`}>
-      <svg viewBox="0 0 100 100" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-        <polygon points={points} fill="currentColor" fillOpacity={selected ? 0.14 : 0.06} stroke="currentColor"
-          strokeWidth={selected ? 2.5 : 1.5} strokeLinejoin="round" />
-      </svg>
-    </div>
-  );
-}
-
-function RoomCard({ room, selected, onClick }: { room: DetectedRoom; selected: boolean; onClick: () => void }) {
+/** One room in the list: outline thumbnail, name and size. */
+function RoomRow({
+  room,
+  selected,
+  onClick,
+  rowRef,
+}: {
+  room: DetectedRoom;
+  selected: boolean;
+  onClick: () => void;
+  rowRef: (el: HTMLButtonElement | null) => void;
+}) {
   const size = formatSize(room);
+  const points = room.shape.map(([x, y]) => `${x},${y}`).join(" ");
 
   return (
-    <button type="button" onClick={onClick} aria-pressed={selected}
-      className={`relative w-full cursor-pointer rounded-[24px] border bg-lv-surface p-3 text-left transition-colors ${
-        selected ? "border-lv-accent ring-2 ring-lv-accent/40" : "border-lv-line hover:border-lv-accent/50"
+    <button ref={rowRef} type="button" onClick={onClick} aria-pressed={selected}
+      className={`flex w-full cursor-pointer items-center gap-4 rounded-[20px] border p-3 text-left transition-colors ${
+        selected ? "border-lv-accent bg-lv-wash/60 ring-1 ring-lv-accent/40" : "border-lv-line bg-lv-surface hover:border-lv-accent/50"
       }`}>
+      <span className={`grid h-16 w-16 shrink-0 place-items-center rounded-2xl ${selected ? "bg-lv-wash text-lv-ink" : "bg-lv-wash/50 text-lv-muted"}`}>
+        <svg viewBox="0 0 100 100" className="h-14 w-14" aria-hidden="true">
+          <polygon points={points} fill="currentColor" fillOpacity={selected ? 0.16 : 0.06} stroke="currentColor"
+            strokeWidth={selected ? 4.5 : 3} strokeLinejoin="round" />
+        </svg>
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-base font-medium leading-tight text-lv-ink">{room.name}</span>
+        <span className="mt-1 block truncate text-sm text-lv-muted" title={size.note ?? undefined}>{size.dims}</span>
+      </span>
       {selected && (
-        <span className="absolute right-5 top-5 grid h-6 w-6 place-items-center rounded-full bg-lv-accent text-white">
+        <span className="mr-1 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-lv-accent text-[#fff]">
           <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
         </span>
       )}
-      <RoomThumbnail shape={room.shape} selected={selected} />
-      <div className="px-2 pb-1.5 pt-3">
-        <h3 className="truncate text-base font-medium text-lv-ink">{room.name}</h3>
-        <p className="mt-0.5 flex items-center justify-between gap-2 text-xs text-lv-muted" title={size.note ?? undefined}>
-          <span className="truncate">{size.dims}</span>
-          <span className="shrink-0 tabular-nums">{size.area}</span>
-        </p>
-      </div>
     </button>
   );
 }
@@ -141,6 +144,10 @@ export default function SelectRoom() {
     [detection],
   );
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId) ?? null;
+  const rowRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  useEffect(() => {
+    if (selectedRoomId) rowRefs.current[selectedRoomId]?.scrollIntoView({ block: "nearest" });
+  }, [selectedRoomId]);
   const counts = detection?.counts ?? {};
 
   const handleContinue = () => {
@@ -152,27 +159,57 @@ export default function SelectRoom() {
 
   if (!detection) return null;
 
-  const details = selectedRoom
-    ? [
-        { label: "Dimensions", value: formatSize(selectedRoom).dims },
-        { label: "Area", value: formatSize(selectedRoom).area },
-        { label: "Confidence", value: `${Math.round(selectedRoom.confidence * 100)}%` },
-        { label: "Name", value: selectedRoom.labelDetected ? "Read from plan" : "Auto-named" },
-      ]
-    : [];
+  const toggleRoom = (id: string) => setSelectedRoomId((prev) => (prev === id ? null : id));
+  const selectedSize = selectedRoom ? formatSize(selectedRoom) : null;
+  const planRatio = detection.imageWidth > 0 && detection.imageHeight > 0 ? detection.imageWidth / detection.imageHeight : 4 / 3;
 
+  // The selected room and the next step. Name, facts and button are stacked so
+  // the card is the same height whatever is selected. It is placed twice (inside
+  // the plan card from lg up, as a sticky bar below that) and only one is shown,
+  // so only one of them announces changes.
+  const generateCard = (announce: boolean) => (
+    <>
+      <div aria-live={announce ? "polite" : undefined}>
+        {selectedRoom && selectedSize ? (
+          <>
+            <p className="truncate text-lg font-medium leading-tight">{selectedRoom.name}</p>
+            <ul className="mt-3 flex flex-nowrap gap-1.5 overflow-hidden" title={selectedSize.note ? `Size ${selectedSize.note}` : undefined}>
+              {[selectedSize.dims, selectedSize.area, `${Math.round(selectedRoom.confidence * 100)}% confidence`].map((fact) => (
+                <li key={fact} className="whitespace-nowrap rounded-full bg-lv-on-deep/15 px-3 py-1.5 text-xs font-medium tabular-nums text-lv-on-deep">
+                  {fact}
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <>
+            <p className="text-lg font-medium leading-tight">No room selected</p>
+            <p className="mt-3 py-1.5 text-xs text-lv-on-deep/70">Choose a room to continue.</p>
+          </>
+        )}
+      </div>
+      <button type="button" onClick={handleContinue} disabled={!selectedRoomId} className="lv-btn-invert mt-4 w-full min-h-12">
+        Generate layouts <ArrowRight className="h-4 w-4" aria-hidden="true" />
+      </button>
+    </>
+  );
+
+  // From lg up the page is exactly one viewport tall. Left: the heading and the
+  // room buttons, which are the only part that scrolls. Right: one card holding
+  // the plan, the counts and the Generate card; it never scrolls or changes size.
   return (
-    <div className="min-h-screen w-full bg-background relative flex flex-col">
+    <div className="min-h-screen w-full bg-background relative isolate flex flex-col lg:h-svh lg:min-h-0 lg:overflow-hidden">
+      <PageGlows />
       <SiteNavbar />
 
-      <main className="relative flex-1 w-full px-4 md:px-8 pt-2 pb-12">
-        <div className="max-w-6xl mx-auto">
-          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="max-w-2xl mx-auto">
+      <main className="relative flex w-full flex-1 flex-col px-4 pb-6 pt-2 md:px-8 lg:min-h-0">
+        <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col lg:min-h-0">
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mx-auto w-full max-w-2xl shrink-0">
             <FlowStepper current="detect" />
           </motion.div>
 
           {rooms.length === 0 ? (
-            <div className="mt-10 flex flex-col items-center rounded-[28px] border border-lv-line bg-lv-surface px-6 py-14 text-center">
+            <div className="mt-8 flex flex-col items-center rounded-[28px] border border-lv-line bg-lv-surface px-6 py-14 text-center">
               <span className="grid h-14 w-14 place-items-center rounded-full bg-amber-500/10">
                 <AlertCircle className="h-7 w-7 text-amber-400" aria-hidden="true" />
               </span>
@@ -185,100 +222,86 @@ export default function SelectRoom() {
               </button>
             </div>
           ) : (
-            <>
-              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="mt-10 md:mt-12">
+            <div className="mt-5 grid flex-1 grid-cols-1 gap-x-6 gap-y-4 lg:min-h-0 lg:grid-cols-[1fr_1.25fr] lg:grid-rows-[auto_minmax(0,1fr)]">
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="lg:col-start-1 lg:row-start-1">
                 <h1 className="text-4xl md:text-5xl leading-[1.05] tracking-tight text-lv-ink">Pick a room</h1>
                 <p className="mt-3 text-base md:text-lg text-lv-muted">
-                  {rooms.length} {rooms.length === 1 ? "room" : "rooms"} found. Choose the one you want to furnish.
+                  {rooms.length} {rooms.length === 1 ? "room" : "rooms"} found. Choose one from the list or on the plan.
                 </p>
               </motion.div>
 
-              <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-[1.6fr_1fr] lg:items-start">
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  {rooms.map((room, i) => (
-                    <motion.div key={room.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i, 8) * 0.05 }}>
-                      <RoomCard room={room} selected={room.id === selectedRoomId}
-                        onClick={() => setSelectedRoomId((prev) => (prev === room.id ? null : room.id))} />
-                    </motion.div>
-                  ))}
-                </div>
-
-                {/* Side panel: stays in view while the room list scrolls */}
-                <div className="flex flex-col gap-4 lg:sticky lg:top-20">
-                  <div className="rounded-[24px] border border-lv-line bg-lv-surface p-4">
-                    <div className="overflow-hidden rounded-2xl bg-white">
-                      {planImage ? (
-                        // Sized to the image itself so the selected-room overlay lines up with it.
-                        <div className="relative mx-auto w-fit">
-                          <img
-                            src={planImage}
-                            alt="Your floor plan"
-                            className="block h-auto max-h-[240px] w-auto max-w-full"
+              {/* The plan, its counts and the next step, in one card that never scrolls */}
+              <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.06 }}
+                aria-label="Floor plan"
+                className="flex flex-col rounded-[28px] border border-lv-line bg-lv-surface p-4 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:min-h-0 lg:overflow-hidden">
+                <div className="flex h-[46svh] items-center justify-center overflow-hidden rounded-2xl bg-white [container-type:size] lg:h-auto lg:min-h-0 lg:flex-1">
+                  {planImage ? (
+                    // Sized to the image's own proportions so the room overlays line up with it.
+                    <div className="relative" style={{ aspectRatio: String(planRatio), width: `min(100cqw, calc(100cqh * ${planRatio}))` }}>
+                      <img src={planImage} alt="Your floor plan" className="block h-full w-full" />
+                      {rooms.map((room) => {
+                        const isSelected = room.id === selectedRoomId;
+                        return (
+                          <button
+                            key={room.id}
+                            type="button"
+                            tabIndex={-1}
+                            aria-hidden="true"
+                            title={room.name}
+                            onClick={() => toggleRoom(room.id)}
+                            className={`absolute cursor-pointer rounded-sm border-2 transition-colors duration-200 ${
+                              isSelected ? "border-[#6e6bc9] bg-[#6e6bc9]/30" : "border-transparent hover:border-[#6e6bc9]/70 hover:bg-[#6e6bc9]/15"
+                            }`}
+                            style={{
+                              left: `${room.bboxPct.x}%`,
+                              top: `${room.bboxPct.y}%`,
+                              width: `${room.bboxPct.w}%`,
+                              height: `${room.bboxPct.h}%`,
+                            }}
                           />
-                          {selectedRoom && (
-                            <div
-                              className="pointer-events-none absolute rounded-sm border-2 border-[#6e6bc9] bg-[#6e6bc9]/25 transition-all duration-300"
-                              style={{
-                                left: `${selectedRoom.bboxPct.x}%`,
-                                top: `${selectedRoom.bboxPct.y}%`,
-                                width: `${selectedRoom.bboxPct.w}%`,
-                                height: `${selectedRoom.bboxPct.h}%`,
-                              }}
-                            />
-                          )}
-                        </div>
-                      ) : (
-                        <div className="grid h-40 place-items-center bg-lv-wash text-sm text-lv-muted">No preview available</div>
-                      )}
+                        );
+                      })}
                     </div>
-                    <dl className="mt-4 grid grid-cols-4 gap-2 text-center">
-                      {(["Wall", "Room", "Door", "Window"] as const).map((k) => (
-                        <div key={k} className="flex flex-col-reverse">
-                          <dt className="text-xs text-lv-muted">{k}s</dt>
-                          <dd className="text-lg font-medium tabular-nums text-lv-ink">{counts[k] ?? 0}</dd>
-                        </div>
-                      ))}
-                    </dl>
-                  </div>
-
-                  <div className="rounded-[24px] bg-lv-deep p-6 text-lv-on-deep">
-                    <AnimatePresence mode="wait">
-                      {selectedRoom ? (
-                        <motion.div key={selectedRoom.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                          transition={{ duration: 0.15 }}>
-                          <p className="text-xs text-lv-on-deep/70">Selected room</p>
-                          <h2 className="mt-1 truncate text-2xl leading-tight">{selectedRoom.name}</h2>
-                          <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-4">
-                            {details.map(({ label, value }) => (
-                              <div key={label} className="min-w-0">
-                                <dt className="text-xs text-lv-on-deep/70">{label}</dt>
-                                <dd className="mt-0.5 truncate text-sm font-medium" title={value}>{value}</dd>
-                              </div>
-                            ))}
-                          </dl>
-                          {formatSize(selectedRoom).note && (
-                            <p className="mt-4 text-xs text-lv-on-deep/60">Size {formatSize(selectedRoom).note}.</p>
-                          )}
-                        </motion.div>
-                      ) : (
-                        <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-                          <h2 className="text-xl leading-tight">No room selected</h2>
-                          <p className="mt-2 text-sm leading-relaxed text-lv-on-deep/70">Choose a room to see its size and continue.</p>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                    <button type="button" onClick={handleContinue} disabled={!selectedRoomId} className="lv-btn-invert mt-6 w-full min-h-12">
-                      Generate layouts <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                    </button>
-                  </div>
+                  ) : (
+                    <div className="grid h-full w-full place-items-center bg-lv-wash text-sm text-lv-muted">No preview available</div>
+                  )}
                 </div>
+                <dl className="mt-3 grid shrink-0 grid-cols-4 gap-2 text-center">
+                  {(["Wall", "Room", "Door", "Window"] as const).map((k) => (
+                    <div key={k} className="flex flex-col-reverse">
+                      <dt className="text-xs text-lv-muted">{k}s</dt>
+                      <dd className="text-lg font-medium leading-tight tabular-nums text-lv-ink">{counts[k] ?? 0}</dd>
+                    </div>
+                  ))}
+                </dl>
+                <div className="mt-4 hidden shrink-0 rounded-[20px] bg-lv-deep p-5 text-lv-on-deep lg:block">
+                  {generateCard(true)}
+                </div>
+              </motion.section>
+
+              {/* Room buttons: the only part that scrolls when there are many */}
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+                role="group" aria-label="Rooms"
+                className="grid grid-cols-1 content-start gap-3 sm:grid-cols-2 lg:col-start-1 lg:row-start-2 lg:min-h-0 lg:overflow-y-auto lg:pr-2">
+                {rooms.map((room) => (
+                  <RoomRow key={room.id} room={room} selected={room.id === selectedRoomId}
+                    onClick={() => toggleRoom(room.id)}
+                    rowRef={(el) => { rowRefs.current[room.id] = el; }} />
+                ))}
+              </motion.div>
+
+              {/* Below lg the Generate card sticks to the bottom of the screen instead */}
+              <div className="sticky bottom-3 z-10 rounded-[24px] bg-lv-deep p-5 text-lv-on-deep shadow-xl lg:hidden">
+                {generateCard(false)}
               </div>
-            </>
+            </div>
           )}
         </div>
       </main>
 
-      <AppFooter />
+      <div className="lg:hidden">
+        <AppFooter />
+      </div>
     </div>
   );
 }
