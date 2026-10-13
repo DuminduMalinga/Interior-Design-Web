@@ -12,6 +12,7 @@ import ViewLayouts from "./pages/ViewLayouts";
 import RoomView3D from "./pages/RoomView3D";
 import AdminManageAccounts from "./pages/AdminManageAccounts";
 import AuthCallback from "./pages/AuthCallback";
+import About from "./pages/About";
 import PublicOnlyRoute from "./components/PublicOnlyRoute";
 
 export const router = createBrowserRouter([
@@ -67,6 +68,10 @@ export const router = createBrowserRouter([
   {
     path: "/room-view-3d",
     Component: RoomView3D,
+  },
+  {
+    path: "/about",
+    Component: About,
   },
   {
     path: "/admin/accounts",

@@ -1,12 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
 import {
-  LayoutDashboard,
   Upload,
-  History,
   User,
   FileUp,
   Boxes,
-  Menu,
   X,
   TrendingUp,
   Clock,
@@ -20,7 +17,6 @@ import {
   Camera,
   CheckCircle2,
   Bell,
-  ShieldCheck,
   Shield,
   Pencil,
   Trash2,
@@ -28,13 +24,24 @@ import {
   ExternalLink,
   AlertTriangle,
   Loader2,
-  ClockAlert
+  ClockAlert,
+  ArrowRight,
+  Calendar,
+  Sparkles,
+  LayoutGrid,
+  Bed,
+  BedDouble,
+  Sofa,
+  Utensils,
+  ChefHat,
+  Bath
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useLocation, useNavigate } from "react-router";
 import { useCurrentUserProfile } from "../context/UserContext";
 import { supabase } from "../lib/supabaseClient";
-import AppNavbar from "../components/AppNavbar";
+import SiteNavbar from "../components/SiteNavbar";
+import AppFooter from "../components/AppFooter";
 type ProfileState = {
   fullName: string;
   username: string;
@@ -52,15 +59,35 @@ const createProfileState = (overrides: Partial<ProfileState> = {}): ProfileState
   bio: "Interior design enthusiast. Using AI to bring floor plans to life.",
   ...overrides,
 });
+const HERO_IMAGE = "/dashboard/hero.jpg";
+// Cover photos for the dashboard's recent-design cards.
+const DESIGN_COVERS = [
+  "/dashboard/design-modern-bedroom.jpg",
+  "/dashboard/design-master-suite.jpg",
+  "/dashboard/design-guest-room.jpg",
+  "/dashboard/design-living-room.jpg",
+];
+// Scroll-reveal animation shared by the dashboard sections below the fold.
+const reveal = {
+  initial: { opacity: 0, y: 28 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, margin: "-60px" },
+  transition: { duration: 0.45 },
+};
 export default function Dashboard() {
   const navigate = useNavigate();
   const { profile: currentUser } = useCurrentUserProfile();
   const location = useLocation();
-  // The shared navbar's "My Profile" arrives here from other pages with { menu: "profile" }.
+  // The shared navbar's page links and "My Profile" arrive here with { menu } in router state.
+  const requestedMenu = (location.state as { menu?: string } | null)?.menu;
   const [activeMenu, setActiveMenu] = useState(
-    (location.state as { menu?: string } | null)?.menu === "profile" ? "profile" : "dashboard",
+    requestedMenu === "profile" || requestedMenu === "designs" ? requestedMenu : "dashboard",
   );
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  useEffect(() => {
+    if (requestedMenu === "dashboard" || requestedMenu === "designs" || requestedMenu === "profile") {
+      setActiveMenu(requestedMenu);
+    }
+  }, [location.key, requestedMenu]);
   // Profile state
   const [profileEdit, setProfileEdit] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
@@ -181,23 +208,30 @@ export default function Dashboard() {
       setDeleteSubmitting(false);
     }
   };
-  const isAdmin = currentUser.role.trim().toLowerCase() === "admin";
-  const menuItems = [
-    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
-    { id: "upload", label: "Upload Floor Plan", icon: Upload, path: "/upload" },
-    { id: "designs", label: "View Previous Designs", icon: History, path: null },
-    { id: "profile", label: "Profile", icon: User, path: null },
-    ...(isAdmin ? [{ id: "admin-accounts", label: "Manage Accounts", icon: ShieldCheck, path: "/admin/accounts" }] : []),
-  ];
-  const stats = [
-    { label: "Total Uploads", value: "24", icon: FileUp, color: "text-teal-400", bg: "bg-teal-500/10", glow: "shadow-teal-500/10" },
-    { label: "Designs Generated", value: "18", icon: Boxes, color: "text-violet-400", bg: "bg-violet-500/10", glow: "shadow-violet-500/10" },
-    { label: "Success Rate", value: "98%", icon: TrendingUp, color: "text-emerald-400", bg: "bg-emerald-500/10", glow: "shadow-emerald-500/10" },
-  ];
   const recentActivity = [
     { id: 1, name: "Modern Bedroom Layout", date: "2 hours ago", status: "Completed" },
     { id: 2, name: "Master Suite Design", date: "1 day ago", status: "Completed" },
     { id: 3, name: "Guest Room Optimization", date: "2 days ago", status: "Completed" },
+  ];
+  const stats = [
+    { label: "Total Uploads", value: "24", sub: "2D floor plans uploaded", icon: FileUp, color: "text-teal-400", bg: "bg-teal-500/10" },
+    { label: "3D Designs Generated", value: "18", sub: "Rooms created with AI", icon: Boxes, color: "text-violet-400", bg: "bg-violet-500/10" },
+    { label: "Last Activity", value: recentActivity[0].date, sub: recentActivity[0].name, icon: Clock, color: "text-amber-400", bg: "bg-amber-500/10" },
+    { label: "Success Rate", value: "98%", sub: "Successful generations", icon: TrendingUp, color: "text-emerald-400", bg: "bg-emerald-500/10" },
+  ];
+  const steps = [
+    { title: "Upload your floor plan", desc: "Drop in a 2D floor plan image as a PNG or JPG.", icon: Upload },
+    { title: "AI reads the plan", desc: "Walls, doors and rooms are detected automatically.", icon: Sparkles },
+    { title: "Pick a room", desc: "Choose which room you want to furnish first.", icon: LayoutGrid },
+    { title: "Explore it in 3D", desc: "Compare generated layouts and walk through the result.", icon: Boxes },
+  ];
+  const roomTypes = [
+    { label: "Bedroom", icon: Bed },
+    { label: "Master Bedroom", icon: BedDouble },
+    { label: "Living Room", icon: Sofa },
+    { label: "Dining Room", icon: Utensils },
+    { label: "Kitchen", icon: ChefHat },
+    { label: "Bathroom", icon: Bath },
   ];
   const previousDesigns = [
     { id: 1, name: "Modern Bedroom Layout", date: "Feb 23, 2026", rooms: "Bedroom 1", score: 92, thumb: "MB" },
@@ -253,102 +287,194 @@ export default function Dashboard() {
   // ── Shared input classes ────────────────────
   const inputCls = "w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-teal-500/50 focus:ring-2 focus:ring-teal-500/15 transition-all";
   const cardCls = "glass-card rounded-2xl p-6 border border-white/5";
+  const eyebrowCls = "text-xs font-semibold uppercase tracking-widest text-teal-400 mb-1.5";
   // ── Tab renderers ──────────────────────────
   const renderDashboard = () => (
     <>
-      <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-        <h2 className="text-3xl md:text-4xl font-bold text-white mb-1">Dashboard</h2>
-        <p className="text-zinc-500">Manage your floor plans and 3D layouts</p>
+      {/* Hero */}
+      <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }}
+        className="relative overflow-hidden rounded-3xl border border-white/5 bg-popover mb-5 min-h-[300px] md:min-h-[340px] flex items-center shadow-sm">
+        <img src={HERO_IMAGE} alt="Furnished bedroom"
+          className="absolute inset-y-0 right-0 h-full w-full md:w-[66%] object-cover object-[center_45%]" />
+        {/* Small screens: veil the whole photo. Larger: fade only its left edge into the card. */}
+        <div className="md:hidden absolute inset-0 bg-popover/80" />
+        <div className="hidden md:block absolute inset-0"
+          style={{ background: "linear-gradient(90deg, var(--popover) 0%, var(--popover) 34%, transparent 58%)" }} />
+        <div className="relative p-7 md:p-12 max-w-xl">
+          <h2 className="font-serif text-4xl md:text-5xl font-bold leading-[1.1] text-white">
+            Your next space
+            <span className="block text-teal-400">starts here</span>
+          </h2>
+          <p className="mt-3 text-base md:text-lg text-zinc-400 max-w-sm leading-relaxed">
+            Upload a 2D floor plan and generate a fully furnished 3D room with AI.
+          </p>
+          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+            onClick={() => navigate("/upload")}
+            className="mt-6 inline-flex items-center gap-3 px-6 py-3.5 bg-gradient-to-r from-teal-500 to-teal-600 text-white font-semibold rounded-xl shadow-lg shadow-teal-500/20 hover:shadow-teal-500/30 transition-all">
+            <Upload className="w-5 h-5" /> Upload Floor Plan <ArrowRight className="w-4 h-4" />
+          </motion.button>
+        </div>
       </motion.div>
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-12">
         {stats.map((stat, i) => {
           const Icon = stat.icon;
           return (
             <motion.div key={stat.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.1 }} whileHover={{ y: -4, transition: { duration: 0.2 } }}
-              className={`${cardCls} flex items-center justify-between shadow-lg ${stat.glow}`}>
-              <div>
-                <p className="text-sm text-zinc-500 mb-1">{stat.label}</p>
-                <p className="text-3xl font-extrabold text-white">{stat.value}</p>
+              transition={{ delay: i * 0.08 }} whileHover={{ y: -3, transition: { duration: 0.2 } }}
+              className="glass-card rounded-2xl p-5 border border-white/5 flex items-center gap-4">
+              <div className={`${stat.bg} p-3.5 rounded-xl shrink-0`}>
+                <Icon className={`w-7 h-7 ${stat.color}`} strokeWidth={1.75} />
               </div>
-              <div className={`${stat.bg} p-3.5 rounded-xl`}>
-                <Icon className={`w-7 h-7 ${stat.color}`} />
+              <div className="min-w-0">
+                <p className="text-xs text-zinc-500">{stat.label}</p>
+                <p className="text-2xl font-bold text-white leading-tight truncate">{stat.value}</p>
+                <p className="text-xs text-zinc-500 truncate">{stat.sub}</p>
               </div>
             </motion.div>
           );
         })}
       </div>
-      {/* Action Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}
-          whileHover={{ y: -6, transition: { duration: 0.25 } }}
-          className={`${cardCls} cursor-pointer hover:bg-white/[0.07] transition-all glow-teal`}
-          onClick={() => navigate("/upload")}>
-          <div className="flex flex-col items-center text-center space-y-5">
-            <div className="bg-gradient-to-br from-teal-400 to-teal-600 p-6 rounded-2xl shadow-lg shadow-teal-500/25">
-              <FileUp className="w-14 h-14 text-white" strokeWidth={1.5} />
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-white mb-2">Upload Floor Plan</h3>
-              <p className="text-zinc-500 text-sm leading-relaxed">Upload your 2D floor plan to generate optimized 3D bedroom layouts with AI-powered furniture placement.</p>
-            </div>
-            <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-              onClick={(e) => { e.stopPropagation(); navigate("/upload"); }}
-              className="w-full px-6 py-3.5 bg-gradient-to-r from-teal-500 to-teal-600 text-white font-bold rounded-xl shadow-lg shadow-teal-500/20 hover:shadow-teal-500/30 transition-all">
-              Start Upload
-            </motion.button>
+      {/* Recent Designs */}
+      <motion.section {...reveal} className="mb-16">
+        <div className="flex items-end justify-between gap-4 mb-5">
+          <div>
+            <p className={eyebrowCls}>Your work</p>
+            <h3 className="text-2xl md:text-3xl font-bold text-white leading-tight">Recent Designs</h3>
+            <p className="text-sm text-zinc-500 mt-1">Your latest generated 3D rooms from uploaded floor plans.</p>
           </div>
-        </motion.div>
-        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}
-          whileHover={{ y: -6, transition: { duration: 0.25 } }}
-          className={`${cardCls} cursor-pointer hover:bg-white/[0.07] transition-all glow-violet`}
-          onClick={() => setActiveMenu("designs")}>
-          <div className="flex flex-col items-center text-center space-y-5">
-            <div className="bg-gradient-to-br from-violet-400 to-violet-600 p-6 rounded-2xl shadow-lg shadow-violet-500/25">
-              <Boxes className="w-14 h-14 text-white" strokeWidth={1.5} />
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-white mb-2">View Previous Designs</h3>
-              <p className="text-zinc-500 text-sm leading-relaxed">View and manage your previously generated 3D layouts. Download, edit, or share your designs.</p>
-            </div>
-            <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-              onClick={(e) => { e.stopPropagation(); setActiveMenu("designs"); }}
-              className="w-full px-6 py-3.5 bg-white/5 border border-violet-500/30 text-violet-400 font-bold rounded-xl hover:bg-violet-500/10 transition-all">
-              View Designs
-            </motion.button>
-          </div>
-        </motion.div>
-      </div>
-      {/* Recent Activity */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
-        className={cardCls}>
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="text-lg font-bold text-white flex items-center gap-2">
-            <Clock className="w-5 h-5 text-teal-400" /> Recent Activity
-          </h3>
           <button onClick={() => setActiveMenu("designs")}
-            className="text-sm text-teal-400 hover:text-teal-300 font-semibold transition-colors">View All</button>
+            className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-sm font-semibold text-zinc-200 hover:bg-white/10 transition-colors">
+            View All <span className="hidden sm:inline">Designs</span> <ArrowRight className="w-4 h-4" />
+          </button>
         </div>
-        <div className="space-y-2">
-          {recentActivity.map((activity, i) => (
-            <motion.div key={activity.id} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.5 + i * 0.08 }} whileHover={{ x: 4 }}
-              className="flex items-center justify-between p-4 bg-white/[0.03] hover:bg-white/[0.06] rounded-xl transition-all cursor-pointer border border-white/5">
-              <div className="flex items-center gap-3">
-                <div className="bg-teal-500/10 p-2 rounded-lg">
-                  <Boxes className="w-4 h-4 text-teal-400" />
-                </div>
-                <div>
-                  <p className="font-semibold text-zinc-200 text-sm">{activity.name}</p>
-                  <p className="text-xs text-zinc-500">{activity.date}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+          {previousDesigns.slice(0, 4).map((design, i) => (
+            <motion.article key={design.id} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }} transition={{ delay: i * 0.08, duration: 0.4 }}
+              whileHover={{ y: -6, transition: { duration: 0.2 } }}
+              onClick={() => navigate("/room-view-3d")}
+              className="group glass-card rounded-2xl overflow-hidden border border-white/5 cursor-pointer hover:shadow-xl hover:shadow-teal-500/10 transition-shadow">
+              <div className="relative h-44 overflow-hidden">
+                <img src={DESIGN_COVERS[i % DESIGN_COVERS.length]} alt={design.name} loading="lazy"
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(0,0,0,0) 45%, rgba(0,0,0,0.6) 100%)" }} />
+                <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-[11px] font-semibold backdrop-blur-md"
+                  style={{ background: "rgba(0,0,0,0.45)", color: "#fff" }}>
+                  {design.rooms}
+                </span>
+                <span className="absolute top-3 right-3 px-2.5 py-1 rounded-full text-[11px] font-bold"
+                  style={{ background: "rgba(255,255,255,0.92)", color: "#0f766e" }}>
+                  {design.score}/100
+                </span>
+                <span className="absolute bottom-3 left-3 flex items-center gap-1.5 text-[11px] font-medium" style={{ color: "#fff" }}>
+                  <Boxes className="w-3.5 h-3.5" /> 3D layout ready
+                </span>
+              </div>
+              <div className="p-4">
+                <h4 className="font-semibold text-white text-[15px] truncate">{design.name}</h4>
+                <div className="flex items-center justify-between gap-3 mt-2">
+                  <p className="flex items-center gap-1.5 text-xs text-zinc-500 min-w-0">
+                    <Calendar className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">{design.date}</span>
+                  </p>
+                  <span className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-teal-400">
+                    View Design <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
+                  </span>
                 </div>
               </div>
-              <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded-full border border-emerald-500/20">{activity.status}</span>
-            </motion.div>
+            </motion.article>
           ))}
         </div>
-      </motion.div>
+      </motion.section>
+      {/* How it works */}
+      <motion.section {...reveal} className="mb-16">
+        <div className="text-center max-w-2xl mx-auto mb-8">
+          <p className={eyebrowCls}>How it works</p>
+          <h3 className="text-2xl md:text-3xl font-bold text-white leading-tight">From floor plan to furnished room in four steps</h3>
+          <p className="text-sm text-zinc-500 mt-2">No design experience needed. Upload a plan and let the AI do the layout work.</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+          {steps.map((step, i) => {
+            const Icon = step.icon;
+            return (
+              <motion.div key={step.title} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }} transition={{ delay: i * 0.1, duration: 0.4 }}
+                className="relative glass-card rounded-2xl p-6 border border-white/5">
+                <span className="absolute top-4 right-5 text-4xl font-black text-white/5 select-none">0{i + 1}</span>
+                <div className="w-11 h-11 rounded-xl bg-teal-500/10 flex items-center justify-center mb-4">
+                  <Icon className="w-5 h-5 text-teal-400" />
+                </div>
+                <h4 className="font-semibold text-white mb-1.5">{step.title}</h4>
+                <p className="text-sm text-zinc-500 leading-relaxed">{step.desc}</p>
+              </motion.div>
+            );
+          })}
+        </div>
+      </motion.section>
+      {/* Room types + Recent activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 mb-16">
+        <motion.section {...reveal} className="lg:col-span-3 glass-card rounded-2xl p-6 border border-white/5">
+          <p className={eyebrowCls}>Rooms</p>
+          <h3 className="text-xl font-bold text-white leading-tight">Every room, thoughtfully arranged</h3>
+          <p className="text-sm text-zinc-500 mt-1 mb-5">Each room type has its own layout rules for furniture, clearances and flow.</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {roomTypes.map(({ label, icon: Icon }) => (
+              <div key={label}
+                className="flex items-center gap-3 p-3.5 rounded-xl bg-white/[0.03] border border-white/5 hover:border-teal-500/30 hover:bg-teal-500/5 transition-colors">
+                <div className="w-9 h-9 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
+                  <Icon className="w-[18px] h-[18px] text-teal-400" />
+                </div>
+                <span className="text-sm font-medium text-zinc-200 truncate">{label}</span>
+              </div>
+            ))}
+          </div>
+        </motion.section>
+        <motion.section {...reveal} className="lg:col-span-2 glass-card rounded-2xl p-6 border border-white/5">
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="text-xl font-bold text-white flex items-center gap-2 leading-tight">
+              <Clock className="w-5 h-5 text-teal-400" /> Recent Activity
+            </h3>
+            <button onClick={() => setActiveMenu("designs")}
+              className="text-sm text-teal-400 hover:text-teal-300 font-semibold transition-colors">View All</button>
+          </div>
+          <div className="space-y-1">
+            {recentActivity.map((activity, i) => (
+              <div key={activity.id} className="flex gap-3">
+                <div className="flex flex-col items-center">
+                  <span className="mt-1.5 w-2.5 h-2.5 rounded-full bg-teal-500 ring-4 ring-teal-500/15" />
+                  {i < recentActivity.length - 1 && <span className="flex-1 w-px bg-white/10 my-1" />}
+                </div>
+                <div className="flex-1 min-w-0 flex items-start justify-between gap-3 pb-4">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-zinc-200 text-sm truncate">{activity.name}</p>
+                    <p className="text-xs text-zinc-500">{activity.date}</p>
+                  </div>
+                  <span className="shrink-0 px-2.5 py-0.5 bg-emerald-500/10 text-emerald-400 text-[11px] font-bold rounded-full border border-emerald-500/20">{activity.status}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.section>
+      </div>
+      {/* Call to action */}
+      <motion.section {...reveal}
+        className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-teal-500 to-teal-600 px-7 py-10 md:px-12 md:py-12 mb-4">
+        <div className="absolute -right-16 -top-24 w-72 h-72 rounded-full bg-white/10" />
+        <div className="absolute right-24 -bottom-28 w-56 h-56 rounded-full bg-white/10" />
+        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div>
+            <h3 className="font-serif text-2xl md:text-3xl font-bold text-white leading-tight">Ready to design your next room?</h3>
+            <p className="text-white/80 mt-2 max-w-lg">Upload a floor plan and get a furnished, walkable 3D layout in minutes.</p>
+          </div>
+          <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
+            onClick={() => navigate("/upload")}
+            className="shrink-0 inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl font-semibold shadow-lg"
+            style={{ background: "#fff", color: "#0f766e" }}>
+            <Upload className="w-5 h-5" /> Start a New Design
+          </motion.button>
+        </div>
+      </motion.section>
     </>
   );
   const renderDesigns = () => (
@@ -640,7 +766,7 @@ export default function Dashboard() {
     </>
   );
   return (
-    <div className="min-h-screen w-full bg-background relative" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="min-h-screen w-full bg-background relative flex flex-col" style={{ fontFamily: "'Inter', sans-serif" }}>
       {/* Delete Account Modal */}
       <AnimatePresence>
         {showDeleteModal && (
@@ -712,89 +838,33 @@ export default function Dashboard() {
           </motion.div>
         )}
       </AnimatePresence>
-      {/* Dot grid overlay */}
-      <div className="absolute inset-0 dot-grid pointer-events-none" />
       {/* Top Nav */}
-      <AppNavbar
-        leading={
-          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="lg:hidden text-zinc-400 hover:text-white">
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
-        }
+      <SiteNavbar
+        activeNav={activeMenu}
         name={displayName}
         email={profile.email}
-        onProfile={() => {
-          setActiveMenu("profile");
-          setMobileMenuOpen(false);
-        }}
+        onProfile={() => setActiveMenu("profile")}
       />
-      <div className="flex">
-        {/* Desktop Sidebar */}
-        <aside className="hidden lg:flex flex-col w-64 glass-sidebar min-h-[calc(100vh-69px)] relative border-r border-white/5">
-          <nav className="p-4 space-y-1.5 flex-1">
-            {menuItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeMenu === item.id;
-              return (
-                <motion.button key={item.id} whileHover={{ x: 4 }}
-                  onClick={() => { setActiveMenu(item.id); if (item.path) navigate(item.path); }}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${isActive
-                    ? "bg-gradient-to-r from-teal-500/20 to-teal-600/10 text-teal-300 border border-teal-500/20"
-                    : "text-zinc-500 hover:text-zinc-200 hover:bg-white/5"
-                    }`}>
-                  <Icon className={`w-5 h-5 ${isActive ? "text-teal-400" : ""}`} />
-                  {item.label}
-                </motion.button>
-              );
-            })}
-          </nav>
-        </aside>
-        {/* Mobile Sidebar */}
-        <AnimatePresence>
-          {mobileMenuOpen && (
-            <motion.aside initial={{ x: -300 }} animate={{ x: 0 }} exit={{ x: -300 }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="lg:hidden fixed left-0 top-[69px] bottom-0 w-64 glass-sidebar shadow-2xl z-50 border-r border-white/5">
-              <nav className="p-4 space-y-1.5 flex-1">
-                {menuItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = activeMenu === item.id;
-                  return (
-                    <button key={item.id}
-                      onClick={() => { setActiveMenu(item.id); setMobileMenuOpen(false); if (item.path) navigate(item.path); }}
-                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${isActive
-                        ? "bg-teal-500/15 text-teal-300 border border-teal-500/20"
-                        : "text-zinc-500 hover:text-zinc-200 hover:bg-white/5"
-                        }`}>
-                      <Icon className={`w-5 h-5 ${isActive ? "text-teal-400" : ""}`} />
-                      {item.label}
-                    </button>
-                  );
-                })}
-              </nav>
-            </motion.aside>
-          )}
-        </AnimatePresence>
-        {/* Main Content */}
-        <main className="flex-1 p-4 md:p-8 relative overflow-x-hidden">
-          <div className="max-w-7xl mx-auto">
-            {/* Mobile greeting */}
-            <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }}
-              className="md:hidden mb-6 glass-card rounded-2xl p-5 border border-white/5">
-              <h2 className="text-xl font-bold text-white">Welcome back, {displayName} 👋</h2>
-              <p className="text-zinc-500 text-sm mt-1">Ready to create amazing 3D layouts?</p>
+      {/* Main Content */}
+      <main className="flex-1 w-full px-4 md:px-8 py-5 md:py-6 relative overflow-x-hidden">
+        <div className="max-w-7xl mx-auto">
+          {/* Mobile greeting */}
+          <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }}
+            className="md:hidden mb-5 glass-card rounded-2xl p-5 border border-white/5">
+            <h2 className="text-xl font-bold text-white">Welcome back, {displayName} 👋</h2>
+            <p className="text-zinc-500 text-sm mt-1">Ready to create amazing 3D layouts?</p>
+          </motion.div>
+          <AnimatePresence mode="wait">
+            <motion.div key={activeMenu} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }}>
+              {activeMenu === "dashboard" && renderDashboard()}
+              {activeMenu === "designs" && renderDesigns()}
+              {activeMenu === "profile" && renderProfile()}
             </motion.div>
-            <AnimatePresence mode="wait">
-              <motion.div key={activeMenu} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }}>
-                {activeMenu === "dashboard" && renderDashboard()}
-                {activeMenu === "designs" && renderDesigns()}
-                {activeMenu === "profile" && renderProfile()}
-              </motion.div>
-            </AnimatePresence>
-          </div>
-        </main>
-      </div>
+          </AnimatePresence>
+        </div>
+      </main>
+      <AppFooter />
     </div>
   );
 }
