@@ -1,31 +1,32 @@
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import {
+  AlertCircle,
+  AlertTriangle,
+  ArrowLeft,
   Box,
   Check,
-  ZoomIn,
-  ZoomOut,
-  RotateCcw,
-  RotateCw,
-  RefreshCw,
-  Save,
-  Download,
-  Maximize2,
-  Minimize2,
-  Layers,
-  Grid3X3,
-  Info,
-  X,
   ChevronDown,
   CheckCircle2,
-  AlertCircle,
-  Cpu,
-  ArrowLeft,
-  ArrowRight,
+  Download,
+  FileJson,
+  Image as ImageIcon,
+  Loader2,
+  Maximize2,
+  Minimize2,
+  Package,
+  RefreshCw,
+  RotateCcw,
+  RotateCw,
+  Save,
   Upload,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { useLocation, useNavigate } from "react-router";
 import AppNavbar from "../components/AppNavbar";
+import PageGlows from "../components/marketing/PageGlows";
+import FlowStepper from "../components/FlowStepper";
 import RoomSvg, { fmtMm } from "../components/RoomSvg";
 import type { RoomScene3DHandle, SceneQuality } from "../components/RoomScene3D";
 import { useTheme } from "../context/ThemeContext";
@@ -51,49 +52,7 @@ interface RoomViewState {
   livingRoomLayout?: LivingRoomLayoutResult;
 }
 
-// ─────────────────────────────────────────────
-// Step Indicator
-// ─────────────────────────────────────────────
-const STEPS = [
-  { label: "Upload", step: 1 },
-  { label: "Detect", step: 2 },
-  { label: "Select Room", step: 3 },
-  { label: "Layouts", step: 4 },
-  { label: "Confirm", step: 5 },
-  { label: "3D View", step: 6 },
-];
-
-function StepIndicator({ current }: { current: number }) {
-  return (
-    <div className="flex items-center gap-1.5 flex-wrap select-none">
-      {STEPS.map((s, i) => {
-        const isDone = s.step < current;
-        const isActive = s.step === current;
-        return (
-          <div key={s.step} className="flex items-center gap-1.5">
-            <div
-              className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] ${
-                isDone || isActive
-                  ? "bg-gradient-to-br from-teal-400 to-teal-600 text-white"
-                  : "bg-white/5 text-zinc-600 border border-white/10"
-              }`}
-            >
-              {isDone ? <Check className="w-3 h-3" /> : s.step}
-            </div>
-            <span
-              className={`text-xs font-medium whitespace-nowrap ${
-                isActive ? "text-teal-400" : isDone ? "text-teal-500" : "text-zinc-600"
-              }`}
-            >
-              {s.label}
-            </span>
-            {i < STEPS.length - 1 && <ArrowRight className="w-3 h-3 text-zinc-700" />}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
+type Toast = { text: string; ok: boolean };
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -119,90 +78,95 @@ function downloadBlob(blob: Blob, filename: string) {
 }
 
 // ─────────────────────────────────────────────
-// Export Dropdown
+// Segmented control (same pill as the Layout page's options)
+// ─────────────────────────────────────────────
+function Segmented<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div role="group" aria-label={label} className="flex gap-1 rounded-full border border-lv-line bg-lv-surface/70 p-1 backdrop-blur-xl">
+      {options.map((o) => (
+        <button key={o.value} type="button" aria-pressed={value === o.value} onClick={() => onChange(o.value)}
+          className={`h-8 cursor-pointer rounded-full px-3.5 text-sm transition-colors ${
+            value === o.value ? "bg-lv-ink text-lv-on-ink" : "text-lv-ink hover:bg-lv-ink/8"
+          }`}>
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Export menu
 // ─────────────────────────────────────────────
 type ExportKind = "png" | "glb" | "json";
 
-const EXPORT_OPTIONS: Array<{ kind: ExportKind; icon: string; label: string; sub: string }> = [
-  { kind: "png", icon: "🖼️", label: "Download as PNG", sub: "The current 3D view" },
-  { kind: "glb", icon: "📦", label: "Export 3D Model", sub: "GLB, real size in metres" },
-  { kind: "json", icon: "📄", label: "Export Layout Data", sub: "JSON with every position" },
+const EXPORT_OPTIONS: Array<{ kind: ExportKind; icon: typeof ImageIcon; label: string; sub: string }> = [
+  { kind: "png", icon: ImageIcon, label: "Image", sub: "PNG of the current 3D view" },
+  { kind: "glb", icon: Package, label: "3D model", sub: "GLB, real size in metres" },
+  { kind: "json", icon: FileJson, label: "Layout data", sub: "JSON with every position" },
 ];
 
-function ExportDropdown({ onExport }: { onExport: (kind: ExportKind) => Promise<void> }) {
+function ExportMenu({ onExport }: { onExport: (kind: ExportKind, label: string) => void }) {
   const [open, setOpen] = useState(false);
-  const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const fn = (e: MouseEvent) => {
+    const onDown = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
-    document.addEventListener("mousedown", fn);
-    return () => document.removeEventListener("mousedown", fn);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
   }, []);
-
-  const handleExport = async (kind: ExportKind, label: string) => {
-    setOpen(false);
-    try {
-      await onExport(kind);
-      setMessage({ text: `${label} — done`, ok: true });
-    } catch (err) {
-      setMessage({ text: err instanceof Error ? err.message : "Export failed.", ok: false });
-    }
-    setTimeout(() => setMessage(null), 3000);
-  };
 
   return (
     <div className="relative" ref={ref}>
-      <motion.button
-        whileHover={{ scale: 1.04 }}
-        whileTap={{ scale: 0.97 }}
-        onClick={() => setOpen((p) => !p)}
-        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 rounded-xl text-sm font-semibold transition-all"
-      >
-        <Download className="w-4 h-4" />
-        Export
-        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
-      </motion.button>
+      <button type="button" onClick={() => setOpen((p) => !p)} aria-expanded={open} aria-haspopup="menu"
+        className="lv-btn-quiet w-full bg-lv-surface/70 backdrop-blur-xl">
+        <Download className="h-4 w-4" aria-hidden="true" /> Export
+        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
+      </button>
 
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: 6, scale: 0.95 }}
+            role="menu"
+            initial={{ opacity: 0, y: -4, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 6, scale: 0.95 }}
-            className="absolute right-0 bottom-12 z-50 w-56 bg-popover border border-white/10 rounded-2xl shadow-xl overflow-hidden"
+            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            transition={{ duration: 0.15 }}
+            className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-[20px] border border-lv-line bg-lv-surface p-1.5 shadow-xl"
           >
-            {EXPORT_OPTIONS.map((opt) => (
-              <button
-                key={opt.kind}
-                onClick={() => handleExport(opt.kind, opt.label)}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-teal-500/10 text-left transition-colors"
-              >
-                <span className="text-lg">{opt.icon}</span>
-                <div>
-                  <p className="text-sm font-semibold text-zinc-200">{opt.label}</p>
-                  <p className="text-[11px] text-zinc-500">{opt.sub}</p>
-                </div>
+            {EXPORT_OPTIONS.map(({ kind, icon: Icon, label, sub }) => (
+              <button key={kind} type="button" role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  onExport(kind, label);
+                }}
+                className="flex w-full cursor-pointer items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-colors hover:bg-lv-ink/6">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-lv-wash/70 text-lv-ink">
+                  <Icon className="h-4 w-4" aria-hidden="true" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium text-lv-ink">{label}</span>
+                  <span className="block text-xs text-lv-muted">{sub}</span>
+                </span>
               </button>
             ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {message && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-            className={`absolute right-0 -top-10 z-50 flex items-center gap-2 text-white text-xs font-semibold px-3 py-2 rounded-xl shadow-lg whitespace-nowrap ${
-              message.ok ? "bg-green-600" : "bg-red-600"
-            }`}
-          >
-            {message.ok ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
-            {message.text}
           </motion.div>
         )}
       </AnimatePresence>
@@ -215,28 +179,52 @@ function ExportDropdown({ onExport }: { onExport: (kind: ExportKind) => Promise<
 // ─────────────────────────────────────────────
 function SceneLoading() {
   return (
-    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-background">
-      <div className="relative w-20 h-20">
-        <motion.div
-          animate={{ rotateY: 360, rotateX: 20 }}
-          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-          style={{ transformStyle: "preserve-3d" }}
-          className="w-16 h-16 mx-auto mt-2"
-        >
-          <div className="w-16 h-16 bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl shadow-lg flex items-center justify-center">
-            <Box className="w-8 h-8 text-white" strokeWidth={1.5} />
+    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center px-6 text-center" role="status">
+      <Loader2 className="h-8 w-8 animate-spin text-lv-accent" aria-hidden="true" />
+      <p className="mt-5 text-xl leading-tight text-lv-ink">Building the 3D room</p>
+      <p className="mt-2 max-w-sm text-sm leading-relaxed text-lv-muted">Walls, openings and furniture at real size.</p>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Furniture detail (when a piece is picked)
+// ─────────────────────────────────────────────
+function FurnitureDetail({ item, onBack }: { item: LayoutFurnitureItem; onBack: () => void }) {
+  const facts = [
+    { label: "Size", value: `${fmtMm(item.width)} × ${fmtMm(item.depth)}` },
+    { label: "Height", value: fmtMm(item.height) },
+    { label: "Facing", value: item.facing },
+    { label: "Placed by", value: item.placement_strategy || "Not recorded" },
+  ];
+  return (
+    <div>
+      <button type="button" onClick={onBack}
+        className="inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-full text-sm text-lv-muted transition-colors hover:text-lv-ink">
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" /> All pieces
+      </button>
+      <h3 className="mt-3 flex items-center gap-2.5 text-lg leading-tight text-lv-ink">
+        <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: furnitureColor(item.type) }} aria-hidden="true" />
+        {itemLabel(item)}
+      </h3>
+      <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
+        {facts.map((fact) => (
+          <div key={fact.label}>
+            <dt className="text-xs text-lv-muted">{fact.label}</dt>
+            <dd className="mt-0.5 text-sm font-medium capitalize text-lv-ink">{fact.value}</dd>
           </div>
-        </motion.div>
-        <motion.div
-          animate={{ rotate: -360 }}
-          transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-          className="absolute inset-0 rounded-full border-2 border-teal-400 border-dashed opacity-50"
-        />
-      </div>
-      <div className="text-center">
-        <p className="font-bold text-base text-white">Building the 3D room…</p>
-        <p className="text-sm mt-1 text-zinc-400">Walls, openings and furniture at real size</p>
-      </div>
+        ))}
+      </dl>
+      {item.reasons.length > 0 && (
+        <>
+          <p className="mt-5 text-xs text-lv-muted">Why it is here</p>
+          <ul className="mt-2 space-y-2">
+            {item.reasons.map((reason, i) => (
+              <li key={i} className="text-sm leading-relaxed text-lv-ink">{reason}</li>
+            ))}
+          </ul>
+        </>
+      )}
     </div>
   );
 }
@@ -247,30 +235,39 @@ function SceneLoading() {
 export default function RoomView3D() {
   const navigate = useNavigate();
   const location = useLocation();
+  const reduceMotion = useReducedMotion();
   const navState = location.state as RoomViewState | null;
   const layout = navState?.livingRoomLayout ?? null;
   const roomName = navState?.room?.name ?? "Room";
 
   const { theme } = useTheme();
   const [viewMode, setViewMode] = useState<ViewMode>("3D");
-  const [isFullscreen, setIsFullscreen] = useState(true);
+  const [wide, setWide] = useState(false);
   const [quality, setQuality] = useState<SceneQuality>("High");
   const [fps, setFps] = useState<number | null>(null);
   const [sceneError, setSceneError] = useState<string | null>(null);
   const sceneRef = useRef<RoomScene3DHandle>(null);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [saveMsg, setSaveMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<Toast | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const selectedItem = useMemo(
     () => layout?.furniture.find((f) => f.id === selectedId) ?? null,
     [layout, selectedId],
   );
 
+  const showToast = (next: Toast) => {
+    clearTimeout(toastTimer.current);
+    setToast(next);
+    toastTimer.current = setTimeout(() => setToast(null), 3200);
+  };
+  useEffect(() => () => clearTimeout(toastTimer.current), []);
+
   const fileStem = `${roomName}-${layout?.layout.type ?? "layout"}`.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
-  const handleExport = async (kind: ExportKind) => {
+  const runExport = async (kind: ExportKind) => {
     if (!layout) throw new Error("There is no layout to export.");
     if (kind === "json") {
       downloadBlob(new Blob([JSON.stringify(layout, null, 2)], { type: "application/json" }), `${fileStem}.json`);
@@ -287,21 +284,29 @@ export default function RoomView3D() {
     }
   };
 
+  const handleExport = async (kind: ExportKind, label: string) => {
+    try {
+      await runExport(kind);
+      showToast({ text: `${label} downloaded`, ok: true });
+    } catch (err) {
+      showToast({ text: err instanceof Error ? err.message : "Export failed.", ok: false });
+    }
+  };
+
   const handleSave = async () => {
     if (!layout || saving) return;
     if (!navState?.floorPlanId || !navState.room) {
-      setSaveMsg({ text: "This layout is not linked to an uploaded floor plan.", ok: false });
-    } else {
-      setSaving(true);
-      try {
-        await saveSelectedLivingRoomLayout(navState.floorPlanId, navState.room.id, layout);
-        setSaveMsg({ text: "Design saved successfully!", ok: true });
-      } catch (err) {
-        setSaveMsg({ text: err instanceof Error ? err.message : "Could not save the design.", ok: false });
-      }
-      setSaving(false);
+      showToast({ text: "This layout is not linked to an uploaded floor plan.", ok: false });
+      return;
     }
-    setTimeout(() => setSaveMsg(null), 3200);
+    setSaving(true);
+    try {
+      await saveSelectedLivingRoomLayout(navState.floorPlanId, navState.room.id, layout);
+      showToast({ text: "Design saved", ok: true });
+    } catch (err) {
+      showToast({ text: err instanceof Error ? err.message : "Could not save the design.", ok: false });
+    }
+    setSaving(false);
   };
 
   const backToLayouts = () => {
@@ -310,149 +315,78 @@ export default function RoomView3D() {
     navigate("/view-layouts", { state: rest });
   };
 
-  const qualityColors: Record<SceneQuality, string> = {
-    High: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
-    Medium: "text-amber-400 bg-amber-500/10 border-amber-500/20",
-    Low: "text-red-400 bg-red-500/10 border-red-500/20",
-  };
-
   const show3D = !!layout && viewMode === "3D" && !sceneError;
 
-  return (
-    <div
-      className="min-h-screen w-full relative transition-colors duration-500 bg-background"
-     
-    >
-      {/* Dot grid / blueprint grid */}
-      <div className="absolute inset-0 dot-grid pointer-events-none" />
+  const cameraControls = [
+    { icon: ZoomIn, title: "Zoom in", action: () => sceneRef.current?.zoom(0.85) },
+    { icon: ZoomOut, title: "Zoom out", action: () => sceneRef.current?.zoom(1.18) },
+    { icon: RotateCcw, title: "Rotate left", action: () => sceneRef.current?.rotate(-20) },
+    { icon: RotateCw, title: "Rotate right", action: () => sceneRef.current?.rotate(20) },
+    { icon: RefreshCw, title: "Reset view", action: () => sceneRef.current?.reset() },
+  ];
 
-      {/* ── Navigation ── */}
+  const overlayPill = "rounded-full border border-lv-line bg-lv-surface/80 backdrop-blur-xl shadow-sm";
+
+  // From lg up the page is one viewport tall: the viewer fills what is left and
+  // only the side panel's piece list scrolls.
+  return (
+    <div className="min-h-screen w-full bg-background relative isolate flex flex-col lg:h-svh lg:min-h-0 lg:overflow-hidden">
+      <PageGlows />
       <AppNavbar />
 
-      {/* ── Main ── */}
-      <main className="relative px-4 md:px-8 pt-3 md:pt-4 pb-6 md:pb-8 max-w-[1400px] mx-auto">
-
-        {/* Page Header + Step Indicator + Toolbar */}
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2"
-        >
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-white">3D Room Visualization</h2>
-            {layout && (
-              <p className="text-xs text-zinc-500 truncate">
-                {roomName} · {layout.layout.title}
-              </p>
-            )}
+      <main className="relative flex w-full flex-1 flex-col px-4 pb-6 pt-2 md:px-8 lg:min-h-0">
+        <div className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col lg:min-h-0">
+          <div className="mx-auto w-full max-w-2xl shrink-0">
+            <FlowStepper current="view3d" />
           </div>
 
-          <StepIndicator current={6} />
-
-          {/* Toolbar */}
-          {layout && (
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* 2D / 3D Toggle */}
-              <div className="flex rounded-lg border overflow-hidden shadow-sm border-white/10">
-                {(["3D", "2D"] as ViewMode[]).map((mode) => (
-                  <button key={mode} onClick={() => setViewMode(mode)}
-                    className={`px-3 py-1.5 text-xs font-bold transition-all flex items-center gap-1.5 ${
-                      viewMode === mode
-                        ? "bg-gradient-to-r from-teal-500 to-teal-600 text-white"
-                        : "bg-white/5 text-zinc-400 hover:bg-white/10"
-                    }`}>
-                    {mode === "3D" ? <Layers className="w-3.5 h-3.5" /> : <Grid3X3 className="w-3.5 h-3.5" />} {mode}
-                  </button>
-                ))}
-              </div>
-
-              {/* Fullscreen */}
-              <motion.button
-                whileHover={{ scale: 1.08 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setIsFullscreen((p) => !p)}
-                className="p-1.5 rounded-lg border shadow-sm transition-all bg-white/5 border-white/10 text-zinc-400 hover:bg-white/10"
-                title="Toggle wide view"
-              >
-                {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-              </motion.button>
+          {/* ── No layout handed over ── */}
+          {!layout && (
+            <div className="mt-6 flex flex-1 flex-col items-center justify-center rounded-[28px] border border-lv-line bg-lv-surface px-6 py-16 text-center">
+              <span className="grid h-14 w-14 place-items-center rounded-full bg-lv-wash/70">
+                <Box className="h-7 w-7 text-lv-accent" aria-hidden="true" />
+              </span>
+              <h1 className="mt-5 text-2xl leading-tight text-lv-ink md:text-3xl">No layout selected yet</h1>
+              <p className="mt-2 max-w-md text-sm leading-relaxed text-lv-muted">
+                The 3D view is built from the layout you pick on the Layout step. Upload a floor plan, choose a room
+                and pick one of its layouts to see it here.
+              </p>
+              <button type="button" onClick={() => navigate("/upload")} className="lv-btn mt-6">
+                <Upload className="h-4 w-4" aria-hidden="true" /> Upload a floor plan
+              </button>
             </div>
           )}
-        </motion.div>
 
-        {/* ── No layout handed over ── */}
-        {!layout && (
-          <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}
-            className="glass-card rounded-3xl border border-white/5 p-12 flex flex-col items-center gap-4 text-center">
-            <div className="bg-teal-500/10 p-5 rounded-2xl border border-teal-500/20">
-              <Box className="w-12 h-12 text-teal-400" />
-            </div>
-            <h3 className="text-xl font-bold text-white">No layout selected yet</h3>
-            <p className="text-zinc-500 max-w-md">
-              The 3D view is built from the layout you confirm on the Layouts step. Upload a floor plan, pick a
-              room and choose one of its layouts to see it here.
-            </p>
-            <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
-              onClick={() => navigate("/upload")}
-              className="mt-2 flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-xl font-semibold shadow-md shadow-teal-500/20">
-              <Upload className="w-4 h-4" /> Upload a Floor Plan
-            </motion.button>
-          </motion.div>
-        )}
-
-        {/* ── Content Grid ── */}
-        {layout && (
-          <div className={`grid gap-5 ${isFullscreen ? "grid-cols-1" : "grid-cols-1 xl:grid-cols-4"}`}>
-
-            {/* ── Viewer ── */}
-            <motion.div
-              layout
-              initial={{ opacity: 0, scale: 0.97 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.15 }}
-              className={`${isFullscreen ? "col-span-1" : "xl:col-span-3"} relative`}
-            >
-              <div
-                className="rounded-3xl overflow-hidden shadow-2xl border transition-colors duration-500 border-white/10"
-                style={{ minHeight: isFullscreen ? "80vh" : 480 }}
-              >
-                {/* Viewer header bar */}
-                <div className="flex items-center justify-between px-4 py-3 border-b bg-popover/90 border-white/5 backdrop-blur-sm">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="flex gap-1.5 shrink-0">
-                      <span className="w-3 h-3 rounded-full bg-red-400" />
-                      <span className="w-3 h-3 rounded-full bg-yellow-400" />
-                      <span className="w-3 h-3 rounded-full bg-green-400" />
-                    </div>
-                    <span className="text-xs font-semibold text-zinc-500 truncate">
-                      {viewMode === "3D" ? "3D" : "2D Floor Plan"} · {roomName} · {layout.layout.title}
-                    </span>
-                  </div>
-                  {viewMode === "3D" && (
-                    <div className="flex items-center gap-3 shrink-0">
-                      <select
-                        value={quality}
-                        onChange={(e) => setQuality(e.target.value as SceneQuality)}
-                        title="Render quality: sharpness and shadows"
-                        className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border cursor-pointer outline-none ${qualityColors[quality]} bg-transparent`}
-                      >
-                        {["High", "Medium", "Low"].map((q) => (
-                          <option key={q} value={q}>{q}</option>
-                        ))}
-                      </select>
-                      {fps !== null && (
-                        <div className="flex items-center gap-1.5">
-                          <Cpu className="w-3.5 h-3.5 text-teal-400" />
-                          <span className="text-[11px] font-semibold text-teal-400">{fps} FPS</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
+          {layout && (
+            <>
+              {/* ── Header ── */}
+              <div className="mt-6 flex shrink-0 flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div className="min-w-0">
+                  <h1 className="text-3xl md:text-4xl leading-[1.05] tracking-tight text-lv-ink">{roomName} in 3D</h1>
+                  <p className="mt-2 text-sm md:text-base text-lv-muted">
+                    {layout.layout.title} · {(layout.room.width / 1000).toFixed(2)} × {(layout.room.length / 1000).toFixed(2)} m,{" "}
+                    {layout.room.area_m2} m²
+                  </p>
                 </div>
 
-                {/* Viewer canvas */}
-                <div className="relative w-full" style={{ height: isFullscreen ? "calc(80vh - 48px)" : 432 }}>
-                  {/* 3D scene */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <Segmented label="View" value={viewMode} onChange={setViewMode}
+                    options={[{ value: "3D", label: "3D view" }, { value: "2D", label: "2D plan" }]} />
+                  <ExportMenu onExport={(kind, label) => void handleExport(kind, label)} />
+                  <button type="button" onClick={() => void handleSave()} disabled={saving} className="lv-btn">
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Save className="h-4 w-4" aria-hidden="true" />}
+                    {saving ? "Saving…" : "Save design"}
+                  </button>
+                </div>
+              </div>
+
+              {/* ── Viewer + side panel ── */}
+              <div className={`mt-5 grid flex-1 grid-cols-1 gap-5 lg:min-h-0 ${
+                wide ? "" : "lg:grid-cols-[minmax(0,1fr)_minmax(280px,340px)]"
+              }`}>
+                {/* Viewer */}
+                <section aria-label={viewMode === "3D" ? "3D view" : "2D plan"}
+                  className="relative h-[62svh] min-h-[380px] overflow-hidden rounded-[28px] border border-lv-line bg-lv-surface lg:h-auto lg:min-h-0">
                   {show3D && (
                     <Suspense fallback={<SceneLoading />}>
                       <RoomScene3D
@@ -470,204 +404,176 @@ export default function RoomView3D() {
 
                   {/* WebGL could not start */}
                   {viewMode === "3D" && sceneError && (
-                    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-background px-6 text-center">
-                      <div className="bg-red-500/10 p-4 rounded-2xl border border-red-500/20">
-                        <AlertCircle className="w-10 h-10 text-red-400" />
-                      </div>
-                      <p className="font-bold text-white">The 3D view could not start</p>
-                      <p className="text-zinc-500 text-sm max-w-sm">
+                    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center px-6 text-center" role="alert">
+                      <span className="grid h-14 w-14 place-items-center rounded-full bg-red-500/10">
+                        <AlertCircle className="h-7 w-7 text-red-400" aria-hidden="true" />
+                      </span>
+                      <p className="mt-5 text-xl leading-tight text-lv-ink">The 3D view could not start</p>
+                      <p className="mt-2 max-w-sm text-sm leading-relaxed text-lv-muted">
                         This browser did not provide WebGL ({sceneError}). The 2D plan shows the same layout.
                       </p>
-                      <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
-                        onClick={() => setViewMode("2D")}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-xl font-semibold text-sm shadow-md">
-                        <Grid3X3 className="w-4 h-4" /> Show 2D Plan
-                      </motion.button>
+                      <button type="button" onClick={() => setViewMode("2D")} className="lv-btn mt-6">Show the 2D plan</button>
                     </div>
                   )}
 
                   {/* 2D floor plan */}
                   {viewMode === "2D" && (
-                    <div className="absolute inset-0 flex items-center justify-center p-4" style={{ background: "#0f1720" }}>
+                    <div className="absolute inset-0 flex items-center justify-center bg-[var(--lv-plan-floor)] p-4 md:p-8">
                       <div style={{ aspectRatio: `${layout.room.width} / ${layout.room.length}`, maxWidth: "100%", maxHeight: "100%", height: "100%" }}>
                         <RoomSvg layout={layout} selectedId={selectedId} onSelect={setSelectedId} />
                       </div>
                     </div>
                   )}
 
-                  {/* Drag hint */}
-                  {show3D && (
-                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 text-[11px] font-medium px-3 py-1.5 rounded-full backdrop-blur-sm border pointer-events-none select-none bg-popover/80 border-white/10 text-zinc-400">
-                      Drag to rotate · Scroll to zoom · Right-drag to pan · Click furniture for info
-                    </div>
-                  )}
-
-                  {/* ── Camera Controls (bottom-right) ── */}
-                  {show3D && (
-                    <div className="absolute bottom-4 right-4 flex flex-col gap-2 z-10">
-                      {[
-                        { icon: ZoomIn, title: "Zoom In", action: () => sceneRef.current?.zoom(0.85) },
-                        { icon: ZoomOut, title: "Zoom Out", action: () => sceneRef.current?.zoom(1.18) },
-                        { icon: RotateCcw, title: "Rotate Left", action: () => sceneRef.current?.rotate(-20) },
-                        { icon: RotateCw, title: "Rotate Right", action: () => sceneRef.current?.rotate(20) },
-                        { icon: RefreshCw, title: "Reset View", action: () => sceneRef.current?.reset() },
-                      ].map(({ icon: Icon, title, action }) => (
-                        <motion.button
-                          key={title}
-                          whileHover={{ scale: 1.12 }}
-                          whileTap={{ scale: 0.92 }}
-                          onClick={action}
-                          title={title}
-                          className="w-9 h-9 flex items-center justify-center rounded-xl border shadow-md transition-all bg-popover/80 border-white/10 text-zinc-300 hover:bg-popover backdrop-blur-sm"
-                        >
-                          <Icon className="w-4 h-4" />
-                        </motion.button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-
-            {/* ── Right Panel ── */}
-            {!isFullscreen && (
-              <div className="xl:col-span-1 flex flex-col gap-4">
-
-                {/* Layout details */}
-                <motion.div initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}
-                  className="glass-card rounded-2xl border border-white/5 p-5">
-                  <h4 className="text-sm font-bold text-zinc-200 mb-3 flex items-center gap-2">
-                    <Box className="w-4 h-4 text-teal-400" /> Layout Details
-                  </h4>
-                  <div className="space-y-2">
-                    {[
-                      { label: "Room", value: roomName },
-                      { label: "Layout", value: layout.layout.title },
-                      { label: "Score", value: `${Math.round(layout.layout.score)} pts` },
-                      { label: "Size", value: `${(layout.room.width / 1000).toFixed(2)} × ${(layout.room.length / 1000).toFixed(2)} m` },
-                      { label: "Area", value: `${layout.room.area_m2} m²` },
-                      { label: "Ceiling", value: fmtMm(layout.room.height || 2800) },
-                      { label: "Pieces", value: `${layout.furniture.length} items` },
-                    ].map(({ label, value }) => (
-                      <div key={label} className="flex justify-between items-center gap-3">
-                        <span className="text-xs text-zinc-500 shrink-0">{label}</span>
-                        <span className={`text-xs font-bold text-right ${
-                          label === "Score" ? "text-emerald-400" : "text-zinc-200"
-                        }`}>{value}</span>
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
-
-                {/* Furniture info */}
-                <motion.div initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 }}
-                  className="glass-card rounded-2xl border border-white/5 p-5">
-                  <h4 className="text-sm font-bold text-zinc-200 mb-3 flex items-center gap-2">
-                    <Info className="w-4 h-4 text-teal-400" /> Furniture Info
-                  </h4>
-                  <AnimatePresence mode="wait">
-                    {selectedItem ? (
-                      <motion.div key={selectedItem.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 8 }} className="space-y-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="font-bold text-sm text-zinc-200">{itemLabel(selectedItem)}</p>
-                          <button onClick={() => setSelectedId(null)} className="text-zinc-600 hover:text-zinc-300">
-                            <X className="w-3.5 h-3.5" />
+                  {/* Top overlay: render quality + fps, and the wide-view toggle */}
+                  <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between gap-2">
+                    {show3D ? (
+                      <div className={`pointer-events-auto flex items-center gap-1 p-1 ${overlayPill}`}>
+                        <span className="hidden pl-2.5 pr-1 text-xs text-lv-muted sm:inline">Quality</span>
+                        {(["High", "Medium", "Low"] as SceneQuality[]).map((q) => (
+                          <button key={q} type="button" aria-pressed={quality === q} onClick={() => setQuality(q)}
+                            title="Render quality: sharpness and shadows"
+                            className={`h-7 cursor-pointer rounded-full px-3 text-xs transition-colors ${
+                              quality === q ? "bg-lv-ink text-lv-on-ink" : "text-lv-ink hover:bg-lv-ink/8"
+                            }`}>
+                            {q}
                           </button>
-                        </div>
-                        <div className="rounded-lg px-3 py-2 text-[11px] font-semibold bg-teal-500/10 text-teal-300">
-                          {fmtMm(selectedItem.width)} × {fmtMm(selectedItem.depth)} × {fmtMm(selectedItem.height)} high
-                          · facing {selectedItem.facing}
-                        </div>
-                        {selectedItem.reasons.slice(0, 3).map((reason, i) => (
-                          <p key={i} className="text-xs leading-relaxed text-zinc-400">{reason}</p>
                         ))}
-                      </motion.div>
-                    ) : (
-                      <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                        className="text-center py-4 text-zinc-600">
-                        <Box className="w-7 h-7 mx-auto mb-2 opacity-30" />
-                        <p className="text-xs">Click a piece of furniture in the view to see its size and why it stands there</p>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </motion.div>
+                        {/* The scene only redraws when something changes, so an idle view reports 0 */}
+                        {!!fps && (
+                          <span className="px-2.5 text-xs tabular-nums text-lv-muted">{fps} fps</span>
+                        )}
+                      </div>
+                    ) : <span />}
 
-                {/* Items list */}
-                <motion.div initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}
-                  className="glass-card rounded-2xl border border-white/5 p-5 flex-1">
-                  <h4 className="text-sm font-bold mb-3 flex items-center gap-2 text-zinc-200">
-                    <Layers className="w-4 h-4 text-teal-400" /> Items in Scene
-                  </h4>
-                  <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
-                    {layout.furniture.map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => setSelectedId((p) => (p === item.id ? null : item.id))}
-                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-all text-xs font-medium ${
-                          selectedId === item.id
-                            ? "bg-gradient-to-r from-teal-500 to-teal-600 text-white"
-                            : "text-zinc-400 hover:bg-white/5 hover:text-teal-400"
-                        }`}
-                      >
-                        <span className="w-3 h-3 rounded-sm shrink-0" style={{ background: furnitureColor(item.type) }} />
-                        {itemLabel(item)}
-                      </button>
-                    ))}
-                  </div>
-                </motion.div>
-
-                {/* Save + Export Actions */}
-                <motion.div initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.35 }}
-                  className="flex flex-col gap-3">
-                  <div className="relative">
-                    <motion.button whileHover={{ scale: 1.03, y: -1 }} whileTap={{ scale: 0.97 }}
-                      onClick={handleSave} disabled={saving}
-                      className="w-full flex items-center justify-center gap-2 px-5 py-3.5 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-xl font-semibold text-sm shadow-lg shadow-teal-500/20 hover:shadow-teal-500/30 transition-all disabled:opacity-60">
-                      <Save className="w-4 h-4" /> {saving ? "Saving…" : "Save Design"}
-                    </motion.button>
-                    <AnimatePresence>
-                      {saveMsg && (
-                        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }}
-                          className={`absolute -top-10 left-1/2 -translate-x-1/2 flex items-center gap-1.5 text-white text-[11px] font-semibold px-3 py-1.5 rounded-xl shadow-lg whitespace-nowrap ${
-                            saveMsg.ok ? "bg-green-600" : "bg-red-600"
-                          }`}>
-                          {saveMsg.ok ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
-                          {saveMsg.text}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                    <button type="button" onClick={() => setWide((p) => !p)}
+                      title={wide ? "Show the details panel" : "Widen the view"}
+                      aria-label={wide ? "Show the details panel" : "Widen the view"}
+                      className={`pointer-events-auto hidden h-9 w-9 cursor-pointer place-items-center text-lv-ink transition-colors hover:bg-lv-surface lg:grid ${overlayPill}`}>
+                      {wide ? <Minimize2 className="h-4 w-4" aria-hidden="true" /> : <Maximize2 className="h-4 w-4" aria-hidden="true" />}
+                    </button>
                   </div>
 
-                  <ExportDropdown onExport={handleExport} />
+                  {/* Bottom overlay: hint and camera controls */}
+                  {show3D && (
+                    <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 flex items-end justify-between gap-3">
+                      <p className={`hidden px-3.5 py-2 text-xs text-lv-muted md:block ${overlayPill}`}>
+                        Drag to rotate · Scroll to zoom · Right-drag to pan · Click a piece for details
+                      </p>
+                      <div className={`pointer-events-auto ml-auto flex items-center gap-0.5 p-1 ${overlayPill}`}>
+                        {cameraControls.map(({ icon: Icon, title, action }) => (
+                          <button key={title} type="button" onClick={action} title={title} aria-label={title}
+                            className="grid h-8 w-8 cursor-pointer place-items-center rounded-full text-lv-ink transition-colors hover:bg-lv-ink/8">
+                            <Icon className="h-4 w-4" aria-hidden="true" />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </section>
 
-                  <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                    onClick={backToLayouts}
-                    className="w-full flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm border transition-all bg-white/5 border-white/10 text-zinc-400 hover:bg-white/10 hover:border-white/20">
-                    <ArrowLeft className="w-4 h-4" /> Back to Layouts
-                  </motion.button>
-                </motion.div>
+                {/* Side panel */}
+                {!wide && (
+                  <aside className="flex flex-col gap-4 lg:min-h-0">
+                    {/* Layout summary */}
+                    <div className="shrink-0 rounded-[28px] border border-lv-line bg-lv-surface p-5">
+                      <div className="flex items-end justify-between gap-4">
+                        <div className="min-w-0">
+                          <h2 className="text-xs font-normal tracking-normal text-lv-muted">Layout score</h2>
+                          <p className="mt-1.5 text-4xl font-medium leading-none tabular-nums text-lv-ink">
+                            {Math.round(layout.layout.score)}
+                          </p>
+                        </div>
+                        {layout.validation.valid ? (
+                          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-400">
+                            <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" /> Valid layout
+                          </span>
+                        ) : (
+                          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-400">
+                            <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" /> Compromised
+                          </span>
+                        )}
+                      </div>
+                      <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-lv-line pt-4">
+                        {[
+                          { label: "Size", value: `${(layout.room.width / 1000).toFixed(2)} × ${(layout.room.length / 1000).toFixed(2)} m` },
+                          { label: "Area", value: `${layout.room.area_m2} m²` },
+                          { label: "Ceiling", value: fmtMm(layout.room.height || 2800) },
+                          { label: "Pieces", value: `${layout.furniture.length}` },
+                        ].map(({ label, value }) => (
+                          <div key={label}>
+                            <dt className="text-xs text-lv-muted">{label}</dt>
+                            <dd className="mt-0.5 text-sm font-medium tabular-nums text-lv-ink">{value}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </div>
+
+                    {/* Pieces: the list, or the one that is picked */}
+                    <div className="flex flex-col rounded-[28px] border border-lv-line bg-lv-surface p-5 lg:min-h-0 lg:flex-1">
+                      <AnimatePresence mode="wait" initial={false}>
+                        {selectedItem ? (
+                          <motion.div key={selectedItem.id}
+                            initial={reduceMotion ? false : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                            exit={reduceMotion ? undefined : { opacity: 0, y: 6 }} transition={{ duration: 0.15 }}
+                            className="lg:min-h-0 lg:overflow-y-auto lg:pr-1">
+                            <FurnitureDetail item={selectedItem} onBack={() => setSelectedId(null)} />
+                          </motion.div>
+                        ) : (
+                          <motion.div key="list"
+                            initial={reduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }}
+                            exit={reduceMotion ? undefined : { opacity: 0 }} transition={{ duration: 0.15 }}
+                            className="flex flex-col lg:min-h-0">
+                            <div className="flex shrink-0 items-baseline justify-between gap-3">
+                              <h2 className="text-base leading-tight text-lv-ink">In this room</h2>
+                              <span className="text-xs text-lv-muted">Pick one for details</span>
+                            </div>
+                            <ul className="-mx-2 mt-3 space-y-0.5 lg:min-h-0 lg:overflow-y-auto">
+                              {layout.furniture.map((item) => (
+                                <li key={item.id}>
+                                  <button type="button" onClick={() => setSelectedId(item.id)}
+                                    className="flex w-full cursor-pointer items-center gap-3 rounded-2xl px-2 py-2 text-left transition-colors hover:bg-lv-ink/6">
+                                    <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: furnitureColor(item.type) }} aria-hidden="true" />
+                                    <span className="min-w-0 flex-1 truncate text-sm text-lv-ink">{itemLabel(item)}</span>
+                                    <span className="shrink-0 text-xs tabular-nums text-lv-muted">
+                                      {fmtMm(item.width)} × {fmtMm(item.depth)}
+                                    </span>
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+
+                    <button type="button" onClick={backToLayouts} className="lv-btn-quiet shrink-0 bg-lv-surface/70 backdrop-blur-xl">
+                      <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to layouts
+                    </button>
+                  </aside>
+                )}
               </div>
-            )}
-          </div>
-        )}
-
-        {/* Mobile action strip */}
-        {layout && (
-          <div className="xl:hidden mt-5 grid grid-cols-2 gap-3">
-            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-              onClick={handleSave} disabled={saving}
-              className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-xl font-semibold text-sm shadow-md disabled:opacity-60">
-              <Save className="w-4 h-4" /> Save Design
-            </motion.button>
-            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-              onClick={backToLayouts}
-              className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold text-sm border transition-all bg-white/5 border-white/10 text-zinc-400 hover:bg-white/10">
-              <ArrowLeft className="w-4 h-4" /> Back
-            </motion.button>
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </main>
+
+      {/* Save / export feedback */}
+      <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
+        <AnimatePresence>
+          {toast && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}
+              className="flex items-center gap-2 rounded-full border border-lv-line bg-lv-surface px-4 py-2.5 text-sm text-lv-ink shadow-xl"
+            >
+              {toast.ok
+                ? <CheckCircle2 className="h-4 w-4 text-emerald-500" aria-hidden="true" />
+                : <AlertCircle className="h-4 w-4 text-red-500" aria-hidden="true" />}
+              {toast.text}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
