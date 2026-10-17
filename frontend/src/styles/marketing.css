@@ -19,6 +19,12 @@
   --lv-glow-1: rgba(124, 92, 255, 0.34);
   --lv-glow-2: rgba(168, 85, 247, 0.26);
   --lv-glow-3: rgba(99, 102, 241, 0.3);
+  /* 2D plan drawings (RoomSvg) */
+  --lv-plan-floor: #17142b;
+  --lv-plan-wall: #8683a6;
+  /* Brand mark: white ink for the dark theme. */
+  --lv-logo-full: url('/brand/logo-dark.png');
+  --lv-logo-icon: url('/brand/icon-dark.png');
 }
 
 :root.light {
@@ -36,6 +42,11 @@
   --lv-glow-1: rgba(139, 122, 240, 0.42);
   --lv-glow-2: rgba(192, 132, 252, 0.36);
   --lv-glow-3: rgba(129, 140, 248, 0.38);
+  --lv-plan-floor: #f7f7fb;
+  --lv-plan-wall: #5f5b78;
+  /* Brand mark: dark ink for the light theme. */
+  --lv-logo-full: url('/brand/logo-light.png');
+  --lv-logo-icon: url('/brand/icon-light.png');
 }
 
 @theme inline {
@@ -266,6 +277,8 @@
   --lv-wash: #d8d7f3;
   --lv-accent: #6e6bc9;
   --lv-line: rgba(38, 34, 63, 0.14);
+  --lv-logo-full: url('/brand/logo-light.png');
+  --lv-logo-icon: url('/brand/icon-light.png');
 }
 
 /* The hero arch. Below lg it is a framed block; from lg up the image layer is

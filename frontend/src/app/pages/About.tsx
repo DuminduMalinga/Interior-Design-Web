@@ -2,6 +2,7 @@ import { ArrowRight } from "lucide-react";
 import { motion } from "motion/react";
 import { useNavigate } from "react-router";
 import SiteNavbar from "../components/SiteNavbar";
+import PageGlows from "../components/marketing/PageGlows";
 import AppFooter from "../components/AppFooter";
 import PlanSketch from "../components/marketing/PlanSketch";
 
@@ -17,7 +18,8 @@ export default function About() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen w-full bg-background relative flex flex-col">
+    <div className="min-h-screen w-full bg-background relative isolate flex flex-col">
+      <PageGlows />
       <SiteNavbar />
 
       <main className="flex-1 w-full px-4 md:px-8 pt-8 pb-16 md:pt-12">

@@ -3,6 +3,7 @@ import { Upload as UploadIcon, FileUp, X, CheckCircle2, AlertCircle, Loader2, Fi
 import { motion, AnimatePresence } from "motion/react";
 import { useNavigate } from "react-router";
 import SiteNavbar from "../components/SiteNavbar";
+import PageGlows from "../components/marketing/PageGlows";
 import AppFooter from "../components/AppFooter";
 import FlowStepper, { rememberFlowState } from "../components/FlowStepper";
 import { supabase } from "../lib/supabaseClient";
@@ -159,7 +160,8 @@ export default function UploadFloorPlan() {
   ];
 
   return (
-    <div className="min-h-screen w-full bg-background relative flex flex-col">
+    <div className="min-h-screen w-full bg-background relative isolate flex flex-col">
+      <PageGlows />
       <SiteNavbar />
 
       <main className="relative flex-1 w-full px-4 md:px-8 pt-2 pb-12">

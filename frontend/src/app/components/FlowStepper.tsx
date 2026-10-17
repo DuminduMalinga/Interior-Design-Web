@@ -41,7 +41,7 @@ export default function FlowStepper({ current }: { current: FlowStep }) {
         const circle = isActive
           ? "bg-lv-on-ink/20 text-lv-on-ink"
           : isDone
-            ? "bg-lv-accent text-white"
+            ? "bg-lv-accent text-[#fff]"
             : "border border-lv-line text-lv-muted";
         const line = i <= currentIndex ? "bg-lv-accent/50" : "bg-lv-line";
         return (

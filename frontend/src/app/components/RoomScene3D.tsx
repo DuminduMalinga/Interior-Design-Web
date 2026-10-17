@@ -53,13 +53,13 @@ interface Stage {
   exporting: boolean;
 }
 
-const HIGHLIGHT = new THREE.Color("#2dd4bf");
+const HIGHLIGHT = new THREE.Color("#8b7cf6");
 const UP = new THREE.Vector3(0, 1, 0);
 
 /** The studio the room stands in: light in the middle, falling off to the corners. */
 const BACKDROPS: Record<SceneBackdrop, [string, string, string]> = {
-  light: ["#ffffff", "#eef0f3", "#dde1e7"],
-  dark: ["#353c4a", "#1c212b", "#10141b"],
+  light: ["#ffffff", "#f0eff8", "#dedcef"],
+  dark: ["#332e58", "#1c1934", "#110f20"],
 };
 const backdropCss = (backdrop: SceneBackdrop) => {
   const [inner, middle, outer] = BACKDROPS[backdrop];

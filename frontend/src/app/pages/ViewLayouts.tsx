@@ -22,6 +22,8 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { useLocation, useNavigate } from "react-router";
 import AppNavbar from "../components/AppNavbar";
+import PageGlows from "../components/marketing/PageGlows";
+import FlowStepper from "../components/FlowStepper";
 import type { DetectionResult } from "../lib/wallDetector";
 import {
   generateAllLivingRoomLayouts,
@@ -169,49 +171,6 @@ function scoreLabel(score: number) {
 
 // ─────────────────────────────────────────────
 // Step indicator
-// ─────────────────────────────────────────────
-const STEPS = [
-  { label: "Upload", step: 1 },
-  { label: "Detect", step: 2 },
-  { label: "Select Room", step: 3 },
-  { label: "View Layouts", step: 4 },
-  { label: "3D View", step: 5 },
-];
-
-function StepIndicator({ current }: { current: number }) {
-  return (
-    <div className="flex items-center gap-1.5 flex-wrap select-none">
-      {STEPS.map((s, i) => {
-        const isDone = s.step < current;
-        const isActive = s.step === current;
-        return (
-          <div key={s.step} className="flex items-center gap-1.5">
-            <div
-              className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] ${
-                isDone || isActive
-                  ? "bg-gradient-to-br from-teal-400 to-teal-600 text-white"
-                  : "bg-white/5 text-zinc-600 border border-white/10"
-              }`}
-            >
-              {isDone ? <Check className="w-3 h-3" /> : s.step}
-            </div>
-            <span
-              className={`text-xs font-medium whitespace-nowrap ${
-                isActive ? "text-teal-400" : isDone ? "text-teal-500" : "text-zinc-600"
-              }`}
-            >
-              {s.label}
-            </span>
-            {i < STEPS.length - 1 && <ArrowRight className="w-3 h-3 text-zinc-700" />}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────
-// SVG Furniture Thumbnails (top-view 2D plans)
 // ─────────────────────────────────────────────
 function LayoutThumbnail({ layoutId, selected }: { layoutId: string; selected: boolean }) {
   const stroke = selected ? "#6366f1" : "#94a3b8";
@@ -1030,266 +989,244 @@ export default function ViewLayouts() {
 
   const selectedLayout = MOCK_LAYOUTS.find((l) => l.id === selectedId);
 
-  // ── Living room / bedroom: real structure + layout from the rule-based engine ────
+  // ── Real layouts from the rule-based engines ────────────────────────
   if (hasEngine && apiRoom) {
-    return (
-      <div className="min-h-screen w-full bg-background relative">
-        <div className="absolute inset-0 dot-grid pointer-events-none" />
+    // The room's planning options, as labelled groups of choices.
+    type Choice = { key: string; label: string; active: boolean; pick: () => void };
+    const optionGroups: { label: string; choices: Choice[] }[] = [];
+    let optionNote: string | null = null;
 
-        {/* Nav */}
+    if (isLivingRoom) {
+      optionGroups.push({
+        label: "Daily activities",
+        choices: LIVING_ACTIVITY_SETS.map((set) => ({
+          key: set.label,
+          label: set.label,
+          active: (livingActivities?.join() ?? null) === (set.activities?.join() ?? null),
+          pick: () => setLivingActivities(set.activities),
+        })),
+      });
+      optionGroups.push({
+        label: "Mobility needs",
+        choices: ([false, true] as const).map((choice) => ({
+          key: String(choice),
+          label: choice ? "Wider paths, no rug" : "None",
+          active: livingAccessible === choice,
+          pick: () => setLivingAccessible(choice),
+        })),
+      });
+      if (livingRoomAll?.programme) {
+        optionNote = `${livingRoomAll.activitiesSource === "inferred" ? "Assumed for this room" : "Planned with"}: ${livingRoomAll.programme.summary}`;
+      }
+    } else if (isBedroom) {
+      optionGroups.push({
+        label: "Occupants",
+        choices: ([null, 1, 2] as const).map((count) => ({
+          key: String(count ?? "auto"),
+          label: count === null ? "Auto" : String(count),
+          active: bedroomOccupants === count,
+          pick: () => setBedroomOccupants(count),
+        })),
+      });
+      if (bedroomAll) {
+        const basis = bedroomAll.occupantsSource === "inferred" ? (isMasterBedroom ? " by default" : " from the room size") : "";
+        optionNote = `Planned for ${bedroomAll.occupants}${basis}: ${bedroomAll.programme.summary}`;
+      }
+    } else if (isBathroom) {
+      optionGroups.push({
+        label: "Mobility needs",
+        choices: ([false, true] as const).map((choice) => ({
+          key: String(choice),
+          label: choice ? "Wheelchair and grab bars" : "None",
+          active: bathroomAccessible === choice,
+          pick: () => setBathroomAccessible(choice),
+        })),
+      });
+      if (bathroomAll) optionNote = `Planned with: ${bathroomAll.programme.summary}`;
+    } else if (isDining) {
+      optionGroups.push({
+        label: "Seats",
+        choices: ([null, 2, 4, 6, 8] as const).map((count) => ({
+          key: String(count ?? "auto"),
+          label: count === null ? "Auto" : String(count),
+          active: diningSeats === count,
+          pick: () => setDiningSeats(count),
+        })),
+      });
+      if (diningAll) {
+        const basis = diningAll.seatsSource === "inferred" ? " from the room size" : "";
+        optionNote = `Planned for ${diningAll.seats}${basis}: ${diningAll.programme.summary}`;
+      }
+    } else if (isKitchen) {
+      optionGroups.push({
+        label: "Dining table",
+        choices: ([null, true, false] as const).map((choice) => ({
+          key: String(choice),
+          label: choice === null ? "Auto" : choice ? "With" : "Without",
+          active: kitchenTable === choice,
+          pick: () => setKitchenTable(choice),
+        })),
+      });
+      if (kitchenAll) optionNote = `Planned with: ${kitchenAll.programme.summary}`;
+    }
+
+    const layoutCount = livingAll?.layouts.filter((l) => !isLayoutError(l)).length ?? 0;
+
+    const continueTo3D = async () => {
+      if (!selectedLayoutEntry) return;
+      if (navState?.floorPlanId) {
+        try {
+          await saveSelectedLivingRoomLayout(navState.floorPlanId, apiRoom.id, selectedLayoutEntry);
+        } catch (err) {
+          setLivingError(err instanceof Error ? err.message : "Could not save the selected layout.");
+          return;
+        }
+      }
+      navigate("/room-view-3d", {
+        state: { ...navState, livingRoomLayout: selectedLayoutEntry },
+      });
+    };
+
+    // Shown inline in the layout card's header from lg up, and as a sticky full-width bar below that.
+    const actions = (
+      <button type="button" onClick={() => void continueTo3D()} disabled={!selectedLayoutEntry || livingLoading} className="lv-btn min-h-12 w-full px-6 lg:w-auto">
+        View in 3D <ArrowRight className="h-4 w-4" aria-hidden="true" />
+      </button>
+    );
+
+    const statusCardCls =
+      "flex flex-col items-center justify-center rounded-[28px] border border-lv-line bg-lv-surface px-6 py-16 text-center lg:min-h-0";
+
+    // From lg up the page is one viewport tall: the list on the left is the only
+    // part that scrolls, and the chosen layout with its actions stays in place.
+    return (
+      <div className="min-h-screen w-full bg-background relative isolate flex flex-col lg:h-svh lg:min-h-0 lg:overflow-hidden">
+        <PageGlows />
         <AppNavbar />
 
-        <main className="relative px-4 md:px-8 pt-3 md:pt-4 pb-8 md:pb-10 max-w-6xl mx-auto">
-          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-4">
-            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-              <h2 className="text-lg font-semibold text-white">
-                {roomLabel} Structure &amp; Layout
-              </h2>
-              <StepIndicator current={4} />
+        <main className="relative flex w-full flex-1 flex-col px-4 pb-6 pt-2 md:px-8 lg:min-h-0">
+          <div className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col lg:min-h-0">
+            <div className="mx-auto w-full max-w-2xl shrink-0">
+              <FlowStepper current="layout" />
             </div>
-            <p className="text-zinc-500 mt-1 text-xs">
-              {isBathroom
-                ? `Layouts generated by the rule-based engine for "${apiRoom.name}", one per shower position and scored against the fifteen bathroom rules`
-                : isBedroom
-                ? `Layouts generated by the rule-based engine for "${apiRoom.name}", one per bed position and scored against the ${isMasterBedroom ? "fifteen master-bedroom" : "twelve bedroom"} rules`
-                : isKitchen
-                  ? `Layouts generated by the rule-based engine for "${apiRoom.name}", the best of each kitchen shape and scored against the twelve kitchen rules`
-                  : isDining
-                  ? `Layouts generated by the rule-based engine for "${apiRoom.name}", one per table position and scored against the twelve dining-area rules`
-                  : `Layouts generated by the rule-based engine for "${apiRoom.name}", one per way the seating group can stand and scored against the ten living-room rules`}
-              {" "}— pick one to see the full structure and every placement's reasoning.
-            </p>
-            {isLivingRoom && (
-              <div className="flex flex-col gap-2 mt-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs text-zinc-500">Daily activities</span>
-                  {LIVING_ACTIVITY_SETS.map((set) => (
-                    <button key={set.label} disabled={livingLoading}
-                      onClick={() => setLivingActivities(set.activities)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-                        (livingActivities?.join() ?? null) === (set.activities?.join() ?? null)
-                          ? "bg-teal-500/10 text-teal-300 border-teal-500/30"
-                          : "bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10"
-                      }`}>
-                      {set.label}
-                    </button>
+
+            <div className="mt-6 flex shrink-0 flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+              <div className="min-w-0">
+                <h1 className="text-3xl md:text-4xl leading-[1.05] tracking-tight text-lv-ink">{apiRoom.name} layouts</h1>
+                <p className="mt-2 text-sm md:text-base text-lv-muted" aria-live="polite">
+                  {livingLoading
+                    ? "Working out the layouts for this room."
+                    : livingAll
+                      ? `${layoutCount} ${layoutCount === 1 ? "layout" : "layouts"}, best first. Pick one to see why it scored that way.`
+                      : livingError ? "Something went wrong." : "No layouts yet."}
+                </p>
+              </div>
+
+              {optionGroups.length > 0 && (
+                <div className="flex min-w-0 flex-col gap-2 lg:items-end">
+                  {optionGroups.map((group) => (
+                    <div key={group.label} role="group" aria-label={group.label} className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                      <span className="text-sm text-lv-muted">{group.label}</span>
+                      <div className="flex flex-wrap gap-1 rounded-full border border-lv-line bg-lv-surface/70 p-1">
+                        {group.choices.map((choice) => (
+                          <button key={choice.key} type="button" disabled={livingLoading} aria-pressed={choice.active} onClick={choice.pick}
+                            className={`h-8 cursor-pointer rounded-full px-3.5 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                              choice.active ? "bg-lv-ink text-lv-on-ink" : "text-lv-ink hover:bg-lv-ink/8"
+                            }`}>
+                            {choice.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   ))}
+                  {optionNote && <p className="max-w-xl text-xs leading-relaxed text-lv-muted lg:text-right">{optionNote}</p>}
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs text-zinc-500">Mobility needs</span>
-                  {([false, true] as const).map((choice) => (
-                    <button key={String(choice)} disabled={livingLoading}
-                      onClick={() => setLivingAccessible(choice)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-                        livingAccessible === choice
-                          ? "bg-teal-500/10 text-teal-300 border-teal-500/30"
-                          : "bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10"
-                      }`}>
-                      {choice ? "Wider paths, no rug" : "None"}
-                    </button>
-                  ))}
-                  {livingRoomAll?.programme && (
-                    <span className="text-xs text-zinc-500">
-                      {livingRoomAll.activitiesSource === "inferred" ? "Assumed for this room: " : "Planned with: "}
-                      {livingRoomAll.programme.summary}
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-            {isBedroom && (
-              <div className="flex flex-wrap items-center gap-2 mt-4">
-                <span className="text-xs text-zinc-500">Occupants</span>
-                {([null, 1, 2] as const).map((count) => (
-                  <button key={count ?? "auto"} disabled={livingLoading}
-                    onClick={() => setBedroomOccupants(count)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-                      bedroomOccupants === count
-                        ? "bg-teal-500/10 text-teal-300 border-teal-500/30"
-                        : "bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10"
-                    }`}>
-                    {count ?? "Auto"}
-                  </button>
-                ))}
-                {bedroomAll && (
-                  <span className="text-xs text-zinc-500">
-                    {bedroomAll.occupantsSource === "inferred"
-                      ? `Planned for ${bedroomAll.occupants} ${isMasterBedroom ? "by default" : "from the room size"}`
-                      : `Planned for ${bedroomAll.occupants}`}
-                    : {bedroomAll.programme.summary}
-                  </span>
-                )}
-              </div>
-            )}
-            {isBathroom && (
-              <div className="flex flex-wrap items-center gap-2 mt-4">
-                <span className="text-xs text-zinc-500">Mobility needs</span>
-                {([false, true] as const).map((choice) => (
-                  <button key={String(choice)} disabled={livingLoading}
-                    onClick={() => setBathroomAccessible(choice)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-                      bathroomAccessible === choice
-                        ? "bg-teal-500/10 text-teal-300 border-teal-500/30"
-                        : "bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10"
-                    }`}>
-                    {choice ? "Wheelchair & grab bars" : "None"}
-                  </button>
-                ))}
-                {bathroomAll && (
-                  <span className="text-xs text-zinc-500">Planned with: {bathroomAll.programme.summary}</span>
-                )}
-              </div>
-            )}
-            {isDining && (
-              <div className="flex flex-wrap items-center gap-2 mt-4">
-                <span className="text-xs text-zinc-500">Seats</span>
-                {([null, 2, 4, 6, 8] as const).map((count) => (
-                  <button key={count ?? "auto"} disabled={livingLoading}
-                    onClick={() => setDiningSeats(count)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-                      diningSeats === count
-                        ? "bg-teal-500/10 text-teal-300 border-teal-500/30"
-                        : "bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10"
-                    }`}>
-                    {count ?? "Auto"}
-                  </button>
-                ))}
-                {diningAll && (
-                  <span className="text-xs text-zinc-500">
-                    {diningAll.seatsSource === "inferred"
-                      ? `Planned for ${diningAll.seats} from the room size`
-                      : `Planned for ${diningAll.seats}`}
-                    : {diningAll.programme.summary}
-                  </span>
-                )}
-              </div>
-            )}
-            {isKitchen && (
-              <div className="flex flex-wrap items-center gap-2 mt-4">
-                <span className="text-xs text-zinc-500">Dining table</span>
-                {([null, true, false] as const).map((choice) => (
-                  <button key={String(choice)} disabled={livingLoading}
-                    onClick={() => setKitchenTable(choice)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-                      kitchenTable === choice
-                        ? "bg-teal-500/10 text-teal-300 border-teal-500/30"
-                        : "bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10"
-                    }`}>
-                    {choice === null ? "Auto" : choice ? "With" : "Without"}
-                  </button>
-                ))}
-                {kitchenAll && (
-                  <span className="text-xs text-zinc-500">Planned with: {kitchenAll.programme.summary}</span>
-                )}
-              </div>
-            )}
-          </motion.div>
-
-          {livingLoading && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-              className="glass-card rounded-3xl border border-white/5 p-12 flex flex-col items-center gap-4 text-center">
-              <Loader2 className="w-10 h-10 text-teal-400 animate-spin" />
-              <p className="text-zinc-200 font-semibold">{isBathroom ? "Generating bathroom layouts…" : isMasterBedroom ? "Generating master bedroom layouts…" : isBedroom ? "Generating bedroom layouts…" : isKitchen ? "Generating kitchen layouts…" : isDining ? "Generating dining layouts…" : "Generating living room layouts…"}</p>
-              <p className="text-zinc-600 text-sm max-w-sm">
-                {isBathroom
-                  ? "Trying the shower in every corner with the toilet and the basin on every wall, and checking each arrangement against the fifteen rules — this takes about a second."
-                  : isBedroom
-                  ? `Trying the bed on every wall and checking each arrangement against the ${isMasterBedroom ? "fifteen" : "twelve"} rules — this takes about a second.`
-                  : isKitchen
-                    ? "Trying every kitchen shape the walls allow and checking each against the twelve rules — this takes about a second."
-                    : isDining
-                    ? "Trying the table across the whole floor, both ways round, and checking each position against the twelve rules — this takes under a second."
-                    : "Trying the seating group across the whole floor, looking each way, and checking each arrangement against the ten rules — this takes under a second."}
-              </p>
-            </motion.div>
-          )}
-
-          {!livingLoading && livingError && (
-            <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}
-              className="glass-card rounded-3xl border border-red-500/20 p-12 flex flex-col items-center gap-4 text-center">
-              <div className="bg-red-500/10 p-5 rounded-2xl border border-red-500/20">
-                <AlertCircle className="w-12 h-12 text-red-400" />
-              </div>
-              <h3 className="text-xl font-bold text-white">Layout Generation Failed</h3>
-              <p className="text-zinc-500 max-w-md">{livingError}</p>
-              <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
-                onClick={() => setLivingRetry((n) => n + 1)}
-                className="mt-2 flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-xl font-semibold shadow-md shadow-teal-500/20">
-                <RefreshCw className="w-4 h-4" /> Retry
-              </motion.button>
-            </motion.div>
-          )}
-
-          {!livingLoading && !livingError && livingAll && (
-            <>
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }} className="mb-8">
-                <LivingRoomLayoutGrid
-                  layouts={livingAll.layouts}
-                  bestLayout={livingAll.bestLayout}
-                  selectedType={selectedLayoutType}
-                  onSelectType={setSelectedLayoutType}
-                />
-              </motion.div>
-
-              {selectedLayoutEntry && (
-                <motion.div key={selectedLayoutType} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-                  <LivingRoomPlan
-                    data={{
-                      roomId: livingAll.roomId,
-                      scaleSource: livingAll.scaleSource,
-                      doorsUsed: livingAll.doorsUsed,
-                      windowsUsed: livingAll.windowsUsed,
-                      notes: livingAll.notes,
-                      layout: selectedLayoutEntry,
-                    }}
-                  />
-                </motion.div>
               )}
+            </div>
 
-              <div className="flex flex-col sm:flex-row gap-3 mt-8">
-                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                  onClick={() => navigate("/select-room")}
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-sm bg-white/5 text-zinc-400 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all">
-                  <ArrowLeft className="w-4 h-4" /> Back to Room Selection
-                </motion.button>
-                <motion.button whileHover={selectedLayoutEntry ? { scale: 1.03, y: -1 } : {}} whileTap={selectedLayoutEntry ? { scale: 0.97 } : {}}
-                  onClick={async () => {
-                    if (!selectedLayoutEntry) return;
-                    if (navState?.floorPlanId && apiRoom) {
-                      try {
-                        await saveSelectedLivingRoomLayout(
-                          navState.floorPlanId,
-                          apiRoom.id,
-                          selectedLayoutEntry,
-                        );
-                      } catch (err) {
-                        setLivingError(err instanceof Error ? err.message : "Could not save the selected layout.");
-                        return;
-                      }
-                    }
-                    navigate("/room-view-3d", {
-                      state: { ...navState, livingRoomLayout: selectedLayoutEntry },
-                    });
-                  }}
-                  disabled={!selectedLayoutEntry}
-                  className={`flex-1 flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl font-semibold text-sm transition-all ${
-                    selectedLayoutEntry
-                      ? "bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-lg shadow-teal-500/20 hover:shadow-teal-500/30"
-                      : "bg-white/5 text-zinc-600 cursor-not-allowed border border-white/5"
-                  }`}>
-                  Continue with Selected Layout <ArrowRight className="w-4 h-4" />
-                </motion.button>
+            <div className="mt-5 grid flex-1 grid-cols-1 gap-5 lg:min-h-0 lg:grid-cols-[minmax(280px,360px)_minmax(0,1fr)]">
+              {/* Layout list: the only part that scrolls */}
+              <div className="lg:-m-1 lg:min-h-0 lg:overflow-y-auto lg:p-1 lg:pr-2">
+                {livingLoading ? (
+                  <div className="flex gap-3 overflow-hidden lg:flex-col" aria-hidden="true">
+                    {[0, 1, 2, 3].map((i) => (
+                      <div key={i} className="flex w-[78vw] max-w-[320px] shrink-0 items-center gap-3 rounded-[20px] border border-lv-line bg-lv-surface p-2.5 lg:w-auto lg:max-w-none">
+                        <div className="h-20 w-24 shrink-0 animate-pulse rounded-xl bg-lv-line" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-3.5 w-4/5 animate-pulse rounded-full bg-lv-line" />
+                          <div className="h-3 w-2/5 animate-pulse rounded-full bg-lv-line" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : livingAll ? (
+                  <LivingRoomLayoutGrid
+                    layouts={livingAll.layouts}
+                    bestLayout={livingAll.bestLayout}
+                    selectedType={selectedLayoutType}
+                    onSelectType={setSelectedLayoutType}
+                  />
+                ) : null}
               </div>
-            </>
-          )}
+
+              {/* The chosen layout */}
+              {livingLoading ? (
+                <div className={statusCardCls} role="status">
+                  <Loader2 className="h-8 w-8 animate-spin text-lv-accent" aria-hidden="true" />
+                  <p className="mt-5 text-xl leading-tight text-lv-ink">Generating {roomLabel.toLowerCase()} layouts</p>
+                  <p className="mt-2 max-w-sm text-sm leading-relaxed text-lv-muted">
+                    Every arrangement the walls allow is tried and checked against the rules. This takes about a second.
+                  </p>
+                </div>
+              ) : livingError ? (
+                <div className={statusCardCls} role="alert">
+                  <span className="grid h-14 w-14 place-items-center rounded-full bg-red-500/10">
+                    <AlertCircle className="h-7 w-7 text-red-400" aria-hidden="true" />
+                  </span>
+                  <p className="mt-5 text-xl leading-tight text-lv-ink">The layouts could not be generated</p>
+                  <p className="mt-2 max-w-md text-sm leading-relaxed text-lv-muted">{livingError}</p>
+                  <button type="button" onClick={() => setLivingRetry((n) => n + 1)} className="lv-btn mt-6">
+                    <RefreshCw className="h-4 w-4" aria-hidden="true" /> Try again
+                  </button>
+                </div>
+              ) : livingAll && selectedLayoutEntry ? (
+                <LivingRoomPlan
+                  key={selectedLayoutType}
+                  data={{
+                    roomId: livingAll.roomId,
+                    scaleSource: livingAll.scaleSource,
+                    doorsUsed: livingAll.doorsUsed,
+                    windowsUsed: livingAll.windowsUsed,
+                    notes: livingAll.notes,
+                    layout: selectedLayoutEntry,
+                  }}
+                  footer={actions}
+                />
+              ) : (
+                <div className={statusCardCls}>
+                  <p className="text-xl leading-tight text-lv-ink">No layout fits this room</p>
+                  <p className="mt-2 max-w-sm text-sm leading-relaxed text-lv-muted">
+                    None of the arrangements could be completed. Try a different option above, or go back and pick another room.
+                  </p>
+                  <button type="button" onClick={() => navigate("/select-room", { state: navState })} className="lv-btn-quiet mt-6">
+                    <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to rooms
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="sticky bottom-3 z-10 mt-4 flex items-center justify-between gap-3 rounded-[24px] border border-lv-line bg-lv-surface p-3 shadow-xl lg:hidden">
+              {actions}
+            </div>
+          </div>
         </main>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen w-full bg-background relative">
-      <div className="absolute inset-0 dot-grid pointer-events-none" />
+    <div className="min-h-screen w-full bg-background relative isolate">
+      <PageGlows />
 
       {/* Compare Modal */}
       <CompareModal layouts={MOCK_LAYOUTS} open={compareOpen} onClose={() => setCompareOpen(false)} />
@@ -1306,8 +1243,15 @@ export default function ViewLayouts() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2"
         >
-          <h2 className="text-lg font-semibold text-white">Generated Furniture Layouts</h2>
-          <StepIndicator current={4} />
+          <div className="w-full">
+            <div className="mx-auto w-full max-w-2xl">
+              <FlowStepper current="layout" />
+            </div>
+          </div>
+          <h1 className="mt-3 flex flex-wrap items-center gap-3 text-3xl md:text-4xl leading-[1.05] tracking-tight text-lv-ink">
+            Furniture layouts
+            <span className="rounded-full bg-lv-wash px-3 py-1 text-xs font-medium tracking-normal text-lv-ink">Sample layouts</span>
+          </h1>
           <div className="flex flex-wrap items-center gap-2">
             <ScoreTooltip />
             <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}

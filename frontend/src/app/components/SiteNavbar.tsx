@@ -122,7 +122,7 @@ export default function SiteNavbar({
         scrolled || menuOpen ? "bg-lv-page/80 backdrop-blur-xl border-lv-line" : "border-transparent"
       }`}
     >
-      <div className="h-16 px-4 md:px-8 flex items-center gap-4">
+      <div className="h-20 px-4 md:px-8 lg:px-12 xl:px-16 flex items-center gap-4">
         <div className="flex flex-1 min-w-0 items-center gap-3">
           {leading}
           <button
@@ -146,11 +146,18 @@ export default function SiteNavbar({
                 type="button"
                 onClick={() => goTo(item)}
                 aria-current={isActive ? "page" : undefined}
-                className={`px-4 h-9 inline-flex items-center rounded-full cursor-pointer transition-colors duration-200 ${
-                  isActive ? "bg-lv-ink text-lv-on-ink" : "text-lv-ink hover:bg-lv-ink/8"
+                className={`relative px-4 h-9 inline-flex items-center rounded-full cursor-pointer transition-colors duration-200 ${
+                  isActive ? "text-lv-on-ink" : "text-lv-ink hover:bg-lv-ink/8"
                 }`}
               >
-                {item.label}
+                {isActive && (
+                  <motion.span
+                    layoutId="site-nav-pill"
+                    className="absolute inset-0 rounded-full bg-lv-ink"
+                    transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 500, damping: 34 }}
+                  />
+                )}
+                <span className="relative">{item.label}</span>
               </button>
             );
           })}

@@ -3,6 +3,7 @@ import { Check, Loader2 } from "lucide-react";
 import { motion } from "motion/react";
 import { useLocation, useNavigate } from "react-router";
 import AppNavbar from "../components/AppNavbar";
+import PageGlows from "../components/marketing/PageGlows";
 import type { DetectionResult } from "../lib/wallDetector";
 
 export default function Processing() {
@@ -57,7 +58,8 @@ export default function Processing() {
   const progress = Math.round((currentStep / processingSteps.length) * 100);
 
   return (
-    <div className="min-h-screen w-full bg-background relative flex flex-col">
+    <div className="min-h-screen w-full bg-background relative isolate flex flex-col">
+      <PageGlows />
       <AppNavbar />
 
       <main className="relative flex flex-1 items-center justify-center px-4 py-10 md:px-8">
@@ -81,7 +83,7 @@ export default function Processing() {
                 >
                   <span className="grid h-6 w-6 shrink-0 place-items-center">
                     {isComplete ? (
-                      <span className="grid h-5 w-5 place-items-center rounded-full bg-lv-accent text-white">
+                      <span className="grid h-5 w-5 place-items-center rounded-full bg-lv-accent text-[#fff]">
                         <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" />
                       </span>
                     ) : isActive ? (

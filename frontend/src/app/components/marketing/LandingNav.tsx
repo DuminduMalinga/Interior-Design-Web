@@ -63,7 +63,7 @@ export default function LandingNav({ links }: { links: NavLink[] }) {
         scrolled || open ? "bg-lv-page/75 backdrop-blur-xl border-lv-line" : "border-transparent"
       }`}
     >
-      <div className="relative max-w-[1400px] mx-auto h-[72px] px-5 sm:px-8 lg:px-14 xl:px-20 flex items-center justify-between gap-4">
+      <div className="relative max-w-[1400px] mx-auto h-20 px-5 sm:px-8 lg:px-14 xl:px-20 flex items-center justify-between gap-4">
         <Link to="/" aria-label="3D Layout System home" className="rounded-lg">
           <span className="block sm:hidden"><BrandMark withName={false} /></span>
           <span className="hidden sm:block"><BrandMark /></span>
@@ -80,11 +80,18 @@ export default function LandingNav({ links }: { links: NavLink[] }) {
                 key={l.href}
                 href={l.href}
                 aria-current={current ? "true" : undefined}
-                className={`px-4 h-9 inline-flex items-center rounded-full transition-colors duration-200 ${
-                  current ? "bg-lv-ink text-lv-on-ink" : "text-lv-ink hover:bg-lv-ink/8"
+                className={`relative px-4 h-9 inline-flex items-center rounded-full transition-colors duration-200 ${
+                  current ? "text-lv-on-ink" : "text-lv-ink hover:bg-lv-ink/8"
                 }`}
               >
-                {l.label}
+                {current && (
+                  <motion.span
+                    layoutId="landing-nav-pill"
+                    className="absolute inset-0 rounded-full bg-lv-ink"
+                    transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 500, damping: 34 }}
+                  />
+                )}
+                <span className="relative">{l.label}</span>
               </a>
             );
           })}
