@@ -632,11 +632,12 @@ class Generator:
                 programme.describe(),
                 "two occupants" if programme.occupants >= 2 else "one occupant"),
         ]
+        # each rule is rated out of 10; its weight is its share of the total
         explanation += [
             "Rule {} - {}: {} [{}]".format(
                 r.rule.id[1:], r.rule.title, r.detail,
-                "not applicable" if not r.applicable else "{:.1f} of {:.1f} points".format(
-                    r.points * scale, r.weight * scale))
+                "not applicable" if not r.applicable else "{:.1f} / 10, weight {:.0f}%".format(
+                    r.score * 10.0, r.weight * scale))
             for r in rules
         ]
         explanation += list(lay.compromises)

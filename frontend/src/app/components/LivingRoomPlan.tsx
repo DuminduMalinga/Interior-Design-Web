@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { AlertTriangle, ArrowLeft, Check } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ChevronDown } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import type { GenerateLivingRoomLayoutResponse, LayoutFurnitureItem } from "../lib/livingRoomLayout";
 import type { BedroomRuleResult } from "../lib/bedroomLayout";
@@ -29,32 +29,81 @@ const RULE_STATUS: Record<BedroomRuleResult["status"], string> = {
 
 const titleCase = (value: string) => value.replace(/_/g, " ");
 
-/** "99 / 100" when the engine's rule maximums add up to a round total, otherwise "99 pts". */
-function scoreParts(score: number, rules: BedroomRuleResult[] | null): { value: number; unit: string } {
+/** "10" for a whole number, otherwise one decimal ("9.5"). */
+const fmtTenth = (n: number) => {
+  const v = Math.round(n * 10) / 10;
+  return Number.isInteger(v) ? String(v) : v.toFixed(1);
+};
+
+/**
+ * "94 %" when rules are rated out of 10; otherwise "99 / 100" when the
+ * engine's rule maximums add up to a round total, or "99 pts".
+ */
+function scoreParts(score: number, rules: BedroomRuleResult[] | null, outOfTen: boolean): { value: number; unit: string } {
+  if (outOfTen) return { value: Math.round(score), unit: "%" };
   const max = rules ? Math.round(rules.reduce((sum, r) => sum + (r.status === "not_applicable" ? 0 : r.max_points), 0)) : 0;
   return { value: Math.round(score), unit: max === 100 ? "/ 100" : "pts" };
 }
 
-function RuleList({ rules }: { rules: BedroomRuleResult[] }) {
+/**
+ * Each rule's title and result; "See more" opens the measurements behind it.
+ * With `outOfTen` a rule reads "9.5 / 10" plus its weight - its share of the
+ * total, which is the max_points the engine reports - instead of points, and
+ * the heaviest rules come first (rules that do not apply weigh nothing).
+ */
+function RuleList({ rules, outOfTen }: { rules: BedroomRuleResult[]; outOfTen: boolean }) {
+  const ordered = useMemo(
+    () => (outOfTen ? [...rules].sort((a, b) => b.max_points - a.max_points) : rules),
+    [rules, outOfTen],
+  );
+  const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
+  const toggle = (id: string) =>
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+
   return (
-    <ol className="space-y-3">
-      {rules.map((r) => (
-        <li key={r.id} className="flex gap-3">
-          <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${RULE_TONE[r.status]}`} aria-hidden="true" />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-baseline justify-between gap-3">
-              <p className="text-sm font-medium leading-snug text-lv-ink">{r.title}</p>
-              <p className="shrink-0 text-xs tabular-nums text-lv-muted">
-                {r.status === "not_applicable" ? "n/a" : `${r.points.toFixed(1)} / ${r.max_points.toFixed(0)}`}
-              </p>
+    <ol className="divide-y divide-lv-line">
+      {ordered.map((r) => {
+        const expanded = open.has(r.id);
+        const applies = r.status !== "not_applicable";
+        const showWeight = outOfTen && applies;
+        return (
+          <li key={r.id} className="flex gap-3 py-2.5 first:pt-0">
+            <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${RULE_TONE[r.status]}`} aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline gap-3">
+                <p className="min-w-0 flex-1 text-sm font-medium leading-snug text-lv-ink">
+                  {r.title}
+                  <span className="sr-only">. {RULE_STATUS[r.status]}</span>
+                </p>
+                <p className="shrink-0 text-xs tabular-nums text-lv-muted">
+                  {!applies ? "n/a"
+                    : outOfTen ? <><span className="font-medium text-lv-ink">{fmtTenth(r.score * 10)}</span> / 10</>
+                    : `${r.points.toFixed(1)} / ${r.max_points.toFixed(0)}`}
+                </p>
+                {(r.detail || showWeight) && (
+                  <button type="button" onClick={() => toggle(r.id)} aria-expanded={expanded} aria-controls={`rule-detail-${r.id}`}
+                    aria-label={`${expanded ? "Hide" : "Show"} details for ${r.title}`} title={expanded ? "Hide details" : "Show details"}
+                    className="-my-1 grid h-7 w-7 shrink-0 cursor-pointer place-items-center self-center rounded-full text-lv-accent transition-colors hover:bg-lv-ink/8 hover:text-lv-ink">
+                    <ChevronDown className={`h-4 w-4 transition-transform ${expanded ? "rotate-180" : ""}`} aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+              {expanded && (
+                <div id={`rule-detail-${r.id}`} className="mt-1 space-y-1">
+                  {showWeight && (
+                    <p className="text-[11px] font-medium tabular-nums text-lv-ink">Weight {fmtTenth(r.max_points)}%</p>
+                  )}
+                  {r.detail && <p className="text-xs leading-relaxed text-lv-muted">{r.detail}</p>}
+                </div>
+              )}
             </div>
-            <p className="mt-0.5 text-xs leading-relaxed text-lv-muted">
-              <span className="sr-only">{RULE_STATUS[r.status]}. </span>
-              {r.detail}
-            </p>
-          </div>
-        </li>
-      ))}
+          </li>
+        );
+      })}
     </ol>
   );
 }
@@ -115,12 +164,17 @@ function FurnitureDetail({ item }: { item: LayoutFurnitureItem }) {
 }
 
 /**
- * The chosen layout: title and score, the plan (furniture is clickable), and
- * tabs for the reasoning, the rule-by-rule report and the remaining details.
- * `footer` (the primary action) sits inline in the header from lg up, next to
- * the score — freeing the card's full height for the plan below.
+ * The chosen layout: the plan (furniture is clickable) at the card's full
+ * height, and beside it the score and tabs for the rule-by-rule report, the
+ * reasoning and the remaining details. `footer` (the primary action) sits at the
+ * foot of that side panel from lg up. `rulesOutOfTen` rates each rule out of 10
+ * with its weight, and gives the total as a percentage.
  */
-export default function LivingRoomPlan({ data, footer }: { data: GenerateLivingRoomLayoutResponse; footer?: ReactNode }) {
+export default function LivingRoomPlan({ data, footer, rulesOutOfTen = false }: {
+  data: GenerateLivingRoomLayoutResponse;
+  footer?: ReactNode;
+  rulesOutOfTen?: boolean;
+}) {
   const { layout } = data;
   const reduceMotion = useReducedMotion();
   const [tab, setTab] = useState<Tab>("rules");
@@ -133,7 +187,12 @@ export default function LivingRoomPlan({ data, footer }: { data: GenerateLivingR
   const circulation = layout.validation.circulation;
   const missingRequired = layout.unplaced_furniture.filter((f) => f.required);
   const rules = Array.isArray(layout.rules) ? (layout.rules as BedroomRuleResult[]) : null;
-  const score = scoreParts(layout.layout.score, rules);
+  const outOfTen = rulesOutOfTen && rules !== null;
+  const score = scoreParts(layout.layout.score, rules, outOfTen);
+  const roomFacts = [
+    { label: "Size", value: `${(layout.room.width / 1000).toFixed(2)} × ${(layout.room.length / 1000).toFixed(2)} m` },
+    { label: "Area", value: `${layout.room.area_m2} m²` },
+  ];
   const details = [
     ...(circulation
       ? [
@@ -147,32 +206,9 @@ export default function LivingRoomPlan({ data, footer }: { data: GenerateLivingR
 
   return (
     <section aria-label="Selected layout" className="flex flex-col rounded-[28px] border border-lv-line bg-lv-surface lg:min-h-0 lg:overflow-hidden">
-      <header className="flex shrink-0 flex-wrap items-start justify-between gap-x-6 gap-y-3 px-5 pt-5">
-        <div className="min-w-0">
-          <h2 className="text-xl leading-tight text-lv-ink md:text-2xl">{layout.layout.title}</h2>
-          <p className="mt-1 text-sm text-lv-muted">
-            {(layout.room.width / 1000).toFixed(2)} × {(layout.room.length / 1000).toFixed(2)} m, {layout.room.area_m2} m²
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-3">
-          {layout.validation.valid ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-400">
-              <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" /> Valid layout
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-400">
-              <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" /> Compromised
-            </span>
-          )}
-          <p className="flex items-baseline gap-1 text-lv-ink">
-            <span className="text-3xl font-medium leading-none tabular-nums">{score.value}</span>
-            <span className="text-sm text-lv-muted">{score.unit}</span>
-          </p>
-          {footer && <span className="hidden lg:ml-6 lg:block">{footer}</span>}
-        </div>
-      </header>
+      <h2 className="sr-only">{layout.layout.title}</h2>
 
-      <div className="grid flex-1 gap-5 p-5 lg:min-h-0 lg:grid-cols-[minmax(0,1.2fr)_minmax(220px,1fr)] lg:overflow-hidden xl:grid-cols-[minmax(0,1.25fr)_minmax(260px,1fr)]">
+      <div className="grid flex-1 gap-5 p-5 lg:min-h-0 lg:grid-cols-[minmax(0,1.5fr)_minmax(220px,1fr)] lg:overflow-hidden xl:grid-cols-[minmax(0,1.6fr)_minmax(260px,1fr)]">
         {/* Plan */}
         <div className="flex flex-col lg:min-h-0">
           <div className="aspect-[4/3] overflow-hidden rounded-2xl border border-lv-line bg-[var(--lv-plan-floor)] lg:aspect-auto lg:min-h-0 lg:flex-1">
@@ -181,13 +217,32 @@ export default function LivingRoomPlan({ data, footer }: { data: GenerateLivingR
           <ul className="mt-3 flex shrink-0 flex-wrap gap-x-4 gap-y-1.5 text-xs text-lv-muted">
             <li className="flex items-center gap-1.5"><span className="inline-block h-1 w-3 rounded-sm bg-[var(--lv-plan-wall)]" /> Wall</li>
             <li className="flex items-center gap-1.5"><span className="inline-block h-1 w-3 rounded-sm bg-sky-400" /> Window</li>
-            <li className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-500" /> Main entrance</li>
-            <li>Click a piece of furniture for its details.</li>
+            <li className="flex items-center gap-1.5"><span className="inline-block h-1 w-3 rounded-sm bg-lv-accent" /> Door</li>
           </ul>
         </div>
 
         {/* Reasoning */}
         <div className="flex flex-col lg:min-h-0">
+          <div className="mb-4 flex shrink-0 items-center gap-1.5 whitespace-nowrap">
+            <dl className="contents">
+              {roomFacts.map((f) => (
+                <div key={f.label} className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-lv-line bg-lv-surface px-2.5 text-xs">
+                  <dt className="text-[10px] uppercase tracking-wider text-lv-muted">{f.label}</dt>
+                  <dd className="font-medium tabular-nums text-lv-ink">{f.value}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className="ml-auto flex shrink-0 items-baseline gap-1 pl-2 text-lv-ink">
+              <span className="text-2xl font-medium leading-none tabular-nums">{score.value}</span>
+              <span className="text-xs text-lv-muted">{score.unit}</span>
+            </p>
+          </div>
+          {!layout.validation.valid && (
+            <span className="-mt-2 mb-4 inline-flex shrink-0 items-center gap-1.5 self-start rounded-full bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-400">
+              <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" /> Compromised
+            </span>
+          )}
+
           {selectedItem ? (
             <button type="button" onClick={() => setSelectedId(null)}
               className="inline-flex min-h-10 shrink-0 cursor-pointer items-center gap-2 self-start rounded-full text-sm text-lv-muted transition-colors hover:text-lv-ink">
@@ -243,7 +298,7 @@ export default function LivingRoomPlan({ data, footer }: { data: GenerateLivingR
                 )}
               </>
             ) : tab === "rules" ? (
-              rules ? <RuleList rules={rules} /> : <ComponentList components={layout.scoring.components} />
+              rules ? <RuleList rules={rules} outOfTen={outOfTen} /> :<ComponentList components={layout.scoring.components} />
             ) : (
               <>
                 <dl className="space-y-2.5">
@@ -277,6 +332,8 @@ export default function LivingRoomPlan({ data, footer }: { data: GenerateLivingR
               </>
             )}
           </div>
+
+          {footer && <div className="mt-4 hidden shrink-0 lg:block">{footer}</div>}
         </div>
       </div>
     </section>

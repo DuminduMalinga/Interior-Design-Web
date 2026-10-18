@@ -1087,9 +1087,9 @@ export default function ViewLayouts() {
       });
     };
 
-    // Shown inline in the layout card's header from lg up, and as a sticky full-width bar below that.
+    // Shown at the foot of the layout card's side panel from lg up, and as a sticky full-width bar below that.
     const actions = (
-      <button type="button" onClick={() => void continueTo3D()} disabled={!selectedLayoutEntry || livingLoading} className="lv-btn min-h-12 w-full px-6 lg:w-auto">
+      <button type="button" onClick={() => void continueTo3D()} disabled={!selectedLayoutEntry || livingLoading} className="lv-btn min-h-12 w-full px-6">
         View in 3D <ArrowRight className="h-4 w-4" aria-hidden="true" />
       </button>
     );
@@ -1200,6 +1200,7 @@ export default function ViewLayouts() {
                     layout: selectedLayoutEntry,
                   }}
                   footer={actions}
+                  rulesOutOfTen={isBedroom && !isMasterBedroom}
                 />
               ) : (
                 <div className={statusCardCls}>
