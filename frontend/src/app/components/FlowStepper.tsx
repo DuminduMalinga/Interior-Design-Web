@@ -4,32 +4,64 @@ import { useLocation, useNavigate } from "react-router";
 export type FlowStep = "upload" | "detect" | "layout" | "view3d";
 
 /** The router state the design flow hands from page to page. */
-type FlowState = { floorPlanId?: string; detection?: unknown; room?: unknown } | null;
+type FlowState = {
+  floorPlanId?: string;
+  detection?: { floorPlanId?: string } | null;
+  room?: { id?: string } | null;
+  livingRoomLayout?: unknown;
+  [key: string]: unknown;
+} | null;
 
-// The last plan analysed in this browser session, so the steps can reopen it.
-let remembered: FlowState = null;
+// How far the current plan has got in this browser session: everything each
+// step has produced so far. The stepper only opens steps that are in here.
+let progress: FlowState = null;
 
 /** Called by the upload page once a floor plan has been analysed. */
 export function rememberFlowState(state: FlowState) {
-  remembered = state;
+  progress = state ? { ...state } : null;
 }
 
-// The Detect page needs a detection result; the later pages fall back to a placeholder without one.
-const STEPS: { id: FlowStep; label: string; path: string; ready: (state: FlowState) => boolean }[] = [
-  { id: "upload", label: "Upload", path: "/upload", ready: () => true },
-  { id: "detect", label: "Detect", path: "/select-room", ready: (s) => !!s?.detection },
-  { id: "layout", label: "Layout", path: "/view-layouts", ready: () => true },
-  { id: "view3d", label: "3D View", path: "/room-view-3d", ready: () => true },
+const planId = (s: FlowState) => s?.floorPlanId ?? s?.detection?.floorPlanId ?? null;
+
+/**
+ * Adds what a page was opened with to the progress. A different plan starts
+ * over; a different room drops the 3D view, which belonged to the old room.
+ */
+function record(state: FlowState) {
+  if (!state?.detection) return;
+  if (!progress || planId(progress) !== planId(state)) {
+    progress = { ...state };
+    return;
+  }
+  const roomChanged = !!state.room && !!progress.room && state.room.id !== progress.room.id;
+  const next = { ...progress, ...state };
+  if (roomChanged && !state.livingRoomLayout) delete next.livingRoomLayout;
+  progress = next;
+}
+
+// Each step opens once the step before it has produced what it needs.
+const STEPS: { id: FlowStep; label: string; path: string; ready: (s: FlowState) => boolean; blocked: string }[] = [
+  { id: "upload", label: "Upload", path: "/upload", ready: () => true, blocked: "" },
+  { id: "detect", label: "Detect", path: "/select-room", ready: (s) => !!s?.detection, blocked: "Upload a floor plan first" },
+  { id: "layout", label: "Layout", path: "/view-layouts", ready: (s) => !!s?.room, blocked: "Pick a room first" },
+  { id: "view3d", label: "3D View", path: "/room-view-3d", ready: (s) => !!s?.livingRoomLayout, blocked: "Choose a layout first" },
 ];
 
 /**
  * The Upload → Detect → Layout → 3D View progress bar of the design flow.
- * Every step is a button that opens its page, carrying the analysed plan along.
+ * A step is a button once it has been reached, so the user can move back and
+ * forth between the steps already generated, carrying the plan along.
  */
 export default function FlowStepper({ current }: { current: FlowStep }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const state = ((location.state as FlowState) ?? remembered) as FlowState;
+  const opened = location.state as FlowState;
+
+  // The stepper always opens Upload with the progress in hand; arriving there
+  // any other way (the navbar, the dashboard, a link) is a new design.
+  if (current === "upload" && !opened?.detection) progress = null;
+  else record(opened);
+
   const currentIndex = STEPS.findIndex((s) => s.id === current);
 
   return (
@@ -37,7 +69,7 @@ export default function FlowStepper({ current }: { current: FlowStep }) {
       {STEPS.map((step, i) => {
         const isDone = i < currentIndex;
         const isActive = i === currentIndex;
-        const enabled = !isActive && step.ready(state);
+        const enabled = !isActive && step.ready(progress);
         const circle = isActive
           ? "bg-lv-on-ink/20 text-lv-on-ink"
           : isDone
@@ -50,9 +82,9 @@ export default function FlowStepper({ current }: { current: FlowStep }) {
             <button
               type="button"
               disabled={!enabled}
-              onClick={() => navigate(step.path, { state })}
+              onClick={() => navigate(step.path, { state: progress })}
               aria-current={isActive ? "step" : undefined}
-              title={isActive ? undefined : enabled ? `Go to ${step.label}` : "Upload a floor plan first"}
+              title={isActive ? undefined : enabled ? `Go to ${step.label}` : step.blocked}
               className={`flex items-center gap-2.5 h-9 pl-1.5 pr-1.5 sm:pr-4 rounded-full transition-colors ${
                 isActive
                   ? "bg-lv-ink text-lv-on-ink cursor-default"

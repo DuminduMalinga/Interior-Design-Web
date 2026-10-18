@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { AlertTriangle, ArrowLeft, Check } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ChevronDown } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import type { GenerateLivingRoomLayoutResponse, LayoutFurnitureItem } from "../lib/livingRoomLayout";
 import type { BedroomRuleResult } from "../lib/bedroomLayout";
@@ -8,14 +8,14 @@ import { COMPONENT_LABELS } from "./layoutLabels";
 
 type Tab = "why" | "rules" | "details";
 const TABS: { id: Tab; label: string }[] = [
-  { id: "why", label: "Why" },
   { id: "rules", label: "Rules" },
+  { id: "why", label: "Why" },
   { id: "details", label: "Details" },
 ];
 
 const RULE_TONE: Record<BedroomRuleResult["status"], string> = {
   satisfied: "bg-emerald-400",
-  partly_satisfied: "bg-amber-400",
+  partly_satisfied: "bg-blue-500",
   not_satisfied: "bg-red-400",
   not_applicable: "bg-lv-line",
 };
@@ -29,33 +29,123 @@ const RULE_STATUS: Record<BedroomRuleResult["status"], string> = {
 
 const titleCase = (value: string) => value.replace(/_/g, " ");
 
-/** "99 / 100" when the engine's rule maximums add up to a round total, otherwise "99 pts". */
-function scoreParts(score: number, rules: BedroomRuleResult[] | null): { value: number; unit: string } {
-  const max = rules ? Math.round(rules.reduce((sum, r) => sum + (r.status === "not_applicable" ? 0 : r.max_points), 0)) : 0;
-  return { value: Math.round(score), unit: max === 100 ? "/ 100" : "pts" };
+/** "10" for a whole number, otherwise one decimal ("9.5"). */
+const fmtTenth = (n: number) => {
+  const v = Math.round(n * 10) / 10;
+  return Number.isInteger(v) ? String(v) : v.toFixed(1);
+};
+
+/** Rules heaviest first, as both the Rules and the Why tab list them. */
+const byWeight = (rules: BedroomRuleResult[]) => [...rules].sort((a, b) => b.max_points - a.max_points);
+
+/** "8" / "8.5 / 10" - a rule's points out of its default weight, or "n/a". */
+function RulePoints({ rule }: { rule: BedroomRuleResult }) {
+  return (
+    <p className="shrink-0 text-xs tabular-nums text-lv-muted">
+      {rule.status !== "not_applicable"
+        ? <><span className="font-medium text-lv-ink">{fmtTenth(rule.points)}</span> / {fmtTenth(rule.max_points)}</>
+        : "n/a"}
+    </p>
+  );
 }
 
+/**
+ * Each rule's points out of its default weight - the max_points the engine
+ * reports - heaviest first; a rule that does not apply reads "n/a". The arrow
+ * opens what the rule says. How each was scored is on the Why tab.
+ */
 function RuleList({ rules }: { rules: BedroomRuleResult[] }) {
+  const ordered = useMemo(() => byWeight(rules), [rules]);
+  const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
+  const toggle = (id: string) =>
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+
   return (
-    <ol className="space-y-3">
-      {rules.map((r) => (
-        <li key={r.id} className="flex gap-3">
-          <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${RULE_TONE[r.status]}`} aria-hidden="true" />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-baseline justify-between gap-3">
-              <p className="text-sm font-medium leading-snug text-lv-ink">{r.title}</p>
-              <p className="shrink-0 text-xs tabular-nums text-lv-muted">
-                {r.status === "not_applicable" ? "n/a" : `${r.points.toFixed(1)} / ${r.max_points.toFixed(0)}`}
-              </p>
+    <ol className="divide-y divide-lv-line">
+      {ordered.map((r) => {
+        const expanded = open.has(r.id);
+        return (
+          <li key={r.id} className="flex gap-3 py-2.5 first:pt-0">
+            <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${RULE_TONE[r.status]}`} aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline gap-3">
+                <p className="min-w-0 flex-1 text-sm font-medium leading-snug text-lv-ink">
+                  {r.title}
+                  <span className="sr-only">. {RULE_STATUS[r.status]}</span>
+                </p>
+                <RulePoints rule={r} />
+                {r.rule && (
+                  <button type="button" onClick={() => toggle(r.id)} aria-expanded={expanded} aria-controls={`rule-detail-${r.id}`}
+                    aria-label={`${expanded ? "Hide" : "Show"} what ${r.title} means`} title={expanded ? "Hide the rule" : "What this rule means"}
+                    className="-my-1 grid h-7 w-7 shrink-0 cursor-pointer place-items-center self-center rounded-full text-lv-accent transition-colors hover:bg-lv-ink/8 hover:text-lv-ink">
+                    <ChevronDown className={`h-4 w-4 transition-transform ${expanded ? "rotate-180" : ""}`} aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+              {expanded && (
+                <p id={`rule-detail-${r.id}`} className="mt-1 text-xs leading-relaxed text-lv-muted">{r.rule}</p>
+              )}
             </div>
-            <p className="mt-0.5 text-xs leading-relaxed text-lv-muted">
-              <span className="sr-only">{RULE_STATUS[r.status]}. </span>
-              {r.detail}
-            </p>
-          </div>
-        </li>
-      ))}
+          </li>
+        );
+      })}
     </ol>
+  );
+}
+
+/**
+ * How the score was made, rule by rule: how each rule is scored, what was
+ * measured in this layout and the points it earned, then the total - the
+ * points earned out of the points the applicable rules could give.
+ */
+function RuleScoring({ rules, score }: { rules: BedroomRuleResult[]; score: number }) {
+  const ordered = useMemo(() => byWeight(rules), [rules]);
+  const applicable = rules.filter((r) => r.status !== "not_applicable");
+  const earned = applicable.reduce((sum, r) => sum + r.points, 0);
+  const possible = applicable.reduce((sum, r) => sum + r.max_points, 0);
+
+  return (
+    <>
+      <p className="text-xs text-lv-muted">How the score was made</p>
+      <ol className="mt-2 space-y-2">
+        {ordered.map((r) => (
+          <li key={r.id} className="rounded-2xl border border-lv-line p-3">
+            <div className="flex items-baseline gap-3">
+              <span className={`h-2 w-2 shrink-0 self-center rounded-full ${RULE_TONE[r.status]}`} aria-hidden="true" />
+              <p className="min-w-0 flex-1 text-sm font-medium leading-snug text-lv-ink">
+                {r.title}
+                <span className="sr-only">. {RULE_STATUS[r.status]}</span>
+              </p>
+              <RulePoints rule={r} />
+            </div>
+            <dl className="mt-2 space-y-1.5 text-xs leading-relaxed">
+              {r.method && (
+                <div>
+                  <dt className="font-medium text-lv-ink">How it is scored</dt>
+                  <dd className="text-lv-muted">{r.method}</dd>
+                </div>
+              )}
+              {r.detail && (
+                <div>
+                  <dt className="font-medium text-lv-ink">{r.status === "not_applicable" ? "Why it does not apply" : "In this layout"}</dt>
+                  <dd className="text-lv-muted">{r.detail}</dd>
+                </div>
+              )}
+            </dl>
+          </li>
+        ))}
+      </ol>
+      <p className="mt-3 rounded-2xl bg-lv-wash/60 p-3 text-xs leading-relaxed text-lv-ink">
+        Total: <span className="font-medium tabular-nums">{fmtTenth(earned)}</span> points earned out of the{" "}
+        <span className="font-medium tabular-nums">{fmtTenth(possible)}</span> the applicable rules could give
+        {" "}= <span className="font-medium tabular-nums">{Math.round(score)}%</span>.
+        {applicable.length < rules.length && " Rules that do not apply are left out, and the others keep their weights."}
+      </p>
+    </>
   );
 }
 
@@ -115,15 +205,15 @@ function FurnitureDetail({ item }: { item: LayoutFurnitureItem }) {
 }
 
 /**
- * The chosen layout: title and score, the plan (furniture is clickable), and
- * tabs for the reasoning, the rule-by-rule report and the remaining details.
- * `footer` (the primary action) sits inline in the header from lg up, next to
- * the score — freeing the card's full height for the plan below.
+ * The chosen layout: the plan (furniture is clickable) at the card's full
+ * height, and beside it the score and tabs for the rule-by-rule report, the
+ * reasoning and the remaining details. `footer` (the primary action) sits at the
+ * foot of that side panel from lg up.
  */
 export default function LivingRoomPlan({ data, footer }: { data: GenerateLivingRoomLayoutResponse; footer?: ReactNode }) {
   const { layout } = data;
   const reduceMotion = useReducedMotion();
-  const [tab, setTab] = useState<Tab>("why");
+  const [tab, setTab] = useState<Tab>("rules");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selectedItem = useMemo(
     () => layout.furniture.find((f) => f.id === selectedId) ?? null,
@@ -133,7 +223,12 @@ export default function LivingRoomPlan({ data, footer }: { data: GenerateLivingR
   const circulation = layout.validation.circulation;
   const missingRequired = layout.unplaced_furniture.filter((f) => f.required);
   const rules = Array.isArray(layout.rules) ? (layout.rules as BedroomRuleResult[]) : null;
-  const score = scoreParts(layout.layout.score, rules);
+  // the total is a percentage of the points the applicable rules could give
+  const score = { value: Math.round(layout.layout.score), unit: rules ? "%" : "pts" };
+  const roomFacts = [
+    { label: "Size", value: `${(layout.room.width / 1000).toFixed(2)} × ${(layout.room.length / 1000).toFixed(2)} m` },
+    { label: "Area", value: `${layout.room.area_m2} m²` },
+  ];
   const details = [
     ...(circulation
       ? [
@@ -147,32 +242,9 @@ export default function LivingRoomPlan({ data, footer }: { data: GenerateLivingR
 
   return (
     <section aria-label="Selected layout" className="flex flex-col rounded-[28px] border border-lv-line bg-lv-surface lg:min-h-0 lg:overflow-hidden">
-      <header className="flex shrink-0 flex-wrap items-start justify-between gap-x-6 gap-y-3 px-5 pt-5">
-        <div className="min-w-0">
-          <h2 className="text-xl leading-tight text-lv-ink md:text-2xl">{layout.layout.title}</h2>
-          <p className="mt-1 text-sm text-lv-muted">
-            {(layout.room.width / 1000).toFixed(2)} × {(layout.room.length / 1000).toFixed(2)} m, {layout.room.area_m2} m²
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-3">
-          {layout.validation.valid ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-400">
-              <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" /> Valid layout
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-400">
-              <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" /> Compromised
-            </span>
-          )}
-          <p className="flex items-baseline gap-1 text-lv-ink">
-            <span className="text-3xl font-medium leading-none tabular-nums">{score.value}</span>
-            <span className="text-sm text-lv-muted">{score.unit}</span>
-          </p>
-          {footer && <span className="hidden lg:ml-6 lg:block">{footer}</span>}
-        </div>
-      </header>
+      <h2 className="sr-only">{layout.layout.title}</h2>
 
-      <div className="grid flex-1 gap-5 p-5 lg:min-h-0 lg:grid-cols-[minmax(0,1.2fr)_minmax(220px,1fr)] lg:overflow-hidden xl:grid-cols-[minmax(0,1.25fr)_minmax(260px,1fr)]">
+      <div className="grid flex-1 gap-5 p-5 lg:min-h-0 lg:grid-cols-[minmax(0,1.5fr)_minmax(220px,1fr)] lg:overflow-hidden xl:grid-cols-[minmax(0,1.6fr)_minmax(260px,1fr)]">
         {/* Plan */}
         <div className="flex flex-col lg:min-h-0">
           <div className="aspect-[4/3] overflow-hidden rounded-2xl border border-lv-line bg-[var(--lv-plan-floor)] lg:aspect-auto lg:min-h-0 lg:flex-1">
@@ -181,13 +253,27 @@ export default function LivingRoomPlan({ data, footer }: { data: GenerateLivingR
           <ul className="mt-3 flex shrink-0 flex-wrap gap-x-4 gap-y-1.5 text-xs text-lv-muted">
             <li className="flex items-center gap-1.5"><span className="inline-block h-1 w-3 rounded-sm bg-[var(--lv-plan-wall)]" /> Wall</li>
             <li className="flex items-center gap-1.5"><span className="inline-block h-1 w-3 rounded-sm bg-sky-400" /> Window</li>
-            <li className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-500" /> Main entrance</li>
-            <li>Click a piece of furniture for its details.</li>
+            <li className="flex items-center gap-1.5"><span className="inline-block h-1 w-3 rounded-sm bg-lv-accent" /> Door</li>
           </ul>
         </div>
 
         {/* Reasoning */}
         <div className="flex flex-col lg:min-h-0">
+          <div className="mb-4 flex shrink-0 items-center gap-1.5 whitespace-nowrap">
+            <dl className="contents">
+              {roomFacts.map((f) => (
+                <div key={f.label} className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-lv-line bg-lv-surface px-2.5 text-xs">
+                  <dt className="text-[10px] uppercase tracking-wider text-lv-muted">{f.label}</dt>
+                  <dd className="font-medium tabular-nums text-lv-ink">{f.value}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className="ml-auto flex shrink-0 items-baseline gap-1 pl-2 text-lv-ink">
+              <span className="text-2xl font-medium leading-none tabular-nums">{score.value}</span>
+              <span className="text-xs text-lv-muted">{score.unit}</span>
+            </p>
+          </div>
+
           {selectedItem ? (
             <button type="button" onClick={() => setSelectedId(null)}
               className="inline-flex min-h-10 shrink-0 cursor-pointer items-center gap-2 self-start rounded-full text-sm text-lv-muted transition-colors hover:text-lv-ink">
@@ -221,11 +307,16 @@ export default function LivingRoomPlan({ data, footer }: { data: GenerateLivingR
               <FurnitureDetail item={selectedItem} />
             ) : tab === "why" ? (
               <>
-                <ul className="space-y-3">
-                  {layout.reason.map((reason, i) => (
-                    <li key={i} className="text-sm leading-relaxed text-lv-ink">{reason}</li>
-                  ))}
-                </ul>
+                {rules ? (
+                  <RuleScoring rules={rules} score={layout.layout.score} />
+                ) : (
+                  // engines without rule-by-rule results only give the summary
+                  <ul className="space-y-3">
+                    {layout.reason.map((reason, i) => (
+                      <li key={i} className="text-sm leading-relaxed text-lv-ink">{reason}</li>
+                    ))}
+                  </ul>
+                )}
                 {missingRequired.length > 0 && (
                   <div className="mt-5 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
                     <p className="flex items-center gap-2 text-sm font-medium text-amber-400">
@@ -277,6 +368,8 @@ export default function LivingRoomPlan({ data, footer }: { data: GenerateLivingR
               </>
             )}
           </div>
+
+          {footer && <div className="mt-4 hidden shrink-0 lg:block">{footer}</div>}
         </div>
       </div>
     </section>

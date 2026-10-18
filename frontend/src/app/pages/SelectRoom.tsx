@@ -7,6 +7,7 @@ import PageGlows from "../components/marketing/PageGlows";
 import AppFooter from "../components/AppFooter";
 import FlowStepper from "../components/FlowStepper";
 import type { DetectionResult } from "../lib/wallDetector";
+import { roomKind } from "../lib/roomKind";
 
 type RoomType = "Room";
 
@@ -16,15 +17,12 @@ interface DetectedRoom {
   type: RoomType;
   /** true when the name came from OCR of the printed label (not a fallback) */
   labelDetected: boolean;
-  /** width / height in source-image pixels */
-  width: number;
-  height: number;
-  /** real-world size when a scale could be recovered from the plan's own
-   * printed areas — null when nothing on the whole plan gave a usable scale */
-  widthM: number | null;
-  heightM: number | null;
-  areaM2: number | null;
-  areaSource: "ocr" | "estimated" | null;
+  /** real-world size: from the plan's own printed areas when it has them,
+   * otherwise from the scale the layout engines would assume (see planScale) */
+  widthM: number;
+  heightM: number;
+  areaM2: number;
+  areaSource: "ocr" | "estimated" | "door" | "default" | null;
   confidence: number;
   /** bbox as % of the floor-plan image, for overlays */
   bboxPct: { x: number; y: number; w: number; h: number };
@@ -49,39 +47,57 @@ function rectShape(wPx: number, hPx: number): [number, number][] {
   ];
 }
 
-function roomsFromDetection(detection: DetectionResult): DetectedRoom[] {
-  return detection.rooms.map((r) => ({
-    id: r.id,
-    name: r.name,
-    type: "Room" as const,
-    labelDetected: r.labelDetected,
-    width: Math.round(r.widthPx),
-    height: Math.round(r.heightPx),
-    widthM: r.widthM,
-    heightM: r.heightM,
-    areaM2: r.areaM2,
-    areaSource: r.areaSource,
-    confidence: r.confidence,
-    bboxPct: r.bboxPct,
-    shape: rectShape(r.widthPx, r.heightPx),
-  }));
+// What the layout engines assume when a plan comes without a scale (backend */floorplan.py):
+// a standard door leaf over the median detected door, or a flat default when there is no door.
+const STANDARD_DOOR_WIDTH_MM = 900;
+const DEFAULT_MM_PER_PX = 20;
+
+/** Millimetres per pixel the layout engines would use for a plan with no printed areas. */
+function planScale(detection: DetectionResult): { mmPerPx: number; source: "door" | "default" } {
+  const spans = detection.detections
+    .filter((d) => d.class === "Door")
+    .map((d) => Math.max(d.bbox.x2 - d.bbox.x1, d.bbox.y2 - d.bbox.y1))
+    .filter((span) => span > 0)
+    .sort((a, b) => a - b);
+  return spans.length > 0
+    ? { mmPerPx: STANDARD_DOOR_WIDTH_MM / spans[Math.floor(spans.length / 2)], source: "door" }
+    : { mmPerPx: DEFAULT_MM_PER_PX, source: "default" };
 }
 
-const areaPx = (w: number, h: number) => w * h;
-
-/** Real-world size when the plan's scale is known, otherwise pixels. */
-function formatSize(room: DetectedRoom): { dims: string; area: string; note: string | null } {
-  if (room.widthM != null && room.heightM != null && room.areaM2 != null) {
+function roomsFromDetection(detection: DetectionResult): DetectedRoom[] {
+  const scale = planScale(detection);
+  const mPerPx = scale.mmPerPx / 1000;
+  return detection.rooms.map((r) => {
+    const printed = r.widthM != null && r.heightM != null && r.areaM2 != null;
     return {
-      dims: `${room.widthM.toFixed(2)} × ${room.heightM.toFixed(2)} m`,
-      area: `${room.areaM2.toFixed(1)} m²`,
-      note: room.areaSource === "ocr" ? "from the plan's printed area" : "estimated from the plan's scale",
+      id: r.id,
+      name: r.name,
+      type: "Room" as const,
+      labelDetected: r.labelDetected,
+      widthM: printed ? r.widthM! : r.widthPx * mPerPx,
+      heightM: printed ? r.heightM! : r.heightPx * mPerPx,
+      areaM2: printed ? r.areaM2! : r.widthPx * r.heightPx * mPerPx * mPerPx,
+      areaSource: printed ? r.areaSource : scale.source,
+      confidence: r.confidence,
+      bboxPct: r.bboxPct,
+      shape: rectShape(r.widthPx, r.heightPx),
     };
-  }
+  });
+}
+
+const SIZE_NOTES: Record<NonNullable<DetectedRoom["areaSource"]>, string> = {
+  ocr: "from the plan's printed area",
+  estimated: "estimated from the plan's scale",
+  door: "estimated from the doors, taking a standard 900 mm door",
+  default: "a rough estimate: the plan has no scale and no doors",
+};
+
+/** The room's size in metres, and where it came from. */
+function formatSize(room: DetectedRoom): { dims: string; area: string; note: string | null } {
   return {
-    dims: `${room.width} × ${room.height} px`,
-    area: `${areaPx(room.width, room.height).toLocaleString()} px²`,
-    note: null,
+    dims: `${room.widthM.toFixed(2)} × ${room.heightM.toFixed(2)} m`,
+    area: `${room.areaM2.toFixed(1)} m²`,
+    note: room.areaSource ? SIZE_NOTES[room.areaSource] : null,
   };
 }
 
@@ -139,10 +155,13 @@ export default function SelectRoom() {
   }, [detection, navigate]);
 
 
+  // Only the rooms a layout engine can plan (living room, bedroom, bathroom, kitchen,
+  // dining); the others, such as a study, are left out for now.
   const rooms = useMemo(
-    () => (detection ? roomsFromDetection(detection) : []),
+    () => (detection ? roomsFromDetection(detection).filter((r) => roomKind(r.name) !== null) : []),
     [detection],
   );
+  const otherRooms = (detection?.rooms.length ?? 0) - rooms.length;
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId) ?? null;
   const rowRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   useEffect(() => {
@@ -213,9 +232,13 @@ export default function SelectRoom() {
               <span className="grid h-14 w-14 place-items-center rounded-full bg-amber-500/10">
                 <AlertCircle className="h-7 w-7 text-amber-400" aria-hidden="true" />
               </span>
-              <h1 className="mt-6 text-2xl leading-tight text-lv-ink md:text-3xl">No rooms were found</h1>
+              <h1 className="mt-6 text-2xl leading-tight text-lv-ink md:text-3xl">
+                {otherRooms > 0 ? "No rooms we can plan yet" : "No rooms were found"}
+              </h1>
               <p className="mt-3 max-w-sm text-base leading-relaxed text-lv-muted">
-                We couldn't make out any rooms in this plan. Try a clearer image where the walls are fully drawn.
+                {otherRooms > 0
+                  ? "Layouts are available for living rooms, bedrooms, bathrooms, kitchens and dining areas, and this plan has none of them."
+                  : "We couldn't make out any rooms in this plan. Try a clearer image where the walls are fully drawn."}
               </p>
               <button type="button" onClick={() => navigate("/upload")} className="lv-btn mt-7">
                 <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Upload another plan
@@ -226,7 +249,7 @@ export default function SelectRoom() {
               <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="lg:col-start-1 lg:row-start-1">
                 <h1 className="text-4xl md:text-5xl leading-[1.05] tracking-tight text-lv-ink">Pick a room</h1>
                 <p className="mt-3 text-base md:text-lg text-lv-muted">
-                  {rooms.length} {rooms.length === 1 ? "room" : "rooms"} found. Choose one from the list or on the plan.
+                  {rooms.length} {rooms.length === 1 ? "room" : "rooms"} we can plan. Choose one from the list or on the plan.
                 </p>
               </motion.div>
 

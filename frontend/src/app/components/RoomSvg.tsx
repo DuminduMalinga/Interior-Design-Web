@@ -218,7 +218,6 @@ export default function RoomSvg({
               )}
               <line x1={p0[0]} y1={p0[1]} x2={p2[0]} y2={p2[1]} stroke="var(--lv-accent)" strokeWidth={compact ? 1.5 : 2}
                 vectorEffect="non-scaling-stroke" />
-              {d.is_main && <circle cx={p0[0]} cy={p0[1]} r={compact ? 2.5 : 4} fill="#f59e0b" />}
               {!compact && (
                 <title>{`Door ${d.id} (${d.is_main ? "main entrance" : "interior"}) — ${fmtMm(d.width)} wide, swings inward`}</title>
               )}
@@ -231,7 +230,6 @@ export default function RoomSvg({
             <line x1={p0[0]} y1={p0[1]} x2={p1[0]} y2={p1[1]} stroke="var(--lv-accent)" strokeWidth={compact ? 1.5 : 2}
               strokeDasharray={d.swing === "sliding" ? "6 3" : undefined}
               vectorEffect="non-scaling-stroke" />
-            {d.is_main && <circle cx={p0[0]} cy={p0[1]} r={compact ? 2.5 : 4} fill="#f59e0b" />}
             {!compact && (
               <title>{`Door ${d.id} (${d.is_main ? "main entrance" : "interior"}) — ${fmtMm(d.width)} wide, ${d.swing}`}</title>
             )}

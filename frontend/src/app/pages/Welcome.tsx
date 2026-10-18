@@ -502,7 +502,7 @@ export default function Welcome() {
 
         <div className="mt-14 flex flex-col-reverse gap-4 border-t border-lv-line pt-6 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-lv-muted">
-            © {new Date().getFullYear()} Smart Floor Plan to 3D Layout Optimization System. All rights reserved.
+            © {new Date().getFullYear()} roomscape. All rights reserved.
           </p>
           <a
             href="#top"
@@ -515,9 +515,9 @@ export default function Welcome() {
 
         <p
           aria-hidden="true"
-          className="mt-10 select-none overflow-hidden whitespace-nowrap text-center text-[clamp(2rem,8vw,7rem)] font-medium leading-[0.9] tracking-tighter bg-gradient-to-b from-lv-accent/35 to-transparent bg-clip-text text-transparent"
+          className="mt-10 select-none overflow-hidden whitespace-nowrap text-center text-[clamp(3.5rem,17vw,13rem)] font-medium leading-[0.9] tracking-tighter bg-gradient-to-b from-lv-accent/35 to-transparent bg-clip-text text-transparent"
         >
-          3D Layout System
+          roomscape
         </p>
       </footer>
     </div>
