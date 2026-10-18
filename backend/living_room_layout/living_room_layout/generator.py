@@ -695,15 +695,17 @@ class Generator:
     def to_dict(self, result: Result, ranking: List[Dict]) -> Dict:
         lay, room, c, report = result.layout, self.room, self.c, result.report
         rules = list(result.rules.values())
-        applicable = sum(r.weight for r in rules if r.applicable) or 1.0
-        scale = 100.0 / applicable           # so the per-rule points add up to the 0-100 total
+        # every rule keeps its default share of 100, even when another rule does not apply;
+        # the total is then the points earned out of the points the applicable rules could give
+        scale = 100.0 / (sum(r.weight for r in rules) or 1.0)
         checks = {v["check"] for v in result.violations}
 
         explanation = ["Furniture (rules 5 and 7): {}.".format(self.summary(lay)[:-1])]
+        # each rule earns up to its weight, its share of the total
         explanation += [
             "Rule {} - {}: {} [{}]".format(
                 r.rule.id[1:], r.rule.title, r.detail,
-                "not applicable" if not r.applicable else "{:.1f} of {:.1f} points".format(
+                "not applicable" if not r.applicable else "{:.1f} / {:.1f} points".format(
                     r.points * scale, r.weight * scale))
             for r in rules
         ]

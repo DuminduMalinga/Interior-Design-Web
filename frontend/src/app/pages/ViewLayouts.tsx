@@ -838,6 +838,10 @@ const LIVING_ACTIVITY_SETS: Array<{ label: string; activities: LivingActivity[] 
   { label: "Talk only", activities: ["conversation"] },
 ];
 
+/** An engine's programme summary as a list: "king bed, 2 bedside tables" -> ["King bed", "2 bedside tables"]. */
+const programmeItems = (summary: string) =>
+  summary.split(", ").filter(Boolean).map((item) => item.charAt(0).toUpperCase() + item.slice(1));
+
 // ─────────────────────────────────────────────
 // Main Page
 // ─────────────────────────────────────────────
@@ -994,7 +998,8 @@ export default function ViewLayouts() {
     // The room's planning options, as labelled groups of choices.
     type Choice = { key: string; label: string; active: boolean; pick: () => void };
     const optionGroups: { label: string; choices: Choice[] }[] = [];
-    let optionNote: string | null = null;
+    // What the engine planned for: a short lead ("Planned for 2 occupants"), how it got there, and the furniture.
+    let optionNote: { lead: string; basis?: string; items: string[] } | null = null;
 
     if (isLivingRoom) {
       optionGroups.push({
@@ -1016,7 +1021,14 @@ export default function ViewLayouts() {
         })),
       });
       if (livingRoomAll?.programme) {
-        optionNote = `${livingRoomAll.activitiesSource === "inferred" ? "Assumed for this room" : "Planned with"}: ${livingRoomAll.programme.summary}`;
+        // "Standard sizes for conversation + tv: 2.1 m three-seat sofa, ..."
+        const summary = livingRoomAll.programme.summary;
+        const cut = summary.indexOf(": ");
+        optionNote = {
+          lead: cut >= 0 ? summary.slice(0, cut).replace(/\btv\b/g, "TV") : "Planned for this room",
+          basis: livingRoomAll.activitiesSource === "inferred" ? "assumed for this room" : undefined,
+          items: programmeItems(cut >= 0 ? summary.slice(cut + 2) : summary),
+        };
       }
     } else if (isBedroom) {
       optionGroups.push({
@@ -1029,8 +1041,11 @@ export default function ViewLayouts() {
         })),
       });
       if (bedroomAll) {
-        const basis = bedroomAll.occupantsSource === "inferred" ? (isMasterBedroom ? " by default" : " from the room size") : "";
-        optionNote = `Planned for ${bedroomAll.occupants}${basis}: ${bedroomAll.programme.summary}`;
+        optionNote = {
+          lead: `Planned for ${bedroomAll.occupants} ${bedroomAll.occupants === 1 ? "occupant" : "occupants"}`,
+          basis: bedroomAll.occupantsSource === "inferred" ? (isMasterBedroom ? "by default" : "from the room size") : undefined,
+          items: programmeItems(bedroomAll.programme.summary),
+        };
       }
     } else if (isBathroom) {
       optionGroups.push({
@@ -1042,7 +1057,7 @@ export default function ViewLayouts() {
           pick: () => setBathroomAccessible(choice),
         })),
       });
-      if (bathroomAll) optionNote = `Planned with: ${bathroomAll.programme.summary}`;
+      if (bathroomAll) optionNote = { lead: "Planned for this room", items: programmeItems(bathroomAll.programme.summary) };
     } else if (isDining) {
       optionGroups.push({
         label: "Seats",
@@ -1054,8 +1069,11 @@ export default function ViewLayouts() {
         })),
       });
       if (diningAll) {
-        const basis = diningAll.seatsSource === "inferred" ? " from the room size" : "";
-        optionNote = `Planned for ${diningAll.seats}${basis}: ${diningAll.programme.summary}`;
+        optionNote = {
+          lead: `Planned for ${diningAll.seats} ${diningAll.seats === 1 ? "seat" : "seats"}`,
+          basis: diningAll.seatsSource === "inferred" ? "from the room size" : undefined,
+          items: programmeItems(diningAll.programme.summary),
+        };
       }
     } else if (isKitchen) {
       optionGroups.push({
@@ -1067,7 +1085,7 @@ export default function ViewLayouts() {
           pick: () => setKitchenTable(choice),
         })),
       });
-      if (kitchenAll) optionNote = `Planned with: ${kitchenAll.programme.summary}`;
+      if (kitchenAll) optionNote = { lead: "Planned for this room", items: programmeItems(kitchenAll.programme.summary) };
     }
 
     const layoutCount = livingAll?.layouts.filter((l) => !isLayoutError(l)).length ?? 0;
@@ -1139,7 +1157,21 @@ export default function ViewLayouts() {
                       </div>
                     </div>
                   ))}
-                  {optionNote && <p className="max-w-xl text-xs leading-relaxed text-lv-muted lg:text-right">{optionNote}</p>}
+                  {optionNote && (
+                    <div className="flex max-w-2xl flex-col gap-1.5 lg:items-end">
+                      <p className="text-sm text-lv-muted">
+                        <span className="font-medium text-lv-ink">{optionNote.lead}</span>
+                        {optionNote.basis && <> · {optionNote.basis}</>}
+                      </p>
+                      <ul aria-label="Planned furniture" className="flex flex-wrap gap-1.5 lg:justify-end">
+                        {optionNote.items.map((item) => (
+                          <li key={item} className="rounded-full border border-lv-line bg-lv-surface/70 px-2.5 py-1 text-xs text-lv-ink">
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1200,7 +1232,6 @@ export default function ViewLayouts() {
                     layout: selectedLayoutEntry,
                   }}
                   footer={actions}
-                  rulesOutOfTen={isBedroom && !isMasterBedroom}
                 />
               ) : (
                 <div className={statusCardCls}>

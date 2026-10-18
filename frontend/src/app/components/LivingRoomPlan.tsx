@@ -36,26 +36,15 @@ const fmtTenth = (n: number) => {
 };
 
 /**
- * "94 %" when rules are rated out of 10; otherwise "99 / 100" when the
- * engine's rule maximums add up to a round total, or "99 pts".
+ * Each rule's points out of its default weight - the max_points the engine
+ * reports - heaviest first. A rule that does not apply reads "n/a" and leaves
+ * the others' weights as they are; the total is the points earned out of the
+ * points the applicable rules could give, as a percentage. Both are shown to
+ * one decimal, so full marks read as full ("8.0 / 8.0"). The arrow opens the
+ * measurements behind the rule.
  */
-function scoreParts(score: number, rules: BedroomRuleResult[] | null, outOfTen: boolean): { value: number; unit: string } {
-  if (outOfTen) return { value: Math.round(score), unit: "%" };
-  const max = rules ? Math.round(rules.reduce((sum, r) => sum + (r.status === "not_applicable" ? 0 : r.max_points), 0)) : 0;
-  return { value: Math.round(score), unit: max === 100 ? "/ 100" : "pts" };
-}
-
-/**
- * Each rule's title and result; "See more" opens the measurements behind it.
- * With `outOfTen` a rule reads "9.5 / 10" plus its weight - its share of the
- * total, which is the max_points the engine reports - instead of points, and
- * the heaviest rules come first (rules that do not apply weigh nothing).
- */
-function RuleList({ rules, outOfTen }: { rules: BedroomRuleResult[]; outOfTen: boolean }) {
-  const ordered = useMemo(
-    () => (outOfTen ? [...rules].sort((a, b) => b.max_points - a.max_points) : rules),
-    [rules, outOfTen],
-  );
+function RuleList({ rules }: { rules: BedroomRuleResult[] }) {
+  const ordered = useMemo(() => [...rules].sort((a, b) => b.max_points - a.max_points), [rules]);
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
   const toggle = (id: string) =>
     setOpen((prev) => {
@@ -69,7 +58,6 @@ function RuleList({ rules, outOfTen }: { rules: BedroomRuleResult[]; outOfTen: b
       {ordered.map((r) => {
         const expanded = open.has(r.id);
         const applies = r.status !== "not_applicable";
-        const showWeight = outOfTen && applies;
         return (
           <li key={r.id} className="flex gap-3 py-2.5 first:pt-0">
             <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${RULE_TONE[r.status]}`} aria-hidden="true" />
@@ -80,11 +68,9 @@ function RuleList({ rules, outOfTen }: { rules: BedroomRuleResult[]; outOfTen: b
                   <span className="sr-only">. {RULE_STATUS[r.status]}</span>
                 </p>
                 <p className="shrink-0 text-xs tabular-nums text-lv-muted">
-                  {!applies ? "n/a"
-                    : outOfTen ? <><span className="font-medium text-lv-ink">{fmtTenth(r.score * 10)}</span> / 10</>
-                    : `${r.points.toFixed(1)} / ${r.max_points.toFixed(0)}`}
+                  {applies ? <><span className="font-medium text-lv-ink">{fmtTenth(r.points)}</span> / {fmtTenth(r.max_points)}</> : "n/a"}
                 </p>
-                {(r.detail || showWeight) && (
+                {r.detail && (
                   <button type="button" onClick={() => toggle(r.id)} aria-expanded={expanded} aria-controls={`rule-detail-${r.id}`}
                     aria-label={`${expanded ? "Hide" : "Show"} details for ${r.title}`} title={expanded ? "Hide details" : "Show details"}
                     className="-my-1 grid h-7 w-7 shrink-0 cursor-pointer place-items-center self-center rounded-full text-lv-accent transition-colors hover:bg-lv-ink/8 hover:text-lv-ink">
@@ -93,12 +79,7 @@ function RuleList({ rules, outOfTen }: { rules: BedroomRuleResult[]; outOfTen: b
                 )}
               </div>
               {expanded && (
-                <div id={`rule-detail-${r.id}`} className="mt-1 space-y-1">
-                  {showWeight && (
-                    <p className="text-[11px] font-medium tabular-nums text-lv-ink">Weight {fmtTenth(r.max_points)}%</p>
-                  )}
-                  {r.detail && <p className="text-xs leading-relaxed text-lv-muted">{r.detail}</p>}
-                </div>
+                <p id={`rule-detail-${r.id}`} className="mt-1 text-xs leading-relaxed text-lv-muted">{r.detail}</p>
               )}
             </div>
           </li>
@@ -167,14 +148,9 @@ function FurnitureDetail({ item }: { item: LayoutFurnitureItem }) {
  * The chosen layout: the plan (furniture is clickable) at the card's full
  * height, and beside it the score and tabs for the rule-by-rule report, the
  * reasoning and the remaining details. `footer` (the primary action) sits at the
- * foot of that side panel from lg up. `rulesOutOfTen` rates each rule out of 10
- * with its weight, and gives the total as a percentage.
+ * foot of that side panel from lg up.
  */
-export default function LivingRoomPlan({ data, footer, rulesOutOfTen = false }: {
-  data: GenerateLivingRoomLayoutResponse;
-  footer?: ReactNode;
-  rulesOutOfTen?: boolean;
-}) {
+export default function LivingRoomPlan({ data, footer }: { data: GenerateLivingRoomLayoutResponse; footer?: ReactNode }) {
   const { layout } = data;
   const reduceMotion = useReducedMotion();
   const [tab, setTab] = useState<Tab>("rules");
@@ -187,8 +163,8 @@ export default function LivingRoomPlan({ data, footer, rulesOutOfTen = false }: 
   const circulation = layout.validation.circulation;
   const missingRequired = layout.unplaced_furniture.filter((f) => f.required);
   const rules = Array.isArray(layout.rules) ? (layout.rules as BedroomRuleResult[]) : null;
-  const outOfTen = rulesOutOfTen && rules !== null;
-  const score = scoreParts(layout.layout.score, rules, outOfTen);
+  // the total is a percentage of the points the applicable rules could give
+  const score = { value: Math.round(layout.layout.score), unit: rules ? "%" : "pts" };
   const roomFacts = [
     { label: "Size", value: `${(layout.room.width / 1000).toFixed(2)} × ${(layout.room.length / 1000).toFixed(2)} m` },
     { label: "Area", value: `${layout.room.area_m2} m²` },
@@ -298,7 +274,7 @@ export default function LivingRoomPlan({ data, footer, rulesOutOfTen = false }: 
                 )}
               </>
             ) : tab === "rules" ? (
-              rules ? <RuleList rules={rules} outOfTen={outOfTen} /> :<ComponentList components={layout.scoring.components} />
+              rules ? <RuleList rules={rules} /> : <ComponentList components={layout.scoring.components} />
             ) : (
               <>
                 <dl className="space-y-2.5">

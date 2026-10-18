@@ -288,11 +288,16 @@ class RuleComplianceTests(unittest.TestCase):
             self.assertEqual(piece(layout, "shower")["model"], "level_access")
 
     def test_scores_are_reported_rule_by_rule_and_add_up(self):
-        self.assertEqual(sum(r["weight"] for r in rule_catalogue()), 100)
+        # a rule that does not apply leaves the others at their default weights
+        weights = {r["id"]: r["weight"] for r in rule_catalogue()}
+        self.assertEqual(sum(weights.values()), 100)
         for name, layout in every_layout():
             self.assertEqual([r["id"] for r in layout["rules"]], [r.id for r in RULES])
-            self.assertAlmostEqual(sum(r["points"] for r in layout["rules"]), layout["layout"]["score"], delta=0.6)
-            self.assertAlmostEqual(sum(r["max_points"] for r in layout["rules"]), 100.0, delta=0.6)
+            applies = [r for r in layout["rules"] if r["status"] != "not_applicable"]
+            for r in applies:
+                self.assertAlmostEqual(r["max_points"], weights[r["id"]], delta=0.05)
+            earned, possible = sum(r["points"] for r in applies), sum(r["max_points"] for r in applies)
+            self.assertAlmostEqual(100.0 * earned / possible, layout["layout"]["score"], delta=1.0)
             for r in layout["rules"]:
                 self.assertTrue(r["detail"], (name, r["id"]))
 

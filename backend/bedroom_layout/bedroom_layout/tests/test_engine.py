@@ -438,13 +438,19 @@ class RuleComplianceTests(unittest.TestCase):
                                          "{}: {} blocks window {}".format(name, item["id"], window["id"]))
 
     def test_scores_are_reported_rule_by_rule_and_add_up(self):
+        # a rule that does not apply leaves the others at their default weights
+        weights = {r["id"]: r["weight"] for r in rule_catalogue()}
+        self.assertEqual(sum(weights.values()), 100)
         for name, _, layout in self.each_valid_layout():
             rules = layout["rules"]
             self.assertEqual([r["id"] for r in rules], [rule.id for rule in RULES], name)
             score = layout["layout"]["score"]
             self.assertTrue(0 <= score <= 100, name)
-            self.assertAlmostEqual(sum(r["points"] for r in rules), score, delta=0.6, msg=name)
-            self.assertAlmostEqual(sum(r["max_points"] for r in rules), 100.0, delta=0.6, msg=name)
+            applies = [r for r in rules if r["status"] != "not_applicable"]
+            for r in applies:
+                self.assertAlmostEqual(r["max_points"], weights[r["id"]], delta=0.05, msg=name)
+            earned, possible = sum(r["points"] for r in applies), sum(r["max_points"] for r in applies)
+            self.assertAlmostEqual(100.0 * earned / possible, score, delta=1.0, msg=name)
             for rule in rules:
                 self.assertTrue(rule["detail"], "{}: {} has no explanation".format(name, rule["id"]))
                 self.assertLessEqual(rule["points"], rule["max_points"] + 0.05, name)
