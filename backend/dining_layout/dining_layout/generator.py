@@ -496,6 +496,7 @@ class Generator:
                     "key": r.rule.key,
                     "title": r.rule.title,
                     "rule": r.rule.text,
+                    "method": r.rule.method,
                     "status": r.status,
                     "score": round(r.score, 3),
                     "points": round(r.points * scale, 1),

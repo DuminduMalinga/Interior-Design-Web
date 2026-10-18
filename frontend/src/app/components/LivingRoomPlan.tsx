@@ -15,7 +15,7 @@ const TABS: { id: Tab; label: string }[] = [
 
 const RULE_TONE: Record<BedroomRuleResult["status"], string> = {
   satisfied: "bg-emerald-400",
-  partly_satisfied: "bg-amber-400",
+  partly_satisfied: "bg-blue-500",
   not_satisfied: "bg-red-400",
   not_applicable: "bg-lv-line",
 };
@@ -35,16 +35,27 @@ const fmtTenth = (n: number) => {
   return Number.isInteger(v) ? String(v) : v.toFixed(1);
 };
 
+/** Rules heaviest first, as both the Rules and the Why tab list them. */
+const byWeight = (rules: BedroomRuleResult[]) => [...rules].sort((a, b) => b.max_points - a.max_points);
+
+/** "8" / "8.5 / 10" - a rule's points out of its default weight, or "n/a". */
+function RulePoints({ rule }: { rule: BedroomRuleResult }) {
+  return (
+    <p className="shrink-0 text-xs tabular-nums text-lv-muted">
+      {rule.status !== "not_applicable"
+        ? <><span className="font-medium text-lv-ink">{fmtTenth(rule.points)}</span> / {fmtTenth(rule.max_points)}</>
+        : "n/a"}
+    </p>
+  );
+}
+
 /**
  * Each rule's points out of its default weight - the max_points the engine
- * reports - heaviest first. A rule that does not apply reads "n/a" and leaves
- * the others' weights as they are; the total is the points earned out of the
- * points the applicable rules could give, as a percentage. Both are shown to
- * one decimal, so full marks read as full ("8.0 / 8.0"). The arrow opens the
- * measurements behind the rule.
+ * reports - heaviest first; a rule that does not apply reads "n/a". The arrow
+ * opens what the rule says. How each was scored is on the Why tab.
  */
 function RuleList({ rules }: { rules: BedroomRuleResult[] }) {
-  const ordered = useMemo(() => [...rules].sort((a, b) => b.max_points - a.max_points), [rules]);
+  const ordered = useMemo(() => byWeight(rules), [rules]);
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
   const toggle = (id: string) =>
     setOpen((prev) => {
@@ -57,7 +68,6 @@ function RuleList({ rules }: { rules: BedroomRuleResult[] }) {
     <ol className="divide-y divide-lv-line">
       {ordered.map((r) => {
         const expanded = open.has(r.id);
-        const applies = r.status !== "not_applicable";
         return (
           <li key={r.id} className="flex gap-3 py-2.5 first:pt-0">
             <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${RULE_TONE[r.status]}`} aria-hidden="true" />
@@ -67,25 +77,75 @@ function RuleList({ rules }: { rules: BedroomRuleResult[] }) {
                   {r.title}
                   <span className="sr-only">. {RULE_STATUS[r.status]}</span>
                 </p>
-                <p className="shrink-0 text-xs tabular-nums text-lv-muted">
-                  {applies ? <><span className="font-medium text-lv-ink">{fmtTenth(r.points)}</span> / {fmtTenth(r.max_points)}</> : "n/a"}
-                </p>
-                {r.detail && (
+                <RulePoints rule={r} />
+                {r.rule && (
                   <button type="button" onClick={() => toggle(r.id)} aria-expanded={expanded} aria-controls={`rule-detail-${r.id}`}
-                    aria-label={`${expanded ? "Hide" : "Show"} details for ${r.title}`} title={expanded ? "Hide details" : "Show details"}
+                    aria-label={`${expanded ? "Hide" : "Show"} what ${r.title} means`} title={expanded ? "Hide the rule" : "What this rule means"}
                     className="-my-1 grid h-7 w-7 shrink-0 cursor-pointer place-items-center self-center rounded-full text-lv-accent transition-colors hover:bg-lv-ink/8 hover:text-lv-ink">
                     <ChevronDown className={`h-4 w-4 transition-transform ${expanded ? "rotate-180" : ""}`} aria-hidden="true" />
                   </button>
                 )}
               </div>
               {expanded && (
-                <p id={`rule-detail-${r.id}`} className="mt-1 text-xs leading-relaxed text-lv-muted">{r.detail}</p>
+                <p id={`rule-detail-${r.id}`} className="mt-1 text-xs leading-relaxed text-lv-muted">{r.rule}</p>
               )}
             </div>
           </li>
         );
       })}
     </ol>
+  );
+}
+
+/**
+ * How the score was made, rule by rule: how each rule is scored, what was
+ * measured in this layout and the points it earned, then the total - the
+ * points earned out of the points the applicable rules could give.
+ */
+function RuleScoring({ rules, score }: { rules: BedroomRuleResult[]; score: number }) {
+  const ordered = useMemo(() => byWeight(rules), [rules]);
+  const applicable = rules.filter((r) => r.status !== "not_applicable");
+  const earned = applicable.reduce((sum, r) => sum + r.points, 0);
+  const possible = applicable.reduce((sum, r) => sum + r.max_points, 0);
+
+  return (
+    <>
+      <p className="text-xs text-lv-muted">How the score was made</p>
+      <ol className="mt-2 space-y-2">
+        {ordered.map((r) => (
+          <li key={r.id} className="rounded-2xl border border-lv-line p-3">
+            <div className="flex items-baseline gap-3">
+              <span className={`h-2 w-2 shrink-0 self-center rounded-full ${RULE_TONE[r.status]}`} aria-hidden="true" />
+              <p className="min-w-0 flex-1 text-sm font-medium leading-snug text-lv-ink">
+                {r.title}
+                <span className="sr-only">. {RULE_STATUS[r.status]}</span>
+              </p>
+              <RulePoints rule={r} />
+            </div>
+            <dl className="mt-2 space-y-1.5 text-xs leading-relaxed">
+              {r.method && (
+                <div>
+                  <dt className="font-medium text-lv-ink">How it is scored</dt>
+                  <dd className="text-lv-muted">{r.method}</dd>
+                </div>
+              )}
+              {r.detail && (
+                <div>
+                  <dt className="font-medium text-lv-ink">{r.status === "not_applicable" ? "Why it does not apply" : "In this layout"}</dt>
+                  <dd className="text-lv-muted">{r.detail}</dd>
+                </div>
+              )}
+            </dl>
+          </li>
+        ))}
+      </ol>
+      <p className="mt-3 rounded-2xl bg-lv-wash/60 p-3 text-xs leading-relaxed text-lv-ink">
+        Total: <span className="font-medium tabular-nums">{fmtTenth(earned)}</span> points earned out of the{" "}
+        <span className="font-medium tabular-nums">{fmtTenth(possible)}</span> the applicable rules could give
+        {" "}= <span className="font-medium tabular-nums">{Math.round(score)}%</span>.
+        {applicable.length < rules.length && " Rules that do not apply are left out, and the others keep their weights."}
+      </p>
+    </>
   );
 }
 
@@ -247,11 +307,16 @@ export default function LivingRoomPlan({ data, footer }: { data: GenerateLivingR
               <FurnitureDetail item={selectedItem} />
             ) : tab === "why" ? (
               <>
-                <ul className="space-y-3">
-                  {layout.reason.map((reason, i) => (
-                    <li key={i} className="text-sm leading-relaxed text-lv-ink">{reason}</li>
-                  ))}
-                </ul>
+                {rules ? (
+                  <RuleScoring rules={rules} score={layout.layout.score} />
+                ) : (
+                  // engines without rule-by-rule results only give the summary
+                  <ul className="space-y-3">
+                    {layout.reason.map((reason, i) => (
+                      <li key={i} className="text-sm leading-relaxed text-lv-ink">{reason}</li>
+                    ))}
+                  </ul>
+                )}
                 {missingRequired.length > 0 && (
                   <div className="mt-5 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
                     <p className="flex items-center gap-2 text-sm font-medium text-amber-400">

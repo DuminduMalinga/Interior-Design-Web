@@ -24,6 +24,8 @@ export interface BedroomRuleResult {
   title: string;
   /** The rule as written. */
   rule: string;
+  /** How the engine checks and scores it (missing from engines older than this field). */
+  method?: string;
   status: "satisfied" | "partly_satisfied" | "not_satisfied" | "not_applicable";
   /** 0..1 */
   score: number;

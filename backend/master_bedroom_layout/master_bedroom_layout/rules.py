@@ -147,7 +147,7 @@ class RuleResult:
     def status(self) -> str:
         if not self.applicable:
             return "not_applicable"
-        if self.score >= 0.85:
+        if self.score >= 0.75:
             return "satisfied"
         return "partly_satisfied" if self.score >= 0.5 else "not_satisfied"
 

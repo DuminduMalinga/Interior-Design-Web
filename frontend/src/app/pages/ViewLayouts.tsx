@@ -50,6 +50,7 @@ import {
   type GenerateAllDiningLayoutsResponse,
 } from "../lib/diningLayout";
 import { generateAllMasterBedroomLayouts } from "../lib/masterBedroomLayout";
+import { roomKind } from "../lib/roomKind";
 import LivingRoomLayoutGrid from "../components/LivingRoomLayoutGrid";
 import LivingRoomPlan from "../components/LivingRoomPlan";
 import {
@@ -857,17 +858,14 @@ export default function ViewLayouts() {
     | { floorPlanId?: string; room?: { id: string; name: string }; detection?: DetectionResult }
     | null;
   const apiRoom = navState?.detection?.rooms.find((r) => r.id === navState.room?.id);
-  const isLivingRoom = !!apiRoom && /living/i.test(apiRoom.name);
-  // Checked before the bedroom so an en-suite ("Bedroom 1 Bath") gets the bathroom engine.
-  const isBathroom =
-    !!apiRoom && !isLivingRoom && /bath|toilet|w\.?c|wash\s*room|shower|rest\s*room|lavatory/i.test(apiRoom.name);
-  const isBedroom = !!apiRoom && !isLivingRoom && !isBathroom && /bed/i.test(apiRoom.name);
+  const kind = apiRoom ? roomKind(apiRoom.name) : null;
+  const isLivingRoom = kind === "living";
+  const isBathroom = kind === "bathroom";
+  const isBedroom = kind === "bedroom" || kind === "master_bedroom";
   // A master bedroom is a bedroom with its own, fuller rule set (dressing table, lighting, en-suite route).
-  const isMasterBedroom = isBedroom && /master|primary|main|\bm\.?\s*bed/i.test(apiRoom.name);
-  const isKitchen = !!apiRoom && !isLivingRoom && !isBathroom && !isBedroom && /kitchen/i.test(apiRoom.name);
-  // Checked last: a "Kitchen / Dining" room keeps the kitchen engine, which seats a table itself.
-  const isDining =
-    !!apiRoom && !isLivingRoom && !isBathroom && !isBedroom && !isKitchen && /din/i.test(apiRoom.name);
+  const isMasterBedroom = kind === "master_bedroom";
+  const isKitchen = kind === "kitchen";
+  const isDining = kind === "dining";
   const hasEngine = isLivingRoom || isBathroom || isBedroom || isKitchen || isDining;
 
   const [livingAll, setLivingAll] = useState<GenerateAllLivingRoomLayoutsResponse | null>(null);
@@ -998,7 +996,7 @@ export default function ViewLayouts() {
     // The room's planning options, as labelled groups of choices.
     type Choice = { key: string; label: string; active: boolean; pick: () => void };
     const optionGroups: { label: string; choices: Choice[] }[] = [];
-    // What the engine planned for: a short lead ("Planned for 2 occupants"), how it got there, and the furniture.
+    // What the engine planned for: a short lead ("Planned for 2 persons"), how it got there, and the furniture.
     let optionNote: { lead: string; basis?: string; items: string[] } | null = null;
 
     if (isLivingRoom) {
@@ -1032,7 +1030,7 @@ export default function ViewLayouts() {
       }
     } else if (isBedroom) {
       optionGroups.push({
-        label: "Occupants",
+        label: "Persons",
         choices: ([null, 1, 2] as const).map((count) => ({
           key: String(count ?? "auto"),
           label: count === null ? "Auto" : String(count),
@@ -1042,7 +1040,7 @@ export default function ViewLayouts() {
       });
       if (bedroomAll) {
         optionNote = {
-          lead: `Planned for ${bedroomAll.occupants} ${bedroomAll.occupants === 1 ? "occupant" : "occupants"}`,
+          lead: `Planned for ${bedroomAll.occupants} ${bedroomAll.occupants === 1 ? "person" : "persons"}`,
           basis: bedroomAll.occupantsSource === "inferred" ? (isMasterBedroom ? "by default" : "from the room size") : undefined,
           items: programmeItems(bedroomAll.programme.summary),
         };
