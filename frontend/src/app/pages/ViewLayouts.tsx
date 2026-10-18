@@ -1162,7 +1162,6 @@ export default function ViewLayouts() {
                 ) : livingAll ? (
                   <LivingRoomLayoutGrid
                     layouts={livingAll.layouts}
-                    bestLayout={livingAll.bestLayout}
                     selectedType={selectedLayoutType}
                     onSelectType={setSelectedLayoutType}
                   />

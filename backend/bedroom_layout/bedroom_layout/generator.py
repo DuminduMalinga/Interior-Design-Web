@@ -64,13 +64,9 @@ CORNERS = {
 BED_SPACING = 400.0
 
 
-#: the highest total a layout is reported with: however well it does, none is called perfect
-TOP_SCORE = 99.0
-
-
 def reported(score: float) -> float:
-    """A total as it is given out: to one decimal, and never the full hundred."""
-    return round(min(score, TOP_SCORE), 1)
+    """A total as it is given out: to one decimal."""
+    return round(score, 1)
 
 
 def positions(length: float, size: float, step: float, snaps: Iterable[float] = ()) -> List[float]:
@@ -628,8 +624,6 @@ class Generator:
         rules = list(result.rules.values())
         applicable = sum(r.weight for r in rules if r.applicable) or 1.0
         scale = 100.0 / applicable           # so the per-rule points add up to the 0-100 total
-        # ... and the points earned still add up to the total once it has been held to the top score
-        earned = scale * min(1.0, TOP_SCORE / result.score) if result.score > 0 else scale
         checks = {v["check"] for v in result.violations}
 
         programme = self.programme
@@ -642,7 +636,7 @@ class Generator:
             "Rule {} - {}: {} [{}]".format(
                 r.rule.id[1:], r.rule.title, r.detail,
                 "not applicable" if not r.applicable else "{:.1f} of {:.1f} points".format(
-                    r.points * earned, r.weight * scale))
+                    r.points * scale, r.weight * scale))
             for r in rules
         ]
         explanation += list(lay.compromises)
@@ -692,9 +686,9 @@ class Generator:
             "scoring": {
                 "total": reported(result.score),
                 "max": 100,
-                "components": {r.rule.key: round(r.points * earned, 1) for r in rules if r.applicable},
+                "components": {r.rule.key: round(r.points * scale, 1) for r in rules if r.applicable},
                 "contributions": [
-                    {"rule": r.rule.key, "points": round(r.points * earned, 2), "message": r.detail}
+                    {"rule": r.rule.key, "points": round(r.points * scale, 2), "message": r.detail}
                     for r in rules if r.applicable
                 ],
             },
@@ -706,7 +700,7 @@ class Generator:
                     "rule": r.rule.text,
                     "status": r.status,
                     "score": round(r.score, 3),
-                    "points": round(r.points * earned, 1),
+                    "points": round(r.points * scale, 1),
                     "max_points": round(r.weight * scale, 1) if r.applicable else 0.0,
                     "detail": r.detail,
                 }

@@ -8,8 +8,8 @@ import { COMPONENT_LABELS } from "./layoutLabels";
 
 type Tab = "why" | "rules" | "details";
 const TABS: { id: Tab; label: string }[] = [
-  { id: "why", label: "Why" },
   { id: "rules", label: "Rules" },
+  { id: "why", label: "Why" },
   { id: "details", label: "Details" },
 ];
 
@@ -123,7 +123,7 @@ function FurnitureDetail({ item }: { item: LayoutFurnitureItem }) {
 export default function LivingRoomPlan({ data, footer }: { data: GenerateLivingRoomLayoutResponse; footer?: ReactNode }) {
   const { layout } = data;
   const reduceMotion = useReducedMotion();
-  const [tab, setTab] = useState<Tab>("why");
+  const [tab, setTab] = useState<Tab>("rules");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selectedItem = useMemo(
     () => layout.furniture.find((f) => f.id === selectedId) ?? null,

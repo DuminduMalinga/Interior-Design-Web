@@ -1,18 +1,16 @@
 import { useEffect, useRef } from "react";
-import { AlertTriangle, Star } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { isLayoutError, type LayoutOrError } from "../lib/livingRoomLayout";
 import RoomSvg from "./RoomSvg";
 
 /** One layout in the list: thumbnail, title, score and anything worth flagging. */
 function LayoutRow({
   entry,
-  isRecommended,
   selected,
   onSelect,
   rowRef,
 }: {
   entry: LayoutOrError;
-  isRecommended: boolean;
   selected: boolean;
   onSelect: () => void;
   rowRef: (el: HTMLButtonElement | null) => void;
@@ -51,11 +49,6 @@ function LayoutRow({
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-medium leading-snug text-lv-ink line-clamp-2">{entry.layout.title}</span>
         <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
-          {isRecommended && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-lv-accent px-2 py-0.5 text-[11px] font-medium text-[#fff]">
-              <Star className="h-3 w-3" aria-hidden="true" /> Recommended
-            </span>
-          )}
           {compromised && (
             <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-400">Compromised</span>
           )}
@@ -79,12 +72,10 @@ function LayoutRow({
  */
 export default function LivingRoomLayoutGrid({
   layouts,
-  bestLayout,
   selectedType,
   onSelectType,
 }: {
   layouts: LayoutOrError[];
-  bestLayout: string | null;
   selectedType: string | null;
   onSelectType: (type: string) => void;
 }) {
@@ -101,7 +92,6 @@ export default function LivingRoomLayoutGrid({
           <LayoutRow
             key={type}
             entry={entry}
-            isRecommended={type === bestLayout}
             selected={type === selectedType}
             onSelect={() => onSelectType(type)}
             rowRef={(el) => { rowRefs.current[type] = el; }}
