@@ -213,11 +213,6 @@ export default function LivingRoomPlan({ data, footer }: { data: GenerateLivingR
               <span className="text-xs text-lv-muted">{score.unit}</span>
             </p>
           </div>
-          {!layout.validation.valid && (
-            <span className="-mt-2 mb-4 inline-flex shrink-0 items-center gap-1.5 self-start rounded-full bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-400">
-              <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" /> Compromised
-            </span>
-          )}
 
           {selectedItem ? (
             <button type="button" onClick={() => setSelectedId(null)}
