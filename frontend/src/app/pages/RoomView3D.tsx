@@ -8,7 +8,6 @@ import {
   ChevronDown,
   CheckCircle2,
   Download,
-  FileJson,
   Image as ImageIcon,
   Loader2,
   Maximize2,
@@ -108,13 +107,11 @@ function Segmented<T extends string>({
 // ─────────────────────────────────────────────
 // Export menu
 // ─────────────────────────────────────────────
-type ExportKind = "png" | "glb" | "json";
+type ExportKind = "png" | "glb";
 
 const EXPORT_OPTIONS: Array<{ kind: ExportKind; icon: typeof ImageIcon; label: string; sub: string }> = [
   { kind: "png", icon: ImageIcon, label: "Image", sub: "PNG of the current 3D view" },
-  { kind: "glb", icon: Package, label: "3D model", sub: "GLB, real size in metres" },
-  { kind: "json", icon: FileJson, label: "Layout data", sub: "JSON with every position" },
-];
+  { kind: "glb", icon: Package, label: "3D model", sub: "GLB, real size in metres" },];
 
 function ExportMenu({ onExport }: { onExport: (kind: ExportKind, label: string) => void }) {
   const [open, setOpen] = useState(false);
@@ -242,7 +239,9 @@ export default function RoomView3D() {
 
   const { theme } = useTheme();
   const [viewMode, setViewMode] = useState<ViewMode>("3D");
-  const [wide, setWide] = useState(false);
+  // The viewer itself goes full screen; the page layout around it stays as it is.
+  const viewerRef = useRef<HTMLElement>(null);
+  const [fullscreen, setFullscreen] = useState(false);
   const [quality, setQuality] = useState<SceneQuality>("High");
   const [fps, setFps] = useState<number | null>(null);
   const [sceneError, setSceneError] = useState<string | null>(null);
@@ -265,14 +264,39 @@ export default function RoomView3D() {
   };
   useEffect(() => () => clearTimeout(toastTimer.current), []);
 
+  // Follow the browser's full-screen state, so Esc and the browser's own exit keep the button in step.
+  useEffect(() => {
+    const onChange = () => setFullscreen(!!viewerRef.current && document.fullscreenElement === viewerRef.current);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  // Where the Fullscreen API is missing (iPhone Safari), the viewer is pinned over the page instead.
+  useEffect(() => {
+    if (!fullscreen || document.fullscreenElement) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setFullscreen(false);
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [fullscreen]);
+
+  const toggleFullscreen = async () => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+    if (document.fullscreenElement) {
+      await document.exitFullscreen().catch(() => {});
+    } else if (fullscreen) {
+      setFullscreen(false);
+    } else if (viewer.requestFullscreen) {
+      await viewer.requestFullscreen().catch(() => setFullscreen(true));
+    } else {
+      setFullscreen(true);
+    }
+  };
+
   const fileStem = `${roomName}-${layout?.layout.type ?? "layout"}`.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
   const runExport = async (kind: ExportKind) => {
     if (!layout) throw new Error("There is no layout to export.");
-    if (kind === "json") {
-      downloadBlob(new Blob([JSON.stringify(layout, null, 2)], { type: "application/json" }), `${fileStem}.json`);
-      return;
-    }
     const scene = sceneRef.current;
     if (!scene || viewMode !== "3D") throw new Error("Switch to the 3D view first.");
     if (kind === "png") {
@@ -307,12 +331,6 @@ export default function RoomView3D() {
       showToast({ text: err instanceof Error ? err.message : "Could not save the design.", ok: false });
     }
     setSaving(false);
-  };
-
-  const backToLayouts = () => {
-    if (!navState) return navigate("/view-layouts");
-    const { livingRoomLayout: _selected, ...rest } = navState;
-    navigate("/view-layouts", { state: rest });
   };
 
   const show3D = !!layout && viewMode === "3D" && !sceneError;
@@ -381,12 +399,14 @@ export default function RoomView3D() {
               </div>
 
               {/* ── Viewer + side panel ── */}
-              <div className={`mt-5 grid flex-1 grid-cols-1 gap-5 lg:min-h-0 ${
-                wide ? "" : "lg:grid-cols-[minmax(0,1fr)_minmax(280px,340px)]"
-              }`}>
+              <div className="mt-5 grid flex-1 grid-cols-1 gap-5 lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_minmax(280px,340px)]">
                 {/* Viewer */}
-                <section aria-label={viewMode === "3D" ? "3D view" : "2D plan"}
-                  className="relative h-[62svh] min-h-[380px] overflow-hidden rounded-[28px] border border-lv-line bg-lv-surface lg:h-auto lg:min-h-0">
+                <section ref={viewerRef} aria-label={viewMode === "3D" ? "3D view" : "2D plan"}
+                  className={`select-none overflow-hidden bg-lv-surface ${
+                    fullscreen
+                      ? "fixed inset-0 z-[100] h-full w-full rounded-none border-0"
+                      : "relative h-[62svh] min-h-[380px] rounded-[28px] border border-lv-line lg:h-auto lg:min-h-0"
+                  }`}>
                   {show3D && (
                     <Suspense fallback={<SceneLoading />}>
                       <RoomScene3D
@@ -425,7 +445,7 @@ export default function RoomView3D() {
                     </div>
                   )}
 
-                  {/* Top overlay: render quality + fps, and the wide-view toggle */}
+                  {/* Top overlay: render quality + fps, and the full-screen toggle */}
                   <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between gap-2">
                     {show3D ? (
                       <div className={`pointer-events-auto flex items-center gap-1 p-1 ${overlayPill}`}>
@@ -446,11 +466,12 @@ export default function RoomView3D() {
                       </div>
                     ) : <span />}
 
-                    <button type="button" onClick={() => setWide((p) => !p)}
-                      title={wide ? "Show the details panel" : "Widen the view"}
-                      aria-label={wide ? "Show the details panel" : "Widen the view"}
-                      className={`pointer-events-auto hidden h-9 w-9 cursor-pointer place-items-center text-lv-ink transition-colors hover:bg-lv-surface lg:grid ${overlayPill}`}>
-                      {wide ? <Minimize2 className="h-4 w-4" aria-hidden="true" /> : <Maximize2 className="h-4 w-4" aria-hidden="true" />}
+                    <button type="button" onClick={() => void toggleFullscreen()}
+                      title={fullscreen ? "Exit full screen (Esc)" : "Full screen"}
+                      aria-label={fullscreen ? "Exit full screen" : "Full screen"}
+                      aria-pressed={fullscreen}
+                      className={`pointer-events-auto grid h-9 w-9 cursor-pointer place-items-center text-lv-ink transition-colors hover:bg-lv-surface ${overlayPill}`}>
+                      {fullscreen ? <Minimize2 className="h-4 w-4" aria-hidden="true" /> : <Maximize2 className="h-4 w-4" aria-hidden="true" />}
                     </button>
                   </div>
 
@@ -473,7 +494,6 @@ export default function RoomView3D() {
                 </section>
 
                 {/* Side panel */}
-                {!wide && (
                   <aside className="flex flex-col gap-4 lg:min-h-0">
                     {/* Layout summary */}
                     <div className="shrink-0 rounded-[28px] border border-lv-line bg-lv-surface p-5">
@@ -546,12 +566,7 @@ export default function RoomView3D() {
                         )}
                       </AnimatePresence>
                     </div>
-
-                    <button type="button" onClick={backToLayouts} className="lv-btn-quiet shrink-0 bg-lv-surface/70 backdrop-blur-xl">
-                      <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to layouts
-                    </button>
                   </aside>
-                )}
               </div>
             </>
           )}

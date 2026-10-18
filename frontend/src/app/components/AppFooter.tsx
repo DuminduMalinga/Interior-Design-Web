@@ -6,7 +6,7 @@ export default function AppFooter() {
     <footer className="relative border-t border-lv-line px-4 md:px-8 py-5">
       <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-lv-muted">
         <BrandMark size={22} />
-        <p>© {new Date().getFullYear()} 3D Layout System. All rights reserved.</p>
+        <p>© {new Date().getFullYear()} roomscape. All rights reserved.</p>
       </div>
     </footer>
   );
