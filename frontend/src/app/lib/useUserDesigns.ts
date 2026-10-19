@@ -38,6 +38,14 @@ type AnalysisRow = {
 
 const MAX_DESIGNS = 60;
 
+/** Exact totals from the database, so they are right even when more plans exist than are listed. */
+export interface DesignCounts {
+  /** Every floor plan the user uploaded. */
+  plans: number;
+  /** Plans where the user chose a layout and went on to the 3D view. */
+  finished: number;
+}
+
 function toDesign(plan: FloorPlanRow, analysis: AnalysisRow | undefined): UserDesign {
   const detection = analysis?.DetectionJSON ?? null;
   const rooms = detection?.rooms ?? [];
@@ -69,11 +77,13 @@ export function useUserDesigns() {
   const [designs, setDesigns] = useState<UserDesign[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [counts, setCounts] = useState<DesignCounts>({ plans: 0, finished: 0 });
 
   const load = useCallback(async () => {
     if (authStatus === "loading") return;
     if (authStatus === "unauthenticated") {
       setDesigns([]);
+      setCounts({ plans: 0, finished: 0 });
       setError(null);
       setLoading(false);
       return;
@@ -86,10 +96,11 @@ export function useUserDesigns() {
       const userId = sessionData.session?.user.id;
       if (!userId) {
         setDesigns([]);
+        setCounts({ plans: 0, finished: 0 });
         return;
       }
 
-      const [plans, analyses] = await Promise.all([
+      const [plans, analyses, planTotal, finishedTotal] = await Promise.all([
         supabase
           .from("FloorPlan")
           .select("FloorPlanID, UploadDateTime, ImagePath")
@@ -100,15 +111,25 @@ export function useUserDesigns() {
           .from("FloorPlanAnalysis")
           .select("FloorPlanID, Status, SelectedRoomID, DetectionJSON, SelectedLayoutJSON, UpdatedAt")
           .eq("UserID", userId),
+        supabase.from("FloorPlan").select("FloorPlanID", { count: "exact", head: true }).eq("UserID", userId),
+        supabase
+          .from("FloorPlanAnalysis")
+          .select("FloorPlanID", { count: "exact", head: true })
+          .eq("UserID", userId)
+          .eq("Status", "LayoutSelected"),
       ]);
 
       if (plans.error) throw new Error(plans.error.message);
       if (analyses.error) throw new Error(analyses.error.message);
+      if (planTotal.error) throw new Error(planTotal.error.message);
+      if (finishedTotal.error) throw new Error(finishedTotal.error.message);
+      setCounts({ plans: planTotal.count ?? 0, finished: finishedTotal.count ?? 0 });
 
       const byPlan = new Map((analyses.data as AnalysisRow[]).map((row) => [row.FloorPlanID, row]));
       setDesigns((plans.data as FloorPlanRow[]).map((plan) => toDesign(plan, byPlan.get(plan.FloorPlanID))));
     } catch (err) {
       setDesigns([]);
+      setCounts({ plans: 0, finished: 0 });
       setError(err instanceof Error ? err.message : "Your designs could not be loaded.");
     } finally {
       setLoading(false);
@@ -119,5 +140,5 @@ export function useUserDesigns() {
     void load();
   }, [load]);
 
-  return { designs, loading, error, reload: load };
+  return { designs, counts, loading, error, reload: load };
 }
