@@ -35,6 +35,13 @@ export async function saveDetectionAnalysis(
   );
 
   if (error) throw new Error(`Saving wall detection failed: ${error.message}`);
+
+  const { error: statusError } = await supabase
+    .from("FloorPlan")
+    .update({ Status: "Analysed" })
+    .eq("FloorPlanID", floorPlanId)
+    .eq("UserID", user.id);
+  if (statusError) throw new Error(`Updating the floor plan failed: ${statusError.message}`);
 }
 
 export async function saveLivingRoomAnalysis(
