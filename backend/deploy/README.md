@@ -49,3 +49,9 @@ Vercel > Project > Settings > Environment Variables, then **redeploy** the front
 
 ## Updating
 `git pull && docker compose up -d --build`. Logs: `docker compose logs -f detector`.
+
+## Running the detector on a 1 GB t3.micro (free plan)
+It works but is memory-bound (about 30 s per floor plan; most of it is OCR). What was done on the server to get there:
+- 2 GB swap file plus **zram** compressed swap (`sudo apt install zram-tools`, `/etc/default/zramswap`: `ALGO=zstd`, `PERCENT=100`, `PRIORITY=100`) and `vm.swappiness=100`.
+- Disabled unused services (snapd, ssm-agent, ModemManager, udisks2, packagekit, fwupd, multipathd).
+- Start the detector with `docker compose --profile detector up -d`. A larger instance (4 GB+) makes it several times faster.
