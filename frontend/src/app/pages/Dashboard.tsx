@@ -502,31 +502,33 @@ export default function Dashboard() {
         className="relative mt-10 overflow-hidden rounded-[32px] bg-lv-deep p-6 text-lv-on-deep sm:p-8 md:p-10">
         <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,var(--lv-glow-1),transparent)]" />
         <div className="relative grid items-center gap-8 md:grid-cols-[auto_minmax(0,1fr)_auto]">
-          <div className="flex flex-col items-center gap-3">
-            <div className="relative grid h-36 w-28 place-items-center overflow-hidden rounded-b-[24px] rounded-t-full bg-[#d8d7f3] text-4xl font-medium tracking-tight text-[#26223f] sm:h-40 sm:w-32 sm:text-5xl">
-              {currentUser.avatarUrl
-                ? <img src={currentUser.avatarUrl} alt={`${displayName}'s profile picture`} className="h-full w-full object-cover" />
-                : <span className="pt-4">{initials}</span>}
-              {avatarBusy && (
-                <span className="absolute inset-0 grid place-items-center bg-black/45">
-                  <Loader2 className="h-6 w-6 animate-spin text-white" aria-label="Saving picture" />
-                </span>
-              )}
+          <div className="flex w-28 flex-col items-center gap-3 sm:w-32">
+            <div className="relative h-36 w-28 sm:h-40 sm:w-32">
+              <div className="grid h-full w-full place-items-center overflow-hidden rounded-b-[24px] rounded-t-full bg-[#d8d7f3] text-4xl font-medium tracking-tight text-[#26223f] sm:text-5xl">
+                {currentUser.avatarUrl
+                  ? <img src={currentUser.avatarUrl} alt={`${displayName}'s profile picture`} className="h-full w-full object-cover" />
+                  : <span className="pt-4">{initials}</span>}
+                {avatarBusy && (
+                  <span className="absolute inset-0 grid place-items-center rounded-b-[24px] rounded-t-full bg-black/45">
+                    <Loader2 className="h-6 w-6 animate-spin text-white" aria-label="Saving picture" />
+                  </span>
+                )}
+              </div>
+              <button type="button" disabled={avatarBusy} onClick={() => avatarInputRef.current?.click()}
+                aria-label={currentUser.avatarUrl ? "Change profile picture" : "Add a profile picture"}
+                title={currentUser.avatarUrl ? "Change photo" : "Add photo"}
+                className="absolute -bottom-1 -right-1 grid h-9 w-9 cursor-pointer place-items-center rounded-full border-2 border-lv-deep bg-lv-on-deep text-lv-deep shadow-md transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60">
+                <Camera className="h-4 w-4" aria-hidden="true" />
+              </button>
             </div>
             <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only"
               aria-label="Choose a profile picture" onChange={(e) => void handleAvatarPicked(e)} />
-            <div className="flex items-center gap-2">
-              <button type="button" disabled={avatarBusy} onClick={() => avatarInputRef.current?.click()}
-                className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border border-lv-on-deep/25 px-3.5 text-sm text-lv-on-deep transition-colors hover:bg-lv-on-deep/10 disabled:cursor-not-allowed disabled:opacity-60">
-                <Camera className="h-3.5 w-3.5" aria-hidden="true" /> {currentUser.avatarUrl ? "Change photo" : "Add photo"}
+            {currentUser.avatarUrl && (
+              <button type="button" disabled={avatarBusy} onClick={() => void handleAvatarRemove()}
+                className="min-h-9 cursor-pointer rounded-full px-3 text-sm text-lv-on-deep/70 transition-colors hover:text-lv-on-deep disabled:cursor-not-allowed disabled:opacity-60">
+                Remove
               </button>
-              {currentUser.avatarUrl && (
-                <button type="button" disabled={avatarBusy} onClick={() => void handleAvatarRemove()}
-                  className="min-h-9 cursor-pointer rounded-full px-3 text-sm text-lv-on-deep/70 transition-colors hover:text-lv-on-deep disabled:cursor-not-allowed disabled:opacity-60">
-                  Remove
-                </button>
-              )}
-            </div>
+            )}
             {avatarError && <p role="alert" className="max-w-40 text-center text-xs text-red-300">{avatarError}</p>}
           </div>
 
