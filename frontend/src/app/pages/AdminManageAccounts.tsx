@@ -355,8 +355,7 @@ export default function AdminManageAccounts() {
       const { error } = await supabase.from("User").delete().eq("UserID", target.id);
       if (error) { showToast("error", error.message); return; }
 
-      // Clear any request the user left behind, then revoke their login and sessions.
-      await supabase.from("DeletionRequest").delete().eq("UserID", target.id);
+      // Revoke their login and sessions.
       const { error: fnError } = await supabase.functions.invoke("delete-user", { body: { userId: target.id } });
       if (fnError) console.warn("Auth user deletion warning:", fnError.message);
 
@@ -575,9 +574,17 @@ export default function AdminManageAccounts() {
                               className="grid h-10 w-10 cursor-pointer place-items-center rounded-full text-lv-muted transition-colors hover:bg-lv-ink/8 hover:text-lv-ink">
                               <Eye className="h-4 w-4" aria-hidden="true" />
                             </button>
-                            <button type="button" onClick={() => setDeleteTarget(user)} disabled={isYou}
+                            <button type="button"
+                              onClick={() => {
+                                if (user.role === "Admin") {
+                                  showToast("error", "Admin accounts cannot be deleted.");
+                                  return;
+                                }
+                                setDeleteTarget(user);
+                              }}
+                              disabled={isYou}
                               aria-label={`Delete ${user.fullName}`}
-                              title={isYou ? "You can't delete your own account here" : "Delete account"}
+                              title={isYou ? "You can't delete your own account here" : user.role === "Admin" ? "Admin accounts cannot be deleted" : "Delete account"}
                               className="grid h-10 w-10 cursor-pointer place-items-center rounded-full text-lv-muted transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-lv-muted">
                               <Trash2 className="h-4 w-4" aria-hidden="true" />
                             </button>
