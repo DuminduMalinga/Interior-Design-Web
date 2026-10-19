@@ -1,0 +1,98 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+@import './fonts.css';
+@import './tailwind.css';
+@import './theme.css';
+@import './marketing.css';
+
+/* ══════════════════════════════════════════════
+   Global utilities used by the signed-in pages.
+   They keep their original names (glass-*, glow-*) but now render as plain
+   lavender surfaces; the lv-* variables switch with the theme.
+   ══════════════════════════════════════════════ */
+
+.glass {
+  background: color-mix(in srgb, var(--lv-surface) 70%, transparent);
+  border: 1px solid var(--lv-line);
+}
+
+.glass-card {
+  background: var(--lv-surface);
+  border: 1px solid var(--lv-line);
+}
+
+.glass-nav {
+  background: color-mix(in srgb, var(--lv-page) 78%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--lv-line);
+}
+
+.glass-sidebar {
+  background: var(--lv-surface);
+  border-right: 1px solid var(--lv-line);
+}
+
+/* The old neon glows, dot grid and drifting orbs are retired. */
+.glow-teal,
+.glow-violet,
+.glow-amber {
+  box-shadow: none;
+}
+
+.dot-grid {
+  background-image: none;
+}
+
+.mesh-orb {
+  display: none;
+}
+
+/* Shimmer animation for buttons */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.shimmer-btn {
+  background-size: 200% 100%;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+/* Gradient border utility */
+.gradient-border {
+  position: relative;
+}
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, var(--lv-glow-1), var(--lv-glow-2), transparent);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Smooth scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--lv-ink) 22%, transparent) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--lv-ink) 22%, transparent);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--lv-ink) 36%, transparent);
+}

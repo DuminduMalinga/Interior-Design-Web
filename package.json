@@ -5,6 +5,7 @@
     "dev": "npm --prefix frontend run dev --",
     "dev:frontend": "npm --prefix frontend run dev --",
     "build:frontend": "npm --prefix frontend run build --",
-    "install:all": "npm --prefix frontend install"
+    "install:all": "npm --prefix frontend install",
+    "postinstall": "npm --prefix frontend install"
   }
 }

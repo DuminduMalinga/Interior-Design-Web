@@ -201,8 +201,8 @@
 git clone <repository-url>
 cd Interiordesignweb
 
-# 2. Install all dependencies (root + backend + frontend)
-npm run install:all
+# 2. Install dependencies (the root install also installs the frontend)
+npm install
 ```
 
 ### 🔧 Environment Variables

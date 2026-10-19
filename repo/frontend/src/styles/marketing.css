@@ -1,0 +1,308 @@
+/* ══════════════════════════════════════════════
+   LAVENDER — signed-out pages (landing + auth)
+   Own tokens so these pages do not depend on the raw-palette remaps in
+   theme.css. Wrap a page root in `.lv` and use the `lv-*` colour utilities.
+   ══════════════════════════════════════════════ */
+
+:root {
+  --lv-page: #121022;
+  --lv-surface: #1c1934;
+  --lv-ink: #ecebfa;
+  --lv-on-ink: #1a1730;
+  --lv-muted: #a9a6c6;
+  --lv-wash: #2b2752;
+  --lv-deep: #231f45;
+  --lv-on-deep: #f1f0fb;
+  --lv-accent: #a9a7f0;
+  --lv-line: rgba(236, 235, 250, 0.12);
+  --lv-shadow: 0 24px 60px -28px rgba(0, 0, 0, 0.7);
+  --lv-glow-1: rgba(124, 92, 255, 0.34);
+  --lv-glow-2: rgba(168, 85, 247, 0.26);
+  --lv-glow-3: rgba(99, 102, 241, 0.3);
+  /* 2D plan drawings (RoomSvg) */
+  --lv-plan-floor: #17142b;
+  --lv-plan-wall: #8683a6;
+  /* Brand mark: white ink for the dark theme. */
+  --lv-logo-full: url('/brand/logo-dark.png');
+  --lv-logo-icon: url('/brand/icon-dark.png');
+}
+
+:root.light {
+  --lv-page: #f4f4f6;
+  --lv-surface: #ffffff;
+  --lv-ink: #26223f;
+  --lv-on-ink: #ffffff;
+  --lv-muted: #5f5b78;
+  --lv-wash: #d8d7f3;
+  --lv-deep: #26223f;
+  --lv-on-deep: #f1f0fb;
+  --lv-accent: #6e6bc9;
+  --lv-line: rgba(38, 34, 63, 0.1);
+  --lv-shadow: 0 24px 60px -32px rgba(38, 34, 63, 0.35);
+  --lv-glow-1: rgba(139, 122, 240, 0.42);
+  --lv-glow-2: rgba(192, 132, 252, 0.36);
+  --lv-glow-3: rgba(129, 140, 248, 0.38);
+  --lv-plan-floor: #f7f7fb;
+  --lv-plan-wall: #5f5b78;
+  /* Brand mark: dark ink for the light theme. */
+  --lv-logo-full: url('/brand/logo-light.png');
+  --lv-logo-icon: url('/brand/icon-light.png');
+}
+
+@theme inline {
+  --color-lv-page: var(--lv-page);
+  --color-lv-surface: var(--lv-surface);
+  --color-lv-ink: var(--lv-ink);
+  --color-lv-on-ink: var(--lv-on-ink);
+  --color-lv-muted: var(--lv-muted);
+  --color-lv-wash: var(--lv-wash);
+  --color-lv-deep: var(--lv-deep);
+  --color-lv-on-deep: var(--lv-on-deep);
+  --color-lv-accent: var(--lv-accent);
+  --color-lv-line: var(--lv-line);
+}
+
+.lv {
+  position: relative;
+  isolation: isolate;
+  background: var(--lv-page);
+  color: var(--lv-ink);
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.lv :where(h1, h2, h3) {
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.lv :where(a, button):focus-visible {
+  outline: 2px solid var(--lv-accent);
+  outline-offset: 3px;
+}
+
+.lv [id] {
+  scroll-margin-top: 6rem;
+}
+
+@layer components {
+  .lv-btn,
+  .lv-btn-quiet,
+  .lv-btn-invert {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    padding: 0 1.375rem;
+    border-radius: 9999px;
+    border: 1px solid transparent;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 180ms ease, border-color 180ms ease, opacity 180ms ease;
+  }
+
+  .lv-btn {
+    background: var(--lv-ink);
+    color: var(--lv-on-ink);
+  }
+  .lv-btn:hover {
+    background: color-mix(in srgb, var(--lv-ink) 86%, var(--lv-accent));
+  }
+
+  .lv-btn-quiet {
+    border-color: var(--lv-line);
+    color: var(--lv-ink);
+  }
+  .lv-btn-quiet:hover {
+    background: color-mix(in srgb, var(--lv-ink) 6%, transparent);
+  }
+
+  /* For use on `lv-deep` surfaces, where the ink button would disappear. */
+  .lv-btn-invert {
+    background: var(--lv-on-deep);
+    color: #26223f;
+  }
+  .lv-btn-invert:hover {
+    background: #ffffff;
+  }
+
+  .lv-btn:disabled,
+  .lv-btn-quiet:disabled,
+  .lv-btn-invert:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .lv-card {
+    background: var(--lv-surface);
+    border: 1px solid var(--lv-line);
+    border-radius: 1.75rem;
+    box-shadow: var(--lv-shadow);
+  }
+
+  .lv-input {
+    width: 100%;
+    min-height: 3rem;
+    padding: 0.75rem 1rem;
+    background: var(--lv-surface);
+    border: 1px solid var(--lv-line);
+    border-radius: 0.875rem;
+    color: var(--lv-ink);
+    outline: none;
+    transition: border-color 180ms ease, box-shadow 180ms ease;
+  }
+  .lv-input::placeholder {
+    color: color-mix(in srgb, var(--lv-muted) 70%, transparent);
+  }
+  .lv-input:focus {
+    border-color: var(--lv-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--lv-accent) 25%, transparent);
+  }
+
+  .lv-link {
+    color: var(--lv-accent);
+    font-weight: 500;
+    cursor: pointer;
+    text-underline-offset: 3px;
+  }
+  .lv-link:hover {
+    text-decoration: underline;
+  }
+}
+
+/* Page backdrop, short pages (the auth screens): two glow layers sized to the
+   page that drift behind the content. They are positioned in the page, not
+   fixed to the viewport. Long pages use <PageGlows /> and the .lv-flow
+   modifier instead, which spreads separate glows down the whole height. */
+.lv::before,
+.lv::after {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  z-index: -1;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.lv::before {
+  background:
+    radial-gradient(38% 34% at 22% 28%, var(--lv-glow-1), transparent 70%),
+    radial-gradient(34% 32% at 78% 62%, var(--lv-glow-2), transparent 70%);
+  animation: lvDriftA 14s ease-in-out infinite alternate;
+}
+
+.lv::after {
+  background:
+    radial-gradient(32% 30% at 70% 22%, var(--lv-glow-3), transparent 70%),
+    radial-gradient(36% 34% at 28% 76%, var(--lv-glow-1), transparent 70%);
+  animation: lvDriftB 18s ease-in-out infinite alternate;
+}
+
+@keyframes lvDriftA {
+  from { transform: translate3d(-8%, -6%, 0) rotate(0deg) scale(1); }
+  to { transform: translate3d(10%, 8%, 0) rotate(18deg) scale(1.15); }
+}
+
+@keyframes lvDriftB {
+  from { transform: translate3d(9%, 7%, 0) rotate(0deg) scale(1.1); }
+  to { transform: translate3d(-10%, -8%, 0) rotate(-20deg) scale(1); }
+}
+
+/* Long pages: the glows are real elements spread down the page. */
+.lv-flow::before,
+.lv-plain::before,
+.lv-plain::after,
+.lv-flow::after {
+  display: none;
+}
+
+.lv-glows {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.lv-glow {
+  position: absolute;
+  border-radius: 9999px;
+  will-change: transform;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+
+.lv-glow[data-tone='1'] { background: radial-gradient(closest-side, var(--lv-glow-1), transparent); }
+.lv-glow[data-tone='2'] { background: radial-gradient(closest-side, var(--lv-glow-2), transparent); }
+.lv-glow[data-tone='3'] { background: radial-gradient(closest-side, var(--lv-glow-3), transparent); }
+
+.lv-glow[data-anim='A'] { animation-name: lvGlowA; }
+.lv-glow[data-anim='B'] { animation-name: lvGlowB; }
+.lv-glow[data-anim='C'] { animation-name: lvGlowC; }
+
+@keyframes lvGlowA {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(14vw, 10vh, 0) scale(1.25); }
+}
+
+@keyframes lvGlowB {
+  from { transform: translate3d(0, 0, 0) scale(1.15); }
+  to { transform: translate3d(-12vw, 14vh, 0) scale(0.9); }
+}
+
+@keyframes lvGlowC {
+  from { transform: translate3d(-8vw, 8vh, 0) scale(0.95); }
+  to { transform: translate3d(10vw, -10vh, 0) scale(1.2); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lv::before,
+  .lv::after,
+  .lv-glow {
+    animation: none;
+  }
+}
+
+/* Content sitting on the hero photo. The photo is light in both themes, so
+   this scope pins the tokens to their light values. */
+.lv-on-photo {
+  --lv-surface: #ffffff;
+  --lv-ink: #26223f;
+  --lv-on-ink: #ffffff;
+  --lv-muted: #5f5b78;
+  --lv-wash: #d8d7f3;
+  --lv-accent: #6e6bc9;
+  --lv-line: rgba(38, 34, 63, 0.14);
+  --lv-logo-full: url('/brand/logo-light.png');
+  --lv-logo-icon: url('/brand/icon-light.png');
+}
+
+/* The hero arch. Below lg it is a framed block; from lg up the image layer is
+   full-bleed and clipped to the arch, so GSAP can open it to the whole
+   viewport. Keep the clip in sync with ARCH_CLIP in useLandingMotion.ts. */
+.lv-hero-stage {
+  border-radius: 999px 999px 1.75rem 1.75rem;
+}
+
+@media (min-width: 1024px) {
+  .lv-hero-stage {
+    border-radius: 0;
+    clip-path: inset(15% 11% 13% 57% round 16vw 16vw 1.5vw 1.5vw);
+  }
+}
+
+/* Photo treatment: a lavender tint over the image. */
+.lv-tint {
+  background: var(--lv-accent);
+  mix-blend-mode: soft-light;
+  opacity: 0.55;
+}
+
+/* Photos are shot bright; pull them down so they sit in the dark theme. */
+:root.dark .lv-photo {
+  filter: brightness(0.82) saturate(0.9);
+}
