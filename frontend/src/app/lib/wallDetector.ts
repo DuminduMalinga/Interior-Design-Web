@@ -77,6 +77,10 @@ export interface DetectedRoom {
   heightM: number | null;
   areaM2: number | null;
   areaSource: AreaSource;
+  /** The size printed in the room's label (after the check against the drawing),
+   * null when the label had none. widthM / heightM are these, lined up with the room. */
+  labelWidthM?: number | null;
+  labelHeightM?: number | null;
 }
 
 /** The per-floor-plan room summary the service also writes to output/<id>.json. */

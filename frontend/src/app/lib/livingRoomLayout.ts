@@ -167,6 +167,9 @@ export interface GenerateLivingRoomLayoutRequest {
     bbox: { x1: number; y1: number; x2: number; y2: number };
     /** The room's outline traced from the walls (image px); the engine keeps furniture inside it. */
     polygon?: [number, number][];
+    /** The size printed on the plan (m, west-east and south-north): the room is planned at exactly this size. */
+    width_m?: number;
+    length_m?: number;
   };
   detections: Array<{ id: string; class: string; bbox: { x1: number; y1: number; x2: number; y2: number } }>;
   /** Every room on the plan — this is how the engine tells which door leads to the kitchen. */

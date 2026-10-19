@@ -54,7 +54,8 @@ export interface GenerateAllBedroomLayoutsResponse extends GenerateAllLivingRoom
 
 export interface GenerateBedroomLayoutsRequest {
   /** polygon: the room's outline traced from the walls (image px); the engine keeps furniture inside it. */
-  room: { id: string; name?: string; bbox: Bbox; polygon?: [number, number][] };
+  /** width_m / length_m: the size printed on the plan; the room is planned at exactly this size. */
+  room: { id: string; name?: string; bbox: Bbox; polygon?: [number, number][]; width_m?: number; length_m?: number };
   detections: Array<{ id: string; class: string; bbox: Bbox }>;
   /** Every room on the plan — lets the engine tell the bedroom entrance from
    * the door to an en-suite. */

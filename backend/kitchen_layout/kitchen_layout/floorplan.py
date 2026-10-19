@@ -33,6 +33,8 @@ from .room import Door, Room, Window
 STANDARD_DOOR_WIDTH = 900.0
 #: a cut-out of a non-rectangular room narrower than this (mm) is outline noise, not a notch
 MIN_CUTOUT = 250.0
+#: a room's printed size is used only within this factor of the plan's scale
+PRINTED_SIZE_TOLERANCE = 1.5
 #: an opening thinner than this after clamping is not worth carrying
 MIN_OPENING_WIDTH = 300.0
 #: rooms a second kitchen door usually leads to - never the kitchen entrance
@@ -355,11 +357,30 @@ def build_shell(
             "No scale and no door to recover one from; the default of {:.0f} mm per pixel was used, "
             "so the room size is a rough estimate.".format(scale))
 
+    # A room's own printed size ("4 x 5 m"), when the plan has one, is exact:
+    # this room's width and length are scaled to it, each on its own, so the
+    # layout is planned for the size the plan states. One far off the plan's
+    # scale is a misread, and the plan's scale is kept.
+    sx = sy = scale
+    try:
+        width_m = float(room_in.get("width_m") or 0.0)
+        length_m = float(room_in.get("length_m") or 0.0)
+    except (TypeError, ValueError):
+        width_m = length_m = 0.0
+    if width_m > 0 and length_m > 0:
+        fx, fy = width_m * 1000.0 / width_px, length_m * 1000.0 / height_px
+        if all(1.0 / PRINTED_SIZE_TOLERANCE <= f / scale <= PRINTED_SIZE_TOLERANCE for f in (fx, fy)):
+            sx, sy = fx, fy
+            notes.append("The room is sized to the {:.2f} x {:.2f} m printed on the plan.".format(width_m, length_m))
+        else:
+            notes.append("The printed size {:.2f} x {:.2f} m does not match the room as drawn; it was "
+                         "sized from the plan's scale instead.".format(width_m, length_m))
+
     # cut-outs in engine millimetres: x from the west wall, y up from the south wall
     cutouts = []
     kept = set()
     for index, (x1, y1, x2, y2) in enumerate(cutouts_px):
-        cut = ((x1 - left) * scale, (bottom - y2) * scale, (x2 - left) * scale, (bottom - y1) * scale)
+        cut = ((x1 - left) * sx, (bottom - y2) * sy, (x2 - left) * sx, (bottom - y1) * sy)
         if min(cut[2] - cut[0], cut[3] - cut[1]) >= MIN_CUTOUT:
             cutouts.append(tuple(round(v, 1) for v in cut))
             kept.add(index)
@@ -368,11 +389,11 @@ def build_shell(
             "The room is not a plain rectangle: {:.1f} m2 of its {:.1f} x {:.1f} m bounding box is not floor, "
             "so nothing is placed there.".format(
                 sum((c[2] - c[0]) * (c[3] - c[1]) for c in cutouts) / 1e6,
-                width_px * scale / 1000.0, height_px * scale / 1000.0))
+                width_px * sx / 1000.0, height_px * sy / 1000.0))
 
     room = Room(
-        width=round(width_px * scale, 1),
-        length=round(height_px * scale, 1),
+        width=round(width_px * sx, 1),
+        length=round(height_px * sy, 1),
         cutouts=tuple(cutouts),
         height=float(payload.get("room_height") or 2800.0),
         name=str(room_in.get("name") or "Kitchen"),
@@ -384,10 +405,12 @@ def build_shell(
             wall = item["wall"]
             start = (item["lo"] - left) if wall in ("north", "south") else (bottom - item["hi"])
             wall_length = room.wall_length(wall)
-            width = min(max((item["hi"] - item["lo"]) * scale, MIN_OPENING_WIDTH), wall_length)
-            position = min(max(start * scale, 0.0), wall_length - width)
+            # along the wall, and straight out from it (the room may be scaled differently each way)
+            along, across = (sx, sy) if wall in ("north", "south") else (sy, sx)
+            width = min(max((item["hi"] - item["lo"]) * along, MIN_OPENING_WIDTH), wall_length)
+            position = min(max(start * along, 0.0), wall_length - width)
             # set back from the wall line when it is in the wall round a notch
-            inset = item["inset_px"] * scale if item["notch"] in kept else 0.0
+            inset = item["inset_px"] * across if item["notch"] in kept else 0.0
             if not inset and _in_notch(room, wall, position, position + width):
                 notes.append("{} '{}' lies where the room's notch meets the {} wall - on the room next door's "
                              "wall, not this one's; left out".format(kind, item["id"], wall))

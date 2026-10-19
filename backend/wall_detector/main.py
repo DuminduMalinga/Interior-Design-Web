@@ -180,6 +180,12 @@ _XY_DIMENSION_RE = re.compile(r"\d\s*[a-z\"'′″]*\s*[x×]\s*\d", re.IGNORECAS
 #: detected box's pixel aspect ratio.
 _WXL_M_RE = re.compile(r"(\d+(?:\.\d+)?)\s*m?\s*[x×]\s*(\d+(?:\.\d+)?)\s*m\b", re.IGNORECASE)
 SQFT_TO_M2 = 0.09290304
+#: no room side is longer than this (m): a printed size over it is a misread,
+#: almost always a dropped decimal point ("3.5" read as "35")
+MAX_ROOM_SIDE_M = 15.0
+#: how far a printed size may differ from the room as drawn at the plan's
+#: scale before it is taken as a misread (1.35 = 35%)
+SIZE_TOLERANCE = 1.35
 
 
 #: the same in feet and inches - e.g. "9'9" x 11'5"", "10' 5" × 12' 1"",
@@ -481,25 +487,86 @@ async def detect(
             if label_wxl:
                 r["labelWidthM"], r["labelHeightM"] = label_wxl
 
-    # ── Real-world scale, recovered from any room's printed area ────────
-    # Many floor-plan exports print each room's true area right in its
-    # label (e.g. "Living & Dining 28.5 m²"). Where that's legible it beats
-    # guessing: back out mm-per-pixel from area_m2 = (scale_mm_per_px/1000)^2
-    # * area_px, take the median across every room that had one (robust to
-    # a single OCR misread), then apply that ONE scale to every room so
-    # figures stay consistent across the floor plan — including rooms whose
-    # own label didn't include an area.
-    scale_samples = [
-        1000.0 * math.sqrt(r["areaM2"] / r["areaPx"])
-        for r in rooms
-        if r["areaM2"] and r["areaPx"] > 0
-    ]
-    scale_mm_per_px = None
-    if scale_samples:
-        scale_samples.sort()
-        scale_mm_per_px = scale_samples[len(scale_samples) // 2]
+    # ── Real-world scale, and printed sizes checked against the drawing ─
+    # Many floor plans print each room's size ("4 x 5 m", "12'6\" x 13'")
+    # or area ("28.5 m²") in its label. Where that's legible it beats
+    # guessing: each label gives mm-per-pixel for its room, the median over
+    # all rooms is the plan's scale (robust to a single OCR misread), and
+    # that ONE scale sizes every room the label doesn't.
+    #
+    # OCR does misread, most often by dropping a decimal point: "3.5 x 4 m"
+    # comes back as "35 x 4". So every printed size is checked against the
+    # room as drawn at the plan's scale; a value far off is tried with its
+    # decimal point put back (/10, /100), and dropped if nothing fits.
+    for r in rooms:
+        if r["shapeSource"] == "walls":  # the outline's extent: the room itself, without the walls
+            xs = [p[0] for p in r["polygon"]]
+            ys = [p[1] for p in r["polygon"]]
+            r["_extPx"] = (max(xs) - min(xs), max(ys) - min(ys))
+        else:
+            r["_extPx"] = (r["widthPx"], r["heightPx"])
+
+    def samples(bound: bool) -> list[float]:
+        """mm per px from each room's printed sides (or area), sides over the bound cut down first."""
+        def side(v: float) -> float:
+            while bound and v > MAX_ROOM_SIDE_M:
+                v /= 10.0
+            return v
+        out = []
+        for r in rooms:
+            if r["labelWidthM"] and r["labelHeightM"]:
+                printed = sorted((side(r["labelWidthM"]), side(r["labelHeightM"])))
+                for m, px in zip(printed, sorted(r["_extPx"])):
+                    if px > 0:
+                        out.append(1000.0 * m / px)
+            elif r["areaM2"] and r["areaPx"] > 0:
+                area = r["areaM2"]
+                while bound and area > MAX_ROOM_SIDE_M ** 2:
+                    area /= 10.0
+                out.append(1000.0 * math.sqrt(area / r["areaPx"]))
+        return sorted(out)
+
+    def fit(value: float, expected: float, tolerance: float) -> float | None:
+        """`value`, or it with a dropped decimal point put back, whichever matches the drawing."""
+        best = min((value, value / 10.0, value / 100.0), key=lambda v: abs(math.log(v / expected)))
+        return round(best, 3) if abs(math.log(best / expected)) <= math.log(tolerance) else None
+
+    first = samples(bound=True)
+    if first:
+        rough = first[len(first) // 2] / 1000.0  # m per px
+        for r in rooms:
+            if r["labelWidthM"] and r["labelHeightM"]:
+                raw = [r["labelWidthM"], r["labelHeightM"]]
+                drawn = [px * rough for px in r["_extPx"]]
+                # A dropped decimal can swap which printed side looks longer
+                # ("3.5 x 4" read as "35 x 4"), so both ways round are tried
+                # against the drawn width and height and the closer kept.
+                options = []
+                for a, b in ((raw[0], raw[1]), (raw[1], raw[0])):
+                    pair = [fit(a, drawn[0], SIZE_TOLERANCE), fit(b, drawn[1], SIZE_TOLERANCE)]
+                    if None not in pair:
+                        options.append((sum(abs(math.log(v / d)) for v, d in zip(pair, drawn)), sorted(pair)))
+                raw = sorted(raw)
+                sides = min(options)[1] if options else [None, None]
+                if None in sides:
+                    print(f"[wall_detector] {r['name']}: printed {raw[0]} x {raw[1]} m doesn't match the drawing; ignored")
+                    r["labelWidthM"] = r["labelHeightM"] = r["areaM2"] = None
+                else:
+                    if sides != raw:
+                        print(f"[wall_detector] {r['name']}: printed {raw[0]} x {raw[1]} m read as {sides[0]} x {sides[1]} m")
+                    r["labelWidthM"], r["labelHeightM"] = sides
+                    r["areaM2"] = round(sides[0] * sides[1], 3)
+            elif r["areaM2"]:
+                checked = fit(r["areaM2"], r["areaPx"] * rough * rough, SIZE_TOLERANCE ** 2)
+                if checked != r["areaM2"]:
+                    print(f"[wall_detector] {r['name']}: printed {r['areaM2']} m2 read as {checked}")
+                r["areaM2"] = checked
+
+    final = samples(bound=False)
+    scale_mm_per_px = final[len(final) // 2] if final else None
 
     for r in rooms:
+        r.pop("_extPx")
         if r["areaM2"]:
             r["areaSource"] = "ocr"
         if r["labelWidthM"] and r["labelHeightM"]:
