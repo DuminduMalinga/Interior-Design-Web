@@ -71,6 +71,8 @@ class FloorMap:
     """Every spot the centre of a walker of one width can be, as a grid of exact rectangles."""
 
     def __init__(self, bounds: Rect, obstacles: Sequence[Rect], width: float):
+        # the parts of a non-rectangular room's box that are not floor block like furniture
+        obstacles = list(obstacles) + list(getattr(bounds, "holes", ()))
         reach = max(width / 2.0 - SLACK, 0.0)
         x0, y0, x1, y1 = bounds[0] + reach, bounds[1] + reach, bounds[2] - reach, bounds[3] - reach
         self.xs: List[float] = []
@@ -236,6 +238,7 @@ def open_square(bounds: Rect, obstacles: Sequence[Rect]) -> float:
     rests against a wall or a piece of furniture on both of those sides, so only
     those corner positions need trying.
     """
+    obstacles = list(obstacles) + list(getattr(bounds, "holes", ()))
     lefts = [bounds[0]] + [o[2] for o in obstacles]
     bottoms = [bounds[1]] + [o[3] for o in obstacles]
     best = 0.0

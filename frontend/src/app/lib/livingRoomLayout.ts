@@ -28,6 +28,9 @@ export interface LayoutDoor {
   center?: [number, number];
   clearance_zone?: [number, number, number, number];
   swing_area_m2?: number;
+  /** mm the opening stands in from its wall's line: 0 on the wall, more in the wall
+   * round a notch of an L-shaped room (which runs parallel to `wall`). */
+  inset?: number;
 }
 
 export interface LayoutWindow {
@@ -40,6 +43,9 @@ export interface LayoutWindow {
   center?: [number, number];
   access_zone?: [number, number, number, number];
   wall_coverage?: number;
+  /** mm the opening stands in from its wall's line: 0 on the wall, more in the wall
+   * round a notch of an L-shaped room (which runs parallel to `wall`). */
+  inset?: number;
 }
 
 export interface LayoutFurnitureItem {
@@ -70,7 +76,15 @@ export interface LayoutFurnitureItem {
 }
 
 export interface LivingRoomLayoutResult {
-  room: { width: number; length: number; height: number; area_m2: number };
+  room: {
+    width: number;
+    length: number;
+    height: number;
+    area_m2: number;
+    /** Parts of the width × length rectangle that are not floor (x0, y0, x1, y1 in mm),
+     * e.g. the notch of an L-shaped room. Missing on layouts saved before rooms had shapes. */
+    cutouts?: [number, number, number, number][];
+  };
   layout: { type: string; title: string; score: number; suitability_score: number };
   furniture: LayoutFurnitureItem[];
   validation: {
@@ -147,7 +161,13 @@ export interface LivingRoomExtras {
 }
 
 export interface GenerateLivingRoomLayoutRequest {
-  room: { id: string; name?: string; bbox: { x1: number; y1: number; x2: number; y2: number } };
+  room: {
+    id: string;
+    name?: string;
+    bbox: { x1: number; y1: number; x2: number; y2: number };
+    /** The room's outline traced from the walls (image px); the engine keeps furniture inside it. */
+    polygon?: [number, number][];
+  };
   detections: Array<{ id: string; class: string; bbox: { x1: number; y1: number; x2: number; y2: number } }>;
   /** Every room on the plan — this is how the engine tells which door leads to the kitchen. */
   rooms?: Array<{ id: string; name: string; bbox: { x1: number; y1: number; x2: number; y2: number } }>;

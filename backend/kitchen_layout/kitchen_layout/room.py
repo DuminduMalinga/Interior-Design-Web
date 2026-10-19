@@ -22,7 +22,7 @@ import math
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple
 
-from .geometry import Point, Rect
+from .geometry import Bounds, Point, Rect, area
 
 WALLS = ("north", "east", "south", "west")
 OPPOSITE = {"north": "south", "south": "north", "east": "west", "west": "east"}
@@ -51,13 +51,18 @@ class Room:
     height: float = 2800.0
     name: str = "kitchen"
 
+    #: parts of the width x length rectangle that are not floor - the notch of
+    #: an L-shaped room, say. Nothing may stand on them or be walked through.
+    cutouts: Tuple[Rect, ...] = ()
+
     @property
     def rect(self) -> Rect:
-        return (0.0, 0.0, self.width, self.length)
+        return Bounds((0.0, 0.0, self.width, self.length), self.cutouts)
 
     @property
     def area_m2(self) -> float:
-        return self.width * self.length / 1_000_000.0
+        floor = self.width * self.length - sum(area(c) for c in self.cutouts)
+        return floor / 1_000_000.0
 
     def wall_length(self, wall: str) -> float:
         return self.width if wall in ("north", "south") else self.length
@@ -106,6 +111,7 @@ class Room:
             "length": round(self.length, 1),
             "height": self.height,
             "area_m2": round(self.area_m2, 2),
+            "cutouts": [[round(v, 1) for v in c] for c in self.cutouts],
         }
 
 
@@ -123,6 +129,9 @@ class Door:
     hinge_known: bool = False
     is_main: bool = False        # the kitchen entrance
     leads_to: Optional[str] = None
+    #: how far the doorway stands in from its wall's line - 0 on the wall itself; more for a
+    #: door in the wall round a notch of an L-shaped room, which runs parallel to `wall`
+    inset: float = 0.0
 
     @property
     def start(self) -> float:
@@ -137,11 +146,11 @@ class Door:
         return self.position + self.width / 2.0
 
     def center(self, room: Room) -> Point:
-        return room.point(self.wall, self.middle)
+        return room.point(self.wall, self.middle, self.inset)
 
     def opening(self, room: Room) -> Rect:
         """The doorway itself: a zero-depth strip on the wall line."""
-        return room.band(self.wall, self.start, self.end, 0.0)
+        return room.band(self.wall, self.start, self.end, 0.0, self.inset)
 
     def keep_clear_depth(self, entry_depth: float) -> float:
         """Rule 3: an inward leaf sweeps a full door-width into the room."""
@@ -154,7 +163,7 @@ class Door:
         circle, which covers the leaf whichever jamb it is hinged on - a plan
         rarely says, and a unit must not turn out to be behind the door.
         """
-        return room.band(self.wall, self.start, self.end, self.keep_clear_depth(entry_depth))
+        return room.band(self.wall, self.start, self.end, self.keep_clear_depth(entry_depth), self.inset)
 
     def to_dict(self, room: Room, entry_depth: float) -> Dict:
         c = self.center(room)
@@ -170,6 +179,7 @@ class Door:
             "swing_known": self.swing_known,
             "hinge_known": self.hinge_known,
             "leads_to": self.leads_to,
+            "inset": round(self.inset, 1),
             "center": [round(c[0], 1), round(c[1], 1)],
             "clearance_zone": [round(v, 1) for v in zone],
             "swing_area_m2": round(math.pi * self.width ** 2 / 4e6, 2) if self.swing == "inward" else 0.0,
@@ -186,6 +196,8 @@ class Window:
     width: float = 1200.0
     height: float = 1200.0
     sill_height: float = 900.0
+    #: how far the window stands in from its wall's line (see Door.inset)
+    inset: float = 0.0
 
     @property
     def start(self) -> float:
@@ -197,10 +209,10 @@ class Window:
 
     def access(self, room: Room, depth: float) -> Rect:
         """Band in front of the window that light, air and a hand on the latch need."""
-        return room.band(self.wall, self.start, self.end, depth)
+        return room.band(self.wall, self.start, self.end, depth, self.inset)
 
     def to_dict(self, room: Room, depth: float) -> Dict:
-        c = room.point(self.wall, self.position + self.width / 2.0)
+        c = room.point(self.wall, self.position + self.width / 2.0, self.inset)
         zone = self.access(room, depth)
         wall_length = room.wall_length(self.wall)
         return {
@@ -210,6 +222,7 @@ class Window:
             "width": round(self.width, 1),
             "height": self.height,
             "sill_height": self.sill_height,
+            "inset": round(self.inset, 1),
             "center": [round(c[0], 1), round(c[1], 1)],
             "access_zone": [round(v, 1) for v in zone],
             "wall_coverage": round(self.width / wall_length, 2) if wall_length else 0.0,

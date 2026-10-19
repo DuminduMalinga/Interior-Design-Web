@@ -177,7 +177,10 @@ class Evaluator:
         self.config = config
         self.c = config.clearances
         self.main_door: Optional[Door] = next((d for d in doors if d.is_main), None)
-        self.door_zones = [d.keep_clear(room, self.c.door_entry_depth) for d in doors]
+        # every patch of floor nothing may stand on: each door's sweep, then the
+        # parts of a non-rectangular room's box that are not floor. The doors
+        # come first, so zip(self.doors, self.door_zones) still pairs them up.
+        self.door_zones = [d.keep_clear(room, self.c.door_entry_depth) for d in doors] + list(room.cutouts)
         self.window_bands = [(w, w.access(room, self.c.window_access_depth)) for w in windows]
         self.weights = {rule.id: float(getattr(config.weights, rule.key)) for rule in RULES}
 
@@ -502,7 +505,7 @@ class Evaluator:
         outside = not rect_meets_triangle(dining.seated, triangle)
         crossed = False
         if self.main_door is not None:
-            start = self.room.point(self.main_door.wall, self.main_door.middle, 450.0)
+            start = self.room.point(self.main_door.wall, self.main_door.middle, 450.0 + self.main_door.inset)
             crossed = segment_meets_triangle(start, center(dining.table), triangle)
         return outside, crossed, distance(dining.seated, lay.stove.rect)
 
@@ -595,10 +598,10 @@ class Evaluator:
 
         # household traffic through the work zone: another door reached across the triangle
         if self.main_door is not None and len(self.doors) > 1:
-            start = self.room.point(self.main_door.wall, self.main_door.middle, 450.0)
+            start = self.room.point(self.main_door.wall, self.main_door.middle, 450.0 + self.main_door.inset)
             for door in self.doors:
                 if door is not self.main_door and segment_meets_triangle(
-                        start, self.room.point(door.wall, door.middle, 450.0), self.triangle(lay)):
+                        start, self.room.point(door.wall, door.middle, 450.0 + door.inset), self.triangle(lay)):
                     score *= 0.8
                     text += " The way from the entrance to door {} crosses the work triangle.".format(door.id)
                     break

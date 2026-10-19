@@ -31,6 +31,8 @@ from .room import Door, Room, Window
 
 #: a standard single door leaf - used to recover the scale when none is given
 STANDARD_DOOR_WIDTH = 900.0
+#: a cut-out of a non-rectangular room narrower than this (mm) is outline noise, not a notch
+MIN_CUTOUT = 250.0
 #: an opening thinner than this after clamping is not worth carrying
 MIN_OPENING_WIDTH = 300.0
 #: rooms a second door usually leads to - never the main entrance
@@ -66,6 +68,124 @@ def _box(raw, what: str) -> Box:
     return (x1, y1, x2, y2)
 
 
+def _outline(raw) -> Optional[List[Tuple[float, float]]]:
+    """The room's traced outline (image pixels), when the request carries a usable one."""
+    try:
+        points = [(float(p[0]), float(p[1])) for p in raw or []]
+    except (TypeError, ValueError, IndexError):
+        return None
+    return points if len(points) >= 3 else None
+
+
+def _inside(x: float, y: float, outline: List[Tuple[float, float]]) -> bool:
+    """Point-in-polygon, by counting edge crossings of a ray to the right."""
+    hit = False
+    for (ax, ay), (bx, by) in zip(outline, outline[1:] + outline[:1]):
+        if (ay > y) != (by > y) and x < ax + (y - ay) * (bx - ax) / (by - ay):
+            hit = not hit
+    return hit
+
+
+def _cutouts_px(outline: List[Tuple[float, float]], box: Box) -> List[Box]:
+    """The parts of the outline's bounding box that lie outside the outline, as rectangles.
+
+    The box is cut into a grid along every corner's x and y; a cell whose
+    centre is outside the outline is not floor. Cells are joined into runs
+    along each row, then runs with the same span are stacked, so an L-shaped
+    room comes out as one rectangle. A slanted edge (a bay window) is
+    followed to the nearest grid line.
+    """
+    left, top, right, bottom = box
+    xs = sorted({min(max(x, left), right) for x, _ in outline} | {left, right})
+    ys = sorted({min(max(y, top), bottom) for _, y in outline} | {top, bottom})
+    rows: List[List[Box]] = []
+    for y0, y1 in zip(ys, ys[1:]):
+        runs: List[Box] = []
+        for x0, x1 in zip(xs, xs[1:]):
+            if _inside((x0 + x1) / 2.0, (y0 + y1) / 2.0, outline):
+                continue
+            if runs and runs[-1][2] == x0:
+                runs[-1] = (runs[-1][0], y0, x1, y1)
+            else:
+                runs.append((x0, y0, x1, y1))
+        rows.append(runs)
+    done: List[Box] = []
+    open_runs: List[Box] = []
+    for runs in rows:
+        still: List[Box] = []
+        for run in runs:
+            above = next((o for o in open_runs if o[0] == run[0] and o[2] == run[2] and o[3] == run[1]), None)
+            if above is not None:
+                open_runs.remove(above)
+                still.append((above[0], above[1], above[2], run[3]))
+            else:
+                still.append(run)
+        done += open_runs
+        open_runs = still
+    return done + open_runs
+
+
+def _notch_edges(cutouts: List[Box], room_box: Box) -> List[Tuple[str, float, bool, float, float, float, int]]:
+    """The walls round each notch, in image pixels.
+
+    Each is (the outer wall it runs parallel to and faces the same way as,
+    its line, horizontal?, low end, high end, inset from that outer wall's
+    line, index of its cut-out). A notch at the bottom-left of the box has a
+    top edge facing north into the room, like the south wall, set back from
+    it by the notch's depth.
+    """
+    left, top, right, bottom = room_box
+    edges = []
+    for index, (x1, y1, x2, y2) in enumerate(cutouts):
+        if y1 > top + 1.0:
+            edges.append(("south", y1, True, x1, x2, bottom - y1, index))
+        if y2 < bottom - 1.0:
+            edges.append(("north", y2, True, x1, x2, y2 - top, index))
+        if x1 > left + 1.0:
+            edges.append(("east", x1, False, y1, y2, right - x1, index))
+        if x2 < right - 1.0:
+            edges.append(("west", x2, False, y1, y2, x2 - left, index))
+    return edges
+
+
+def _on_notch(box: Box, edges, tol: float) -> Optional[Tuple[str, float, float, float, int]]:
+    """The notch wall an opening lies on: (outer wall, clamped low, high, inset px, cut-out index)."""
+    x1, y1, x2, y2 = box
+    best = None
+    for wall, line, horizontal, e_lo, e_hi, inset, index in edges:
+        if horizontal:
+            off = 0.0 if y1 <= line <= y2 else min(abs(y1 - line), abs(y2 - line))
+            lo, hi, length, cross = max(x1, e_lo), min(x2, e_hi), x2 - x1, y2 - y1
+        else:
+            off = 0.0 if x1 <= line <= x2 else min(abs(x1 - line), abs(x2 - line))
+            lo, hi, length, cross = max(y1, e_lo), min(y2, e_hi), y2 - y1, x2 - x1
+        if off > tol or length <= 0 or cross > 1.5 * length or hi - lo < 0.5 * length:
+            continue
+        rank = (off, -(hi - lo))
+        if best is None or rank < best[0]:
+            best = (rank, wall, lo, hi, inset, index)
+    return best[1:] if best else None
+
+
+def _in_notch(room: Room, wall: str, start: float, end: float) -> bool:
+    """True when an opening on the box's `wall` sits where a cut-out reaches that wall.
+
+    There is no wall of this room there - the line belongs to the room next
+    door, so a door or window found on it is that room's, not this one's.
+    """
+    middle = (start + end) / 2.0
+    for x0, y0, x1, y1 in room.cutouts:
+        if wall in ("north", "south"):
+            reaches = y1 >= room.length - 1.0 if wall == "north" else y0 <= 1.0
+            if reaches and x0 <= middle <= x1:
+                return True
+        else:
+            reaches = x1 >= room.width - 1.0 if wall == "east" else x0 <= 1.0
+            if reaches and y0 <= middle <= y1:
+                return True
+    return False
+
+
 def _on_wall(box: Box, room_box: Box, tol: float) -> Optional[Tuple[str, float, float]]:
     """The wall of the room rectangle an opening lies on, and its clamped pixel span.
 
@@ -99,6 +219,7 @@ def _merge(openings: List[Dict], kind: str, notes: List[str]) -> List[Dict]:
     for opening in sorted(openings, key=lambda o: (o["wall"], o["position"])):
         previous = merged[-1] if merged else None
         if (previous is not None and previous["wall"] == opening["wall"]
+                and abs(previous["inset"] - opening["inset"]) < 1.0
                 and opening["position"] < previous["position"] + previous["width"] - 1.0):
             end = max(previous["position"] + previous["width"], opening["position"] + opening["width"])
             previous["width"] = end - previous["position"]
@@ -116,7 +237,7 @@ def _clear_of_doors(windows: List[Dict], doors: List[Dict], notes: List[str]) ->
     for window in windows:
         start, end = window["position"], window["position"] + window["width"]
         for door in doors:
-            if door["wall"] != window["wall"]:
+            if door["wall"] != window["wall"] or abs(door["inset"] - window["inset"]) >= 1.0:
                 continue
             d0, d1 = door["position"], door["position"] + door["width"]
             if d1 <= start + 1.0 or d0 >= end - 1.0:
@@ -171,7 +292,15 @@ def build_shell(
     room_in = payload.get("room") or {}
     if not room_in.get("bbox"):
         raise InputError("room.bbox is required")
-    room_box = _box(room_in["bbox"], "room.bbox")
+    # A traced outline (sent for an L-shaped room, say) is the better
+    # boundary: the room is built on the outline's bounding box, and whatever
+    # of that box lies outside the outline is cut out of the floor below.
+    outline = _outline(room_in.get("polygon"))
+    if outline:
+        xs, ys = [x for x, _ in outline], [y for _, y in outline]
+        room_box = (min(xs), min(ys), max(xs), max(ys))
+    else:
+        room_box = _box(room_in["bbox"], "room.bbox")
     left, top, right, bottom = room_box
     width_px, height_px = right - left, bottom - top
     if width_px <= 0 or height_px <= 0:
@@ -179,6 +308,8 @@ def build_shell(
 
     notes: List[str] = []
     tol = min(max(margin_ratio * min(width_px, height_px), margin_min), margin_max)
+    cutouts_px = _cutouts_px(outline, room_box) if outline else []
+    notch_edges = _notch_edges(cutouts_px, room_box)
 
     # -- which detections lie on this room's walls? ---------------------------
     plan_door_spans: List[float] = []
@@ -190,13 +321,17 @@ def build_shell(
         box = _box(det["bbox"], "{} detection".format(kind))
         if kind == "door":
             plan_door_spans.append(max(box[2] - box[0], box[3] - box[1]))
-        hit = _on_wall(box, room_box, tol)
-        if hit is None:
-            continue
-        wall, lo, hi = hit
+        notch_hit = _on_notch(box, notch_edges, tol) if notch_edges else None
+        if notch_hit is not None:
+            wall, lo, hi, inset_px, notch = notch_hit
+        else:
+            hit = _on_wall(box, room_box, tol)
+            if hit is None:
+                continue
+            (wall, lo, hi), inset_px, notch = hit, 0.0, None
         found[kind].append({
             "id": str(det.get("id") or "{}_{}".format(kind, index + 1)),
-            "wall": wall, "lo": lo, "hi": hi, "box": box,
+            "wall": wall, "lo": lo, "hi": hi, "box": box, "inset_px": inset_px, "notch": notch,
             "swing": det.get("swing"), "hinge": det.get("hinge"),
         })
 
@@ -220,9 +355,25 @@ def build_shell(
             "No scale and no door to recover one from; the default of {:.0f} mm per pixel was used, "
             "so the room size is a rough estimate.".format(scale))
 
+    # cut-outs in engine millimetres: x from the west wall, y up from the south wall
+    cutouts = []
+    kept = set()
+    for index, (x1, y1, x2, y2) in enumerate(cutouts_px):
+        cut = ((x1 - left) * scale, (bottom - y2) * scale, (x2 - left) * scale, (bottom - y1) * scale)
+        if min(cut[2] - cut[0], cut[3] - cut[1]) >= MIN_CUTOUT:
+            cutouts.append(tuple(round(v, 1) for v in cut))
+            kept.add(index)
+    if cutouts:
+        notes.append(
+            "The room is not a plain rectangle: {:.1f} m2 of its {:.1f} x {:.1f} m bounding box is not floor, "
+            "so nothing is placed there.".format(
+                sum((c[2] - c[0]) * (c[3] - c[1]) for c in cutouts) / 1e6,
+                width_px * scale / 1000.0, height_px * scale / 1000.0))
+
     room = Room(
         width=round(width_px * scale, 1),
         length=round(height_px * scale, 1),
+        cutouts=tuple(cutouts),
         height=float(payload.get("room_height") or 2800.0),
         name=str(room_in.get("name") or "Living room"),
     )
@@ -235,7 +386,13 @@ def build_shell(
             wall_length = room.wall_length(wall)
             width = min(max((item["hi"] - item["lo"]) * scale, MIN_OPENING_WIDTH), wall_length)
             position = min(max(start * scale, 0.0), wall_length - width)
-            openings.append(dict(item, position=position, width=width, sources=[item["id"]]))
+            # set back from the wall line when it is in the wall round a notch
+            inset = item["inset_px"] * scale if item["notch"] in kept else 0.0
+            if not inset and _in_notch(room, wall, position, position + width):
+                notes.append("{} '{}' lies where the room's notch meets the {} wall - on the room next door's "
+                             "wall, not this one's; left out".format(kind, item["id"], wall))
+                continue
+            openings.append(dict(item, position=position, width=width, inset=inset, sources=[item["id"]]))
         return _merge(openings, kind, notes)
 
     door_specs = convert(found["door"], "door")
@@ -254,12 +411,13 @@ def build_shell(
             hinge=hinge or ("left" if position <= wall_length - (position + width) else "right"),
             swing_known=swing is not None, hinge_known=hinge is not None,
             leads_to=_neighbour(spec["box"], room_in.get("id"), neighbours, tol),
+            inset=round(spec["inset"], 1),
         ))
     _pick_entrance(doors)
 
     windows = [
         Window(id=spec["id"], wall=spec["wall"], position=round(spec["position"], 1), width=round(spec["width"], 1),
-               sill_height=float(payload.get("sill_height") or 900.0))
+               sill_height=float(payload.get("sill_height") or 900.0), inset=round(spec["inset"], 1))
         for spec in window_specs
     ]
 

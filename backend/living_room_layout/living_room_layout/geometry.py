@@ -19,6 +19,23 @@ Rect = Tuple[float, float, float, float]
 Point = Tuple[float, float]
 
 
+class Bounds(tuple):
+    """A room's floor rectangle, plus the parts of it that are not floor.
+
+    An L-shaped (or any other non-rectangular) room is its bounding rectangle
+    with `holes` cut out of it. It is still a plain ``(x0, y0, x1, y1)`` tuple,
+    so every calculation on the rectangle keeps working; `contains` and the
+    walkability checks also keep clear of the holes.
+    """
+
+    holes: Tuple[Rect, ...]
+
+    def __new__(cls, rect: Rect, holes: Iterable[Rect] = ()):
+        self = super().__new__(cls, rect)
+        self.holes = tuple(holes)
+        return self
+
+
 def area(r: Rect) -> float:
     return max(0.0, r[2] - r[0]) * max(0.0, r[3] - r[1])
 
@@ -53,9 +70,11 @@ def inflate(r: Rect, d: float) -> Rect:
 
 
 def contains(outer: Rect, inner: Rect, tol: float = 1.0) -> bool:
+    """True when `inner` lies within `outer` - and clear of its holes, if it is a `Bounds`."""
     return (
         inner[0] >= outer[0] - tol and inner[1] >= outer[1] - tol
         and inner[2] <= outer[2] + tol and inner[3] <= outer[3] + tol
+        and not hits_any(inner, getattr(outer, "holes", ()), tol)
     )
 
 

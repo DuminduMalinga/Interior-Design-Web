@@ -46,6 +46,10 @@ export interface RoomLabel {
 
 export type AreaSource = "ocr" | "estimated" | null;
 
+/** "walls": outline traced from the plan's walls (can be an L or any other
+ * shape); "bbox": the plain detection box, when no clean outline was found. */
+export type ShapeSource = "walls" | "bbox";
+
 export interface DetectedRoom {
   id: string;
   /** OCR'd room name, or the fallback ("Room 1", "Room 2", …). */
@@ -59,7 +63,13 @@ export interface DetectedRoom {
   bboxPct: BBoxPct;
   widthPx: number;
   heightPx: number;
+  /** Floor area in px²: the traced outline's when there is one, else the box's. */
   areaPx: number;
+  /** Room outline as [x, y] corners, in pixels / as % of the image. Missing on
+   * detections saved before outlines were traced. */
+  polygon?: [number, number][];
+  polygonPct?: [number, number][];
+  shapeSource?: ShapeSource;
   /** Real-world size, derived from a printed area on this room's own label
    * ("ocr") or from the floor plan's shared scale ("estimated") — null when
    * nothing on the whole plan gave a usable scale. */
@@ -97,6 +107,8 @@ export interface RoomsJson {
       areaSource: AreaSource;
     };
     bbox: BBox;
+    polygon?: [number, number][];
+    shapeSource?: ShapeSource;
   }>;
 }
 

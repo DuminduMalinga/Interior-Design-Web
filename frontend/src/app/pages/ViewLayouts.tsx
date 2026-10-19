@@ -920,7 +920,13 @@ export default function ViewLayouts() {
       ? navState.detection.scaleMmPerPx / 1000
       : undefined;
     const request = {
-      room: { id: apiRoom.id, name: apiRoom.name, bbox: apiRoom.bbox },
+      room: {
+        id: apiRoom.id,
+        name: apiRoom.name,
+        bbox: apiRoom.bbox,
+        // the outline traced from the walls, so an L-shaped room is furnished as an L
+        polygon: apiRoom.shapeSource === "walls" ? apiRoom.polygon : undefined,
+      },
       detections: openings.map((d) => ({ id: d.id, class: d.class, bbox: d.bbox })),
       scaleMPerPx,
     };

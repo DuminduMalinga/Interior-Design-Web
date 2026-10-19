@@ -1,4 +1,5 @@
 import type { LayoutFurnitureItem, LivingRoomLayoutResult, Wall } from "../lib/livingRoomLayout";
+import { cutoutSpans, inNotchWall, notchSpan, notchWalls, type Cutout } from "../lib/roomCutouts";
 
 // ─────────────────────────────────────────────
 // Geometry helpers (mirrors living_room_layout/models/room.py exactly)
@@ -30,6 +31,13 @@ function wallPoint(wall: Wall, pos: number, room: RoomDims): Vec {
     default:
       return [room.width, pos];
   }
+}
+
+/** A point on an opening: `pos` along its wall, `inset` in from the wall line (a door in a notch wall). */
+function openingPoint(wall: Wall, pos: number, inset: number | undefined, room: RoomDims): Vec {
+  const [x, y] = wallPoint(wall, pos, room);
+  const [ix, iy] = WALL_INWARD[wall];
+  return [x + ix * (inset ?? 0), y + iy * (inset ?? 0)];
 }
 
 function wallLength(wall: Wall, room: RoomDims): number {
@@ -150,19 +158,60 @@ export default function RoomSvg({
   // Kitchen engine only: the work triangle between sink, stove and refrigerator.
   const trianglePoints = (layout.work_triangle as { points?: Vec[] } | undefined)?.points;
 
+  const cutouts = (room.cutouts ?? []) as Cutout[];
   const wallSegments = (["north", "south", "east", "west"] as Wall[]).map((wall) => {
     const length = wallLength(wall, room);
+    // only openings in the wall line itself; those set back from it are in a notch wall
+    const onLine = (o: { wall: Wall; inset?: number }) => o.wall === wall && (o.inset ?? 0) < 1;
     const openings = [
-      ...doors.filter((d) => d.wall === wall).map((d) => ({ start: d.position, end: d.position + d.width })),
-      ...windows.filter((w) => w.wall === wall).map((w) => ({ start: w.position, end: w.position + w.width })),
+      ...doors.filter(onLine).map((d) => ({ start: d.position, end: d.position + d.width })),
+      ...windows.filter(onLine).map((w) => ({ start: w.position, end: w.position + w.width })),
+      // where a notch reaches the box edge there is no wall of this room
+      ...cutoutSpans(wall, cutouts, room),
     ];
     return { wall, segments: solidSegments(length, openings) };
   });
+  // each notch wall, broken at the doors and windows in it
+  const notches = notchWalls(cutouts, room).flatMap((n) => {
+    const [lo, hi] = notchSpan(n);
+    const gaps = [...doors, ...windows]
+      .filter((o) => inNotchWall(n, o, room))
+      .map((o) => ({ start: o.position - lo, end: o.position + o.width - lo }));
+    const horizontal = n.as === "north" || n.as === "south";
+    return solidSegments(hi - lo, gaps).map(([s, e]): { a: Vec; b: Vec } =>
+      horizontal ? { a: [lo + s, n.a[1]], b: [lo + e, n.a[1]] } : { a: [n.a[0], lo + s], b: [n.a[0], lo + e] });
+  });
+  // The floor: the whole box, with each cut-out punched out of it (even-odd fill).
+  const floorPath = [[0, 0, room.width, room.length] as Cutout, ...cutouts]
+    .map(([x0, y0, x1, y1]) => {
+      const [a, b] = toScreen([x0, y1]);
+      const [c, d] = toScreen([x1, y0]);
+      return `M ${a} ${b} H ${c} V ${d} H ${a} Z`;
+    })
+    .join(" ");
 
   return (
     <svg viewBox={`0 0 ${CANVAS_W} ${H}`} width="100%" height="100%" className="block">
       {/* floor */}
-      <rect x={0} y={0} width={CANVAS_W} height={H} fill="var(--lv-plan-floor)" rx={2} />
+      {cutouts.length ? (
+        <path d={floorPath} fill="var(--lv-plan-floor)" fillRule="evenodd" />
+      ) : (
+        <rect x={0} y={0} width={CANVAS_W} height={H} fill="var(--lv-plan-floor)" rx={2} />
+      )}
+
+      {/* the walls round a notch of a non-rectangular room */}
+      {notches.map(({ a, b }, i) => {
+        const p0 = toScreen(a);
+        const p1 = toScreen(b);
+        return (
+          <line
+            key={`notch-${i}`}
+            x1={p0[0]} y1={p0[1]} x2={p1[0]} y2={p1[1]}
+            stroke="var(--lv-plan-wall)" strokeWidth={compact ? 3 : 5} strokeLinecap="square"
+            vectorEffect="non-scaling-stroke"
+          />
+        );
+      })}
 
       {/* solid wall segments */}
       {wallSegments.map(({ wall, segments }) =>
@@ -182,8 +231,8 @@ export default function RoomSvg({
 
       {/* windows */}
       {windows.map((w) => {
-        const p0 = toScreen(wallPoint(w.wall, w.position, room));
-        const p1 = toScreen(wallPoint(w.wall, w.position + w.width, room));
+        const p0 = toScreen(openingPoint(w.wall, w.position, w.inset, room));
+        const p1 = toScreen(openingPoint(w.wall, w.position + w.width, w.inset, room));
         return (
           <line key={w.id} x1={p0[0]} y1={p0[1]} x2={p1[0]} y2={p1[1]}
             stroke="#38bdf8" strokeWidth={compact ? 3 : 4} strokeLinecap="butt"
@@ -197,7 +246,7 @@ export default function RoomSvg({
       {doors.map((d) => {
         const hingeAtStart = d.hinge === "left";
         const hingePos = hingeAtStart ? d.position : d.position + d.width;
-        const hingeMM: Vec = wallPoint(d.wall, hingePos, room);
+        const hingeMM: Vec = openingPoint(d.wall, hingePos, d.inset, room);
         const along = WALL_ALONG[d.wall];
         const closedDir: Vec = hingeAtStart ? along : [-along[0], -along[1]];
         const inward = WALL_INWARD[d.wall];

@@ -35,10 +35,13 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from functools import lru_cache
 
+import cv2
 import numpy as np
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
+
+from room_shapes import trace_room_shapes
 
 # ── Config ─────────────────────────────────────────────────────────────
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -57,6 +60,9 @@ MAX_IMAGE_BYTES = int(os.getenv("MAX_IMAGE_BYTES", str(12 * 1024 * 1024)))
 OUTPUT_DIR = os.getenv("OUTPUT_DIR", os.path.join(HERE, "output"))
 OCR_ENABLED = os.getenv("OCR_ENABLED", "true").lower() not in ("0", "false", "no")
 OCR_MIN_CONF = float(os.getenv("OCR_MIN_CONF", "0.30"))
+# Trace each room's real outline from the walls (L shapes etc.) instead of
+# using only the YOLO box. See room_shapes.py.
+SHAPES_ENABLED = os.getenv("SHAPES_ENABLED", "true").lower() not in ("0", "false", "no")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 ALLOWED_ORIGINS = [
     o.strip()
@@ -176,17 +182,34 @@ _WXL_M_RE = re.compile(r"(\d+(?:\.\d+)?)\s*m?\s*[x×]\s*(\d+(?:\.\d+)?)\s*m\b", 
 SQFT_TO_M2 = 0.09290304
 
 
+#: the same in feet and inches - e.g. "9'9" x 11'5"", "10' 5" × 12' 1"",
+#: "4' 2" x 7'" - as printed on most US / UK plans. OCR reads the primes as
+#: assorted quote marks, so any of them is accepted.
+_FT_IN = r"(\d{1,3})\s*['′’‘`]\s*(?:-?\s*(\d{1,2}(?:\.\d+)?)\s*(?:[\"″”“]|'')?)?"
+_WXL_FT_RE = re.compile(_FT_IN + r"\s*[x×X*]\s*" + _FT_IN)
+FT_TO_M = 0.3048
+
+
 def _parse_wxl_m(raw_tokens: list[str]) -> tuple[float, float] | None:
-    """Pull a printed "<width> m x <length> m" pair out of a room's raw OCR
-    text, in the order printed. None if no such pair is legible."""
+    """Pull a printed "<width> x <length>" pair (metres, or feet and inches)
+    out of a room's raw OCR text, in metres and in the order printed. None if
+    no such pair is legible."""
     joined = " ".join(raw_tokens)
     match = _WXL_M_RE.search(joined)
-    if not match:
-        return None
-    try:
-        return round(float(match.group(1)), 3), round(float(match.group(2)), 3)
-    except ValueError:
-        return None
+    if match:
+        try:
+            return round(float(match.group(1)), 3), round(float(match.group(2)), 3)
+        except ValueError:
+            pass
+    match = _WXL_FT_RE.search(joined)
+    if match:
+        feet_a, inch_a, feet_b, inch_b = (float(g) if g else 0.0 for g in match.groups())
+        if inch_a < 12 and inch_b < 12 and feet_a + inch_a > 0 and feet_b + inch_b > 0:
+            return (
+                round((feet_a + inch_a / 12) * FT_TO_M, 3),
+                round((feet_b + inch_b / 12) * FT_TO_M, 3),
+            )
+    return None
 
 
 def _parse_area_m2(raw_tokens: list[str]) -> float | None:
@@ -216,8 +239,12 @@ def _parse_area_m2(raw_tokens: list[str]) -> float | None:
     return None
 
 
-def _ocr_room_label(image: Image.Image, bbox: dict) -> dict:
-    """OCR the text printed inside a room bounding box to recover its name."""
+def _ocr_room_label(image: Image.Image, bbox: dict, polygon: list | None = None) -> dict:
+    """OCR the text printed inside a room to recover its name.
+
+    With a polygon (the room's traced outline) only the text inside that
+    outline is read; otherwise the whole, slightly padded, bounding box.
+    """
     empty = {"name": None, "confidence": None, "raw": [], "rawDimensions": []}
     try:
         reader = get_reader()
@@ -225,6 +252,10 @@ def _ocr_room_label(image: Image.Image, bbox: dict) -> dict:
         return empty
 
     w, h = image.size
+    if polygon:
+        xs = [p[0] for p in polygon]
+        ys = [p[1] for p in polygon]
+        bbox = {"x1": min(xs), "y1": min(ys), "x2": max(xs), "y2": max(ys)}
     bw = bbox["x2"] - bbox["x1"]
     bh = bbox["y2"] - bbox["y1"]
     pad_x = max(6.0, bw * 0.04)
@@ -237,6 +268,19 @@ def _ocr_room_label(image: Image.Image, bbox: dict) -> dict:
         return empty
 
     crop = image.crop((left, top, right, bottom))
+    if polygon:
+        # White out everything outside the outline, so a neighbouring room's
+        # label that falls inside this room's box isn't read. The outline
+        # stops at the inner face of the walls; grow it a few pixels so a
+        # label printed right against a wall isn't clipped.
+        inside = np.zeros((crop.height, crop.width), dtype=np.uint8)
+        pts = np.array([[x - left, y - top] for x, y in polygon], dtype=np.int32)
+        cv2.fillPoly(inside, [pts], 255)
+        grow = int(max(3, min(bw, bh) * 0.02))
+        inside = cv2.dilate(inside, np.ones((grow * 2 + 1, grow * 2 + 1), np.uint8))
+        pixels = np.asarray(crop).copy()
+        pixels[inside == 0] = 255
+        crop = Image.fromarray(pixels)
     if crop.width < 220:  # upscale small crops so OCR has something to work with
         factor = min(3, max(2, 220 // max(crop.width, 1)))
         crop = crop.resize((crop.width * factor, crop.height * factor))
@@ -330,6 +374,8 @@ async def detect(
     rooms: list[dict] = []
     counts: dict[str, int] = {}
     room_index = 0
+    wall_boxes: list[dict] = []
+    opening_boxes: list[dict] = []
 
     boxes = result.boxes
     if boxes is not None:
@@ -349,32 +395,24 @@ async def detect(
                 "bboxPct": _pct_box(x1, y1, x2, y2, width, height),
             }
             detections.append(det)
+            if label.lower() == "wall":
+                wall_boxes.append(det["bbox"])
+            elif label.lower() in ("door", "window"):
+                opening_boxes.append(det["bbox"])
 
             if label.lower() == "room" and score >= room_conf:
                 room_index += 1
                 fallback_name = f"Room {room_index}"
-                label_info = (
-                    _ocr_room_label(image, det["bbox"])
-                    if (ocr and OCR_ENABLED)
-                    else {"name": None, "confidence": None, "raw": [], "rawDimensions": []}
-                )
                 area_px = round((x2 - x1) * (y2 - y1), 2)
-                # a printed "W m x L m" beats area-only text: it gives both
-                # real dimensions directly instead of an area whose shape has
-                # to be guessed from the detected box's pixel aspect ratio.
-                label_wxl = _parse_wxl_m(label_info["raw"]) if (ocr and OCR_ENABLED) else None
-                label_area = (
-                    round(label_wxl[0] * label_wxl[1], 3)
-                    if label_wxl
-                    else (_parse_area_m2(label_info["raw"]) if (ocr and OCR_ENABLED) else None)
-                )
                 rooms.append(
                     {
                         "id": f"room-{room_index}",
-                        "name": label_info["name"] or fallback_name,
+                        # name / label / printed size are filled in by OCR
+                        # below, once the room's outline is known
+                        "name": fallback_name,
                         "fallbackName": fallback_name,
-                        "labelDetected": label_info["name"] is not None,
-                        "label": label_info,
+                        "labelDetected": False,
+                        "label": {"name": None, "confidence": None, "raw": [], "rawDimensions": []},
                         "class": label,
                         "confidence": score,
                         "bbox": det["bbox"],
@@ -382,15 +420,66 @@ async def detect(
                         "widthPx": round(x2 - x1, 2),
                         "heightPx": round(y2 - y1, 2),
                         "areaPx": area_px,
-                        # populated below, once a scale can be resolved
-                        "areaM2": label_area,
-                        "labelWidthM": label_wxl[0] if label_wxl else None,
-                        "labelHeightM": label_wxl[1] if label_wxl else None,
+                        # replaced below by the outline traced from the walls,
+                        # when one can be recovered
+                        "polygon": [[x1, y1], [x2, y1], [x2, y2], [x1, y2]],
+                        "polygonPct": [
+                            [round(x / width * 100, 3), round(y / height * 100, 3)]
+                            for x, y in ((x1, y1), (x2, y1), (x2, y2), (x1, y2))
+                        ],
+                        "shapeSource": "bbox",
+                        # populated below, from OCR or once a scale can be resolved
+                        "areaM2": None,
+                        "labelWidthM": None,
+                        "labelHeightM": None,
                         "areaSource": None,
                         "widthM": None,
                         "heightM": None,
                     }
                 )
+
+    # ── Room outlines traced from the walls ─────────────────────────────
+    # The YOLO box of an L-shaped room covers its whole bounding rectangle,
+    # overlapping the rooms beside it. Where the walls give a clean outline,
+    # that replaces the box; otherwise the box stays.
+    if rooms and SHAPES_ENABLED:
+        try:
+            shapes = trace_room_shapes(np.asarray(image), [r["bbox"] for r in rooms], wall_boxes, opening_boxes)
+        except Exception as exc:  # noqa: BLE001 - outlines are best-effort
+            print(f"[wall_detector] WARNING: room outline tracing failed: {exc}")
+            shapes = [None] * len(rooms)
+        for r, shape in zip(rooms, shapes):
+            if shape is None:
+                continue
+            r["polygon"] = shape["polygon"]
+            r["polygonPct"] = [
+                [round(x / width * 100, 3), round(y / height * 100, 3)] for x, y in shape["polygon"]
+            ]
+            r["shapeSource"] = "walls"
+            # the real floor area, not the bounding box's
+            r["areaPx"] = shape["areaPx"]
+
+    # ── Room names, OCR'd from the label printed inside each room ───────
+    # Read only inside the room's traced outline: an L room's box also
+    # covers the room in its notch, whose label would otherwise be read as
+    # part of this room's name (e.g. "Bath Primary Bedroom").
+    if ocr and OCR_ENABLED:
+        for r in rooms:
+            label_info = _ocr_room_label(
+                image, r["bbox"], r["polygon"] if r["shapeSource"] == "walls" else None
+            )
+            # a printed "W m x L m" beats area-only text: it gives both
+            # real dimensions directly instead of an area whose shape has
+            # to be guessed from the detected box's pixel aspect ratio.
+            label_wxl = _parse_wxl_m(label_info["raw"])
+            r["label"] = label_info
+            r["name"] = label_info["name"] or r["fallbackName"]
+            r["labelDetected"] = label_info["name"] is not None
+            r["areaM2"] = (
+                round(label_wxl[0] * label_wxl[1], 3) if label_wxl else _parse_area_m2(label_info["raw"])
+            )
+            if label_wxl:
+                r["labelWidthM"], r["labelHeightM"] = label_wxl
 
     # ── Real-world scale, recovered from any room's printed area ────────
     # Many floor-plan exports print each room's true area right in its
@@ -415,16 +504,20 @@ async def detect(
             r["areaSource"] = "ocr"
         if r["labelWidthM"] and r["labelHeightM"]:
             # exact printed dimensions for this room - use them as-is rather
-            # than the scale-derived estimate below.
-            r["widthM"] = r["labelWidthM"]
-            r["heightM"] = r["labelHeightM"]
+            # than the scale-derived estimate below. Plans print "W x L" in
+            # either order, so the longer printed side goes to the longer
+            # side of the room as drawn.
+            short, long_ = sorted((r["labelWidthM"], r["labelHeightM"]))
+            wide = r["widthPx"] >= r["heightPx"]
+            r["widthM"] = long_ if wide else short
+            r["heightM"] = short if wide else long_
             r["areaSource"] = "ocr"
         elif scale_mm_per_px:
             scale_m_per_px = scale_mm_per_px / 1000.0
             r["widthM"] = round(r["widthPx"] * scale_m_per_px, 2)
             r["heightM"] = round(r["heightPx"] * scale_m_per_px, 2)
             if not r["areaM2"]:
-                r["areaM2"] = round(r["widthM"] * r["heightM"], 2)
+                r["areaM2"] = round(r["areaPx"] * scale_m_per_px * scale_m_per_px, 2)
                 r["areaSource"] = "estimated"
 
     # ── Per-floor-plan room JSON (names + pixel dimensions) ─────────────
@@ -457,6 +550,8 @@ async def detect(
                     "areaSource": r["areaSource"],
                 },
                 "bbox": r["bbox"],
+                "polygon": r["polygon"],
+                "shapeSource": r["shapeSource"],
             }
             for r in rooms
         ],
