@@ -1,0 +1,52 @@
+# Run from backend/deploy on the EC2 instance:  docker compose up -d --build
+x-layout: &layout
+  restart: unless-stopped
+  environment:
+    ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on: [detector, living-room, bedroom, kitchen, bathroom, dining, master-bedroom]
+
+  detector:
+    build: { context: .., dockerfile: deploy/Dockerfile.detector }
+    restart: unless-stopped
+    environment:
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      MODEL_PATH: /models/best.pt
+    volumes:
+      - ./models:/models:ro
+      - easyocr_models:/root/.EasyOCR
+      - detector_output:/app/output
+
+  living-room:
+    <<: *layout
+    build: { context: .., dockerfile: deploy/Dockerfile.layout, args: { SERVICE: living_room_layout } }
+  bedroom:
+    <<: *layout
+    build: { context: .., dockerfile: deploy/Dockerfile.layout, args: { SERVICE: bedroom_layout } }
+  kitchen:
+    <<: *layout
+    build: { context: .., dockerfile: deploy/Dockerfile.layout, args: { SERVICE: kitchen_layout } }
+  bathroom:
+    <<: *layout
+    build: { context: .., dockerfile: deploy/Dockerfile.layout, args: { SERVICE: bathroom_layout } }
+  dining:
+    <<: *layout
+    build: { context: .., dockerfile: deploy/Dockerfile.layout, args: { SERVICE: dining_layout } }
+  master-bedroom:
+    <<: *layout
+    build: { context: .., dockerfile: deploy/Dockerfile.layout, args: { SERVICE: master_bedroom_layout } }
+
+volumes:
+  caddy_data:
+  easyocr_models:
+  detector_output:

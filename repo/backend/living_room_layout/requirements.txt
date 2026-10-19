@@ -1,0 +1,7 @@
+# Living Room Layout service
+# The engine itself (living_room_layout/) has zero third-party dependencies -
+# pure Python geometry and rule logic. These are only for the API wrapper.
+
+fastapi==0.141.1
+uvicorn==0.52.4
+python-dotenv==1.0.1
