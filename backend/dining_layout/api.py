@@ -12,7 +12,9 @@ detected on the same floor plan, it:
   3. picks the table for the number of occupants or the floor area,
   4. places the table, its chairs, a sideboard and the pendant light according to twelve
      dining-area furniture-arrangement rules,
-  5. returns every layout it found, best first, each with a rule-by-rule report.
+  5. converts each layout's rules score (out of 100) to 90 points and adds up
+     to 10 for the furniture it fits, the fullest layout earning all 10,
+  6. returns every layout it found, best first, each with a rule-by-rule report.
 
 The request and the response follow the living-room service, so the frontend
 calls both the same way and draws both with the same plan viewer. The service
@@ -79,7 +81,7 @@ def health():
 
 @app.get("/rules")
 def rules():
-    """The twelve rules as written, and how the engine applies each one."""
+    """The twelve rules and the extra furniture rule as written, and how the engine applies each one."""
     return {"rules": rule_catalogue()}
 
 

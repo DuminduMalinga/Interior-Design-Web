@@ -89,7 +89,12 @@ class RoomThresholds:
 
 @dataclass
 class Weights:
-    """Points each of the fifteen rules can contribute; they add up to 100."""
+    """Points each rule can contribute.
+
+    The fifteen arrangement rules add up to 100. Their score is then converted
+    to what `furniture_count` leaves of the 100-point total (90), and the extra
+    rule's points are added on top.
+    """
 
     bed_position: float = 9.0         # rule 1
     bed_sides: float = 9.0            # rule 2
@@ -106,6 +111,7 @@ class Weights:
     bedroom_lighting: float = 5.0     # rule 13
     all_occupants: float = 6.0        # rule 14
     connecting_route: float = 7.0     # rule 15
+    furniture_count: float = 10.0     # the extra rule: most furniture of the layouts generated
 
 
 @dataclass

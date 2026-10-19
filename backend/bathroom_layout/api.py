@@ -12,7 +12,9 @@ detected on the same floor plan, it:
   3. picks the fixtures for the room size and the user's mobility needs,
   4. arranges them according to fifteen bathroom fixture-arrangement rules and fixes the
      mirror, the towel rails, the floor drain and any grab bars,
-  5. returns every layout it found, best first, each with a rule-by-rule report.
+  5. converts each layout's rules score (out of 100) to 90 points and adds up
+     to 10 for the furniture it fits, the fullest layout earning all 10,
+  6. returns every layout it found, best first, each with a rule-by-rule report.
 
 The request and the response follow the living-room service, so the frontend
 calls both the same way and draws both with the same plan viewer. The service
@@ -79,7 +81,7 @@ def health():
 
 @app.get("/rules")
 def rules():
-    """The fifteen rules as written, and how the engine applies each one."""
+    """The fifteen rules and the extra furniture rule as written, and how the engine applies each one."""
     return {"rules": rule_catalogue()}
 
 

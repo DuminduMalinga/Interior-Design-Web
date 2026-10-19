@@ -11,7 +11,9 @@ detected on the same floor plan, it:
   2. recovers the real-world scale and converts everything to millimetres,
   3. picks the furniture for the room size and the number of occupants,
   4. arranges it according to fifteen master-bedroom furniture-arrangement rules,
-  5. returns every layout it found, best first, each with a rule-by-rule report.
+  5. converts each layout's rules score (out of 100) to 90 points and adds up
+     to 10 for the furniture it fits, the fullest layout earning all 10,
+  6. returns every layout it found, best first, each with a rule-by-rule report.
 
 The request and the response follow the living-room service, so the frontend
 calls both the same way and draws both with the same plan viewer. The service
@@ -78,7 +80,7 @@ def health():
 
 @app.get("/rules")
 def rules():
-    """The fifteen rules as written, and how the engine applies each one."""
+    """The fifteen rules and the extra furniture rule as written, and how the engine applies each one."""
     return {"rules": rule_catalogue()}
 
 

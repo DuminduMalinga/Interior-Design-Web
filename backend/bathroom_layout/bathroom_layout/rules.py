@@ -17,6 +17,9 @@ and assumed perfect while the search is still comparing candidates.
 
 Rules 13 and 15 apply "where required": they are scored only when the request
 says the user has mobility needs, and are reported as not applicable otherwise.
+
+The rules score is then converted to 90 points, and the extra `FURNITURE_RULE`
+adds the last 10, rewarding the layout with the most furniture.
 """
 
 from __future__ import annotations
@@ -118,6 +121,26 @@ RULES: Tuple[Rule, ...] = (
          "a side wall within 500 mm of the pan rather than drop-down rails. Otherwise not applicable."),
 )
 RULE_BY_ID: Dict[str, Rule] = {rule.id: rule for rule in RULES}
+
+#: the extra rule, scored last: it compares a layout with the others generated
+#: for the same room, so it is added once they are all chosen (see generator.py)
+FURNITURE_RULE = Rule(
+    "R16", "furniture_count", "Most furniture",
+    "Give the most points to the layout that fits the most furniture.",
+    "Scored after the rules score is converted to 90 points: the layout with the most furniture for this room "
+    "earns all 10 and one piece fewer earns 5; below that the points fall evenly with each piece fewer, to 0 "
+    "with no furniture.")
+
+
+def furniture_mark(count: int, most: int) -> float:
+    """The extra rule's 0..1 mark for `count` pieces when the fullest layout has `most`.
+
+    Full marks for the most furniture, half for one piece fewer, then falling
+    evenly with each piece fewer, to nothing with no furniture.
+    """
+    if count >= most:
+        return 1.0
+    return 0.5 * count / (most - 1) if most > 1 else 0.0
 
 
 @dataclass

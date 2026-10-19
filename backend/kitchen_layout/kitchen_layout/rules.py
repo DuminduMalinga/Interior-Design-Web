@@ -15,6 +15,9 @@ Six rules depend only on where the sink, the stove and the refrigerator stand
 `core()` scores them, which is what lets the search compare thousands of
 combinations. The other six need the finished kitchen - its worktops, its
 table, its walking routes - and are scored by `finish()`.
+
+The rules score is then converted to 90 points, and the extra `FURNITURE_RULE`
+adds the last 10, rewarding the layout with the most furniture.
 """
 
 from __future__ import annotations
@@ -105,6 +108,27 @@ RULES: Tuple[Rule, ...] = (
          "for fits, no two doors open into each other, and the furniture leaves a clear area of floor."),
 )
 RULE_BY_ID: Dict[str, Rule] = {rule.id: rule for rule in RULES}
+
+#: the extra rule, scored last: it compares a layout with the others generated
+#: for the same room, so it is added once they are all chosen (see generator.py)
+FURNITURE_RULE = Rule(
+    "R13", "furniture_count", "Most furniture",
+    "Give the most points to the layout that fits the most furniture.",
+    "Scored after the rules score is converted to 90 points: the layout with the most furniture for this room "
+    "earns all 10 and one piece fewer earns 5; below that the points fall evenly with each piece fewer, to 0 "
+    "with no furniture.")
+
+
+def furniture_mark(count: int, most: int) -> float:
+    """The extra rule's 0..1 mark for `count` pieces when the fullest layout has `most`.
+
+    Full marks for the most furniture, half for one piece fewer, then falling
+    evenly with each piece fewer, to nothing with no furniture.
+    """
+    if count >= most:
+        return 1.0
+    return 0.5 * count / (most - 1) if most > 1 else 0.0
+
 
 #: the rules `core()` scores - the ones the search can compare combinations by
 CORE_RULES = ("R1", "R2", "R3", "R4", "R5", "R11")

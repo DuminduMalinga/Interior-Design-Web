@@ -9,6 +9,8 @@ export const COMPONENT_LABELS: Record<string, string> = {
   usability: "Usability",
   completeness: "Completeness",
   layout_specific: "Layout-specific",
+  // every rule-based engine: the extra rule, scored after the others
+  furniture_count: "Most furniture",
   // living-room engine: one component per rule
   face_to_face: "1 · Face-to-face conversation",
   views: "2 · Views of other people",
@@ -33,7 +35,6 @@ export const COMPONENT_LABELS: Record<string, string> = {
   tall_furniture: "10 · Tall furniture clear of windows",
   room_fit: "11 · Fit to room and occupants",
   reach_and_height: "12 · Convenient heights and reach",
-  furniture_count: "13 · Most furniture",
   // kitchen engine: one component per rule
   sink_location: "1 · Sink in a convenient place",
   prep_by_sink: "2 · Preparation worktop by the sink",
