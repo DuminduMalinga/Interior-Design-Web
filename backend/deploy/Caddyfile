@@ -1,0 +1,26 @@
+# One public hostname, one path prefix per service. Caddy gets the HTTPS certificate itself.
+# SITE_ADDRESS is set in .env, e.g. 3-110-20-5.nip.io  (or your own domain)
+{$SITE_ADDRESS} {
+	handle_path /detector/* {
+		reverse_proxy detector:8000
+	}
+	handle_path /living-room/* {
+		reverse_proxy living-room:8000
+	}
+	handle_path /bedroom/* {
+		reverse_proxy bedroom:8000
+	}
+	handle_path /kitchen/* {
+		reverse_proxy kitchen:8000
+	}
+	handle_path /bathroom/* {
+		reverse_proxy bathroom:8000
+	}
+	handle_path /dining/* {
+		reverse_proxy dining:8000
+	}
+	handle_path /master-bedroom/* {
+		reverse_proxy master-bedroom:8000
+	}
+	respond /health "ok" 200
+}
