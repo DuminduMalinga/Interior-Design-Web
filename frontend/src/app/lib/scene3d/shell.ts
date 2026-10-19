@@ -6,11 +6,16 @@
  * camera goes round behind it, so the room can always be looked into. A low
  * kerb is left standing in its place to show where the wall and its doorways
  * are.
+ *
+ * A non-rectangular room (an L, say) comes as its bounding rectangle with
+ * cut-outs: no wall is built where a cut-out reaches the rectangle's edge, and
+ * a plain wall stands along each cut-out edge that borders the floor.
  */
 
 import * as THREE from "three";
 import type { LayoutDoor, LayoutFurnitureItem, LayoutWindow, LivingRoomLayoutResult, Wall } from "../livingRoomLayout";
 import { FINISH } from "../roomPalette3d";
+import { cutoutSpans, floorRects, inNotchWall, notchWalls, type Cutout } from "../roomCutouts";
 import { OPPOSITE, standsOnFloor } from "./furniture";
 import { seeded, tone, type Kit, type Rnd } from "./materials";
 import { MM, SLAB, WALL, bake, box, disc, metreUV, rbox, rod, type Frame, type RoomKind } from "./parts";
@@ -301,23 +306,38 @@ export function buildShell(layout: LivingRoomLayoutResult, f: Frame, kit: Kit, k
   const length = f.length * MM;
   const doors: LayoutDoor[] = layout.openings?.doors ?? [];
   const windows: LayoutWindow[] = layout.openings?.windows ?? [];
+  const cutouts = (layout.room.cutouts ?? []) as Cutout[];
 
-  // the floor: one slab under the room and its walls, boards running the long way
+  // the floor: a slab under the room and its walls, boards running the long way.
+  // A non-rectangular room gets one slab per rectangle of its floor, so nothing
+  // is laid in a notch; each runs on under the outer walls it meets.
   const tiled = kind === "bathroom";
   const finish = tiled ? kit.tiles(FLOOR_TILES, 0.38) : kit.boards(BOARDS[kind]);
   const edge = tiled ? kit.paint("#cdc8c0", 0.7) : kit.wood(tone(BOARDS[kind], -0.14), 0.6);
-  const slab = new THREE.BoxGeometry(width + 2 * WALL, SLAB, length + 2 * WALL);
-  slab.translate(0, -SLAB / 2, 0);
-  metreUV(slab, false);
-  if (length > width) {
-    const uv = slab.attributes.uv;
-    for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getY(i), uv.getX(i));
-  }
-  const floor = new THREE.Mesh(slab, [edge, edge, finish, edge, edge, edge]);
-  floor.name = "floor";
-  floor.castShadow = true;
-  floor.receiveShadow = true;
-  group.add(floor);
+  const wallMm = WALL / MM;
+  // a slab between engine x0..x1 and y0..y1 (mm), its top flush with the floor
+  const slabPiece = (x0: number, y0: number, x1: number, y1: number, top: THREE.Material, name: string) => {
+    const geometry = new THREE.BoxGeometry((x1 - x0) * MM, SLAB, (y1 - y0) * MM);
+    // placed before the texture is mapped, so the boards run on across pieces
+    geometry.translate(((x0 + x1) / 2 - f.width / 2) * MM, -SLAB / 2, (f.length / 2 - (y0 + y1) / 2) * MM);
+    metreUV(geometry, false);
+    if (length > width) {
+      const uv = geometry.attributes.uv;
+      for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getY(i), uv.getX(i));
+    }
+    const mesh = new THREE.Mesh(geometry, [edge, edge, top, edge, edge, edge]);
+    mesh.name = name;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    group.add(mesh);
+  };
+  floorRects(cutouts, f).forEach(({ rect: [x0, y0, x1, y1], edge: at }, index) => {
+    slabPiece(
+      x0 - (at.west ? wallMm : 0), y0 - (at.south ? wallMm : 0),
+      x1 + (at.east ? wallMm : 0), y1 + (at.north ? wallMm : 0),
+      finish, index ? `floor-${index}` : "floor",
+    );
+  });
 
   const walls: WallView[] = [];
   for (const wall of WALLS) {
@@ -339,8 +359,9 @@ export function buildShell(layout: LivingRoomLayoutResult, f: Frame, kit: Kit, k
     const sills = place(new THREE.Group(), "thresholds");
     const add = (to: THREE.Group, mesh: THREE.Mesh | null) => { if (mesh) to.add(mesh); };
 
-    const wallDoors = doors.filter((o) => o.wall === wall);
-    const wallWindows = windows.filter((o) => o.wall === wall);
+    // only openings in the wall line itself; those set back from it are in a notch wall
+    const wallDoors = doors.filter((o) => o.wall === wall && (o.inset ?? 0) < 1);
+    const wallWindows = windows.filter((o) => o.wall === wall && (o.inset ?? 0) < 1);
     const paint = tiled ? kit.tiles(WALL_TILES, 0.3) : kit.paint(WALL_COLOR, 0.9);
     const trim = kit.paint(TRIM_COLOR, 0.5);
     const openings = [
@@ -350,7 +371,13 @@ export function buildShell(layout: LivingRoomLayoutResult, f: Frame, kit: Kit, k
         low: Math.min(o.sill_height * MM, height - 0.2), high: Math.min((o.sill_height + o.height) * MM, height - 0.05),
       })),
     ].map((o) => ({ ...o, start: Math.max(0, o.start), end: Math.min(span, o.end) }))
-      .filter((o) => o.end > o.start).sort((a, b) => a.start - b.start);
+      .filter((o) => o.end > o.start);
+    // where a cut-out reaches this wall there is no wall at all, through the corner too
+    const notched = cutoutSpans(wall, cutouts, f).map(({ start, end }) => ({
+      start: start <= 1 ? -reach : start, end: end >= span - 1 ? span + reach : end,
+    }));
+    openings.push(...notched.map((o) => ({ ...o, low: 0, high: height })));
+    openings.sort((a, b) => a.start - b.start);
 
     // masonry: whole height between the openings, and the pieces under and over each one
     let cursor = -reach;
@@ -366,7 +393,7 @@ export function buildShell(layout: LivingRoomLayoutResult, f: Frame, kit: Kit, k
     add(full, block(run, cursor, span + reach, 0, height, -WALL, 0, paint));
 
     // skirting, and the kerb that stands in for the wall, both broken at the doorways
-    const doorSpans = wallDoors.map((o) => ({ start: o.position, end: o.position + o.width }));
+    const doorSpans = [...wallDoors.map((o) => ({ start: o.position, end: o.position + o.width })), ...notched];
     for (const [a, b] of between(0, span, doorSpans)) add(full, block(run, a, b, 0, SKIRTING, 0, 0.012, trim));
     const kerbPaint = kit.paint(WALL_COLOR, 0.9);
     for (const [a, b] of between(-reach, span + reach, doorSpans)) add(kerb, block(run, a, b, 0, KERB, -WALL + 0.003, -0.003, kerbPaint));
@@ -386,6 +413,77 @@ export function buildShell(layout: LivingRoomLayoutResult, f: Frame, kit: Kit, k
     kerb.visible = false;
     group.add(full, kerb, sills);
   }
+
+  // the walls round each notch: plain masonry on the notch side of the edge,
+  // taken away like the others when the camera goes behind them
+  const paint = tiled ? kit.tiles(WALL_TILES, 0.3) : kit.paint(WALL_COLOR, 0.9);
+  const trim = kit.paint(TRIM_COLOR, 0.5);
+  const kerbPaint = kit.paint(WALL_COLOR, 0.9);
+  notchWalls(cutouts, f).forEach(({ a, b, as, atEdge }, index) => {
+    const horizontal = as === "north" || as === "south";
+    const [p0, p1] = horizontal ? [a[0], b[0]] : [a[1], b[1]];
+    const at = horizontal ? a[1] : a[0];
+    const middle = (p0 + p1) / 2;
+    const run: Run = { wall: as, x: (position) => ALONG_SIGN[as] * (position - middle) * MM };
+    const point = horizontal
+      ? new THREE.Vector3((middle - f.width / 2) * MM, 0, (f.length / 2 - at) * MM)
+      : new THREE.Vector3((at - f.width / 2) * MM, 0, (f.length / 2 - middle) * MM);
+    const place = (part: THREE.Group, name: string) => {
+      part.name = `${name}:notch-${index}`;
+      part.position.copy(point);
+      part.rotation.y = WALL_YAW[as];
+      return part;
+    };
+    const full = place(new THREE.Group(), "wall");
+    const kerb = place(new THREE.Group(), "kerb");
+    const sills = place(new THREE.Group(), "thresholds");
+    const add = (to: THREE.Group, mesh: THREE.Mesh | null) => { if (mesh) to.add(mesh); };
+    // run on into an outer wall's thickness where the notch meets it, so the corner is closed
+    const start = p0 - (atEdge[0] ? WALL / MM : 0);
+    const end = p1 + (atEdge[1] ? WALL / MM : 0);
+    const notch = { a, b, as, atEdge };
+    const myDoors = doors.filter((o) => inNotchWall(notch, o, f));
+    const myWindows = windows.filter((o) => inNotchWall(notch, o, f));
+    const gaps = [
+      ...myDoors.map((o) => ({ start: o.position, end: o.position + o.width, low: 0, high: Math.min(DOOR_HEIGHT, height) })),
+      ...myWindows.map((o) => ({
+        start: o.position, end: o.position + o.width,
+        low: Math.min(o.sill_height * MM, height - 0.2), high: Math.min((o.sill_height + o.height) * MM, height - 0.05),
+      })),
+    ].map((o) => ({ ...o, start: Math.max(p0, o.start), end: Math.min(p1, o.end) }))
+      .filter((o) => o.end > o.start).sort((x, y) => x.start - y.start);
+    // masonry: whole height between the openings, and the pieces under and over each one
+    let cursor = start;
+    for (const o of gaps) {
+      const from = Math.max(o.start, cursor);
+      add(full, block(run, cursor, from, 0, height, -WALL, 0, paint));
+      if (o.end > from) {
+        add(full, block(run, from, o.end, 0, o.low, -WALL, 0, paint));
+        add(full, block(run, from, o.end, o.high, height, -WALL, 0, paint));
+      }
+      cursor = Math.max(cursor, o.end);
+    }
+    add(full, block(run, cursor, end, 0, height, -WALL, 0, paint));
+    const doorSpans = myDoors.map((o) => ({ start: o.position, end: o.position + o.width }));
+    for (const [x, y] of between(p0, p1, doorSpans)) add(full, block(run, x, y, 0, SKIRTING, 0, 0.012, trim));
+    for (const o of myWindows) addWindow(full, run, kit, o, height);
+    for (const o of myDoors) {
+      addDoor(full, run, kit, o, height);
+      add(sills, block(run, o.position, o.position + o.width, 0, 0.006, -WALL, 0,
+        o.is_main ? kit.metal(FINISH.brass, 0.4) : kit.wood(FINISH.walnut, 0.5)));
+    }
+    // the slab under it, on the notch side of the edge
+    const back = { east: [wallMm, 0], west: [-wallMm, 0], north: [0, wallMm], south: [0, -wallMm] }[as];
+    const [ex, ey] = horizontal ? [[start, end], [at, at + back[1]]] : [[at, at + back[0]], [start, end]];
+    slabPiece(Math.min(...ex), Math.min(...ey), Math.max(...ex), Math.max(...ey), edge, `floor:notch-${index}`);
+    for (const [x, y] of between(start, end, doorSpans)) add(kerb, block(run, x, y, 0, KERB, -WALL + 0.003, -0.003, kerbPaint));
+    bake(full);
+    bake(kerb);
+    const normal = new THREE.Vector3(Math.sin(WALL_YAW[as]), 0, Math.cos(WALL_YAW[as]));
+    walls.push({ wall: as, full, kerb, point, normal, materials: fading(full), fixtures: [], shown: 1 });
+    kerb.visible = false;
+    group.add(full, kerb, sills);
+  });
   return { group, walls };
 }
 

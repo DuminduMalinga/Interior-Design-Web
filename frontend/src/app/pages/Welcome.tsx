@@ -8,6 +8,7 @@ import LandingNav from "../components/marketing/LandingNav";
 import PlanSketch from "../components/marketing/PlanSketch";
 import IsoRoom from "../components/marketing/IsoRoom";
 import { useLandingMotion } from "../components/marketing/useLandingMotion";
+import { useSiteStats, type SiteStats } from "../lib/useSiteStats";
 
 const NAV_LINKS = [
   { href: "#features", label: "Features" },
@@ -15,12 +16,16 @@ const NAV_LINKS = [
   { href: "#how-it-works", label: "How it works" },
 ];
 
-const STATS = [
-  { prefix: "", value: 98, suffix: "%", label: "Accuracy rate" },
-  { prefix: "< ", value: 15, suffix: "s", label: "Processing time" },
-  { prefix: "", value: 500, suffix: "+", label: "Layouts scored" },
-  { prefix: "", value: 10, suffix: "k+", label: "Rooms designed" },
-];
+const formatCount = (n: number | undefined) => (n === undefined ? "—" : n.toLocaleString());
+
+function buildStats(stats: SiteStats | null) {
+  return [
+    { value: formatCount(stats?.users), label: "Registered users" },
+    { value: "< 2 min", label: "Processing time" },
+    { value: formatCount(stats?.layouts), label: "Layouts generated" },
+    { value: formatCount(stats?.floorPlans), label: "Floor plans uploaded" },
+  ];
+}
 
 const HEADLINE = ["Floor plan in.", "Furnished", "room out."];
 
@@ -112,6 +117,7 @@ export default function Welcome() {
   const reduceMotion = useReducedMotion();
   const rootRef = useRef<HTMLDivElement>(null);
   useLandingMotion(rootRef);
+  const stats = buildStats(useSiteStats());
 
   const [useCase, setUseCase] = useState(0);
   const useCaseTabs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -166,11 +172,11 @@ export default function Welcome() {
                 </a>
               </div>
               <dl data-hero-fade className="mt-9 lg:mt-12 grid grid-cols-3 gap-4 sm:flex sm:gap-9 border-t border-lv-line pt-5">
-                {STATS.slice(0, 3).map((s) => (
+                {stats.slice(0, 3).map((s) => (
                   <div key={s.label} className="flex flex-col-reverse">
                     <dt className="text-xs text-lv-muted">{s.label}</dt>
                     <dd className="text-lg md:text-xl font-medium tracking-tight tabular-nums text-lv-ink">
-                      {s.prefix}{s.value}{s.suffix}
+                      {s.value}
                     </dd>
                   </div>
                 ))}
@@ -266,10 +272,10 @@ export default function Welcome() {
         {/* ── Facts ── */}
         <section aria-label="In numbers" className="max-w-6xl mx-auto px-4 md:px-6 pt-14">
           <dl data-stagger className="grid grid-cols-2 md:grid-cols-4 gap-y-8 gap-x-6 border-y border-lv-line py-8">
-            {STATS.map((s) => (
+            {stats.map((s) => (
               <div key={s.label} className="flex flex-col-reverse">
                 <dt className="mt-1 text-sm text-lv-muted">{s.label}</dt>
-                <dd className="text-3xl md:text-4xl font-medium tracking-tight tabular-nums text-lv-ink">{s.prefix}<span data-count={s.value}>{s.value}</span>{s.suffix}</dd>
+                <dd className="text-3xl md:text-4xl font-medium tracking-tight tabular-nums text-lv-ink">{s.value}</dd>
               </div>
             ))}
           </dl>

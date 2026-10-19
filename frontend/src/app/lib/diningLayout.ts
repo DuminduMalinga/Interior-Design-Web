@@ -37,7 +37,9 @@ export interface GenerateAllDiningLayoutsResponse extends GenerateAllLivingRoomL
 }
 
 export interface GenerateDiningLayoutsRequest {
-  room: { id: string; name?: string; bbox: Bbox };
+  /** polygon: the room's outline traced from the walls (image px); the engine keeps furniture inside it. */
+  /** width_m / length_m: the size printed on the plan; the room is planned at exactly this size. */
+  room: { id: string; name?: string; bbox: Bbox; polygon?: [number, number][]; width_m?: number; length_m?: number };
   detections: Array<{ id: string; class: string; bbox: Bbox }>;
   /** Every room on the plan — this is how the engine finds the kitchen (rule 8). */
   rooms?: Array<{ id: string; name: string; bbox: Bbox }>;

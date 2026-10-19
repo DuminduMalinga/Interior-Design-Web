@@ -36,6 +36,7 @@ from .geometry import (
     clamp01,
     contains,
     distance,
+    inflate,
     intersects,
     overlap_area,
     segment_hits,
@@ -197,7 +198,10 @@ class Evaluator:
         self.main_door: Optional[Door] = next((d for d in doors if d.is_main), None)
         self.bath_door: Optional[Door] = next(
             (d for d in doors if not d.is_main and d.leads_to and BATHROOM.search(d.leads_to)), None)
-        self.door_zones = [d.keep_clear(room, self.c.door_entry_depth) for d in doors]
+        # every patch of floor nothing may stand on: each door's sweep, then the
+        # parts of a non-rectangular room's box that are not floor. The doors
+        # come first, so zip(self.doors, self.door_zones) still pairs them up.
+        self.door_zones = [d.keep_clear(room, self.c.door_entry_depth) for d in doors] + list(room.cutouts)
         self.window_bands = [(w, w.access(room, self.c.window_access_depth)) for w in windows]
         self.weights = {rule.id: float(getattr(config.weights, rule.key)) for rule in RULES}
 
@@ -328,7 +332,7 @@ class Evaluator:
             return Part.skip("")
         room, c = self.room, self.c
         gap = distance(lay.wardrobe.rect, door.opening(room))
-        ahead = intersects(room.band(door.wall, door.start, door.end, c.door_ahead_good), lay.wardrobe.rect)
+        ahead = intersects(room.band(door.wall, door.start, door.end, c.door_ahead_good, door.inset), lay.wardrobe.rect)
         score = 0.5 * clamp01((gap - 300.0) / 900.0) + 0.5 * (0.0 if ahead else 1.0)
         return Part(score, "The wardrobe is {} from the doorway{}.".format(
             metres(gap), " and stands straight ahead of it" if ahead else ", out of its swing") if explain else "")
@@ -438,10 +442,23 @@ class Evaluator:
         bx, by = center(lay.bed.rect)
         reach = lay.bed.depth / 2.0
         clear = self.bed_clearances(lay)["foot"]
-        lights.append(("ceiling_light", "ceiling light",
-                       (min(max(bx + fx * (reach + clear / 2.0), 300.0), room.width - 300.0),
-                        min(max(by + fy * (reach + clear / 2.0), 300.0), room.length - 300.0)),
-                       "ceiling", room.height))
+        lx = min(max(bx + fx * (reach + clear / 2.0), 300.0), room.width - 300.0)
+        ly = min(max(by + fy * (reach + clear / 2.0), 300.0), room.length - 300.0)
+        # In an L-shaped room the open floor can run up to the notch, which is
+        # not part of the room: pull the light back towards the bed until it
+        # keeps the same 300 mm off the notch as off the walls.
+        for cut in room.cutouts:
+            x0, y0, x1, y1 = inflate(cut, 300.0)
+            if x0 < lx < x1 and y0 < ly < y1:
+                if fx > 0:
+                    lx = max(x0, bx)
+                elif fx < 0:
+                    lx = min(x1, bx)
+                elif fy > 0:
+                    ly = max(y0, by)
+                else:
+                    ly = min(y1, by)
+        lights.append(("ceiling_light", "ceiling light", (lx, ly), "ceiling", room.height))
         if lay.desk is not None:
             lights.append(("desk_lamp", "desk lamp", center(lay.desk.rect), "table", lay.desk.height + 400.0))
         if lay.dresser is not None:
@@ -673,7 +690,7 @@ class Evaluator:
             return Part.skip("No door was detected, so there was no door swing to keep clear.")
         room = self.room
         depth = room.depth_from(door.wall)
-        line = room.band(door.wall, door.start, door.end, depth)
+        line = room.band(door.wall, door.start, door.end, depth, door.inset)
         ahead, first = depth, None
         for item in lay.items:
             if intersects(line, item.rect):

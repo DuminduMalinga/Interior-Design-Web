@@ -35,10 +35,13 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from functools import lru_cache
 
+import cv2
 import numpy as np
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
+
+from room_shapes import trace_room_shapes
 
 # ── Config ─────────────────────────────────────────────────────────────
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -57,6 +60,9 @@ MAX_IMAGE_BYTES = int(os.getenv("MAX_IMAGE_BYTES", str(12 * 1024 * 1024)))
 OUTPUT_DIR = os.getenv("OUTPUT_DIR", os.path.join(HERE, "output"))
 OCR_ENABLED = os.getenv("OCR_ENABLED", "true").lower() not in ("0", "false", "no")
 OCR_MIN_CONF = float(os.getenv("OCR_MIN_CONF", "0.30"))
+# Trace each room's real outline from the walls (L shapes etc.) instead of
+# using only the YOLO box. See room_shapes.py.
+SHAPES_ENABLED = os.getenv("SHAPES_ENABLED", "true").lower() not in ("0", "false", "no")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 ALLOWED_ORIGINS = [
     o.strip()
@@ -174,19 +180,42 @@ _XY_DIMENSION_RE = re.compile(r"\d\s*[a-z\"'′″]*\s*[x×]\s*\d", re.IGNORECAS
 #: detected box's pixel aspect ratio.
 _WXL_M_RE = re.compile(r"(\d+(?:\.\d+)?)\s*m?\s*[x×]\s*(\d+(?:\.\d+)?)\s*m\b", re.IGNORECASE)
 SQFT_TO_M2 = 0.09290304
+#: no room side is longer than this (m): a printed size over it is a misread,
+#: almost always a dropped decimal point ("3.5" read as "35")
+MAX_ROOM_SIDE_M = 15.0
+#: how far a printed size may differ from the room as drawn at the plan's
+#: scale before it is taken as a misread (1.35 = 35%)
+SIZE_TOLERANCE = 1.35
+
+
+#: the same in feet and inches - e.g. "9'9" x 11'5"", "10' 5" × 12' 1"",
+#: "4' 2" x 7'" - as printed on most US / UK plans. OCR reads the primes as
+#: assorted quote marks, so any of them is accepted.
+_FT_IN = r"(\d{1,3})\s*['′’‘`]\s*(?:-?\s*(\d{1,2}(?:\.\d+)?)\s*(?:[\"″”“]|'')?)?"
+_WXL_FT_RE = re.compile(_FT_IN + r"\s*[x×X*]\s*" + _FT_IN)
+FT_TO_M = 0.3048
 
 
 def _parse_wxl_m(raw_tokens: list[str]) -> tuple[float, float] | None:
-    """Pull a printed "<width> m x <length> m" pair out of a room's raw OCR
-    text, in the order printed. None if no such pair is legible."""
+    """Pull a printed "<width> x <length>" pair (metres, or feet and inches)
+    out of a room's raw OCR text, in metres and in the order printed. None if
+    no such pair is legible."""
     joined = " ".join(raw_tokens)
     match = _WXL_M_RE.search(joined)
-    if not match:
-        return None
-    try:
-        return round(float(match.group(1)), 3), round(float(match.group(2)), 3)
-    except ValueError:
-        return None
+    if match:
+        try:
+            return round(float(match.group(1)), 3), round(float(match.group(2)), 3)
+        except ValueError:
+            pass
+    match = _WXL_FT_RE.search(joined)
+    if match:
+        feet_a, inch_a, feet_b, inch_b = (float(g) if g else 0.0 for g in match.groups())
+        if inch_a < 12 and inch_b < 12 and feet_a + inch_a > 0 and feet_b + inch_b > 0:
+            return (
+                round((feet_a + inch_a / 12) * FT_TO_M, 3),
+                round((feet_b + inch_b / 12) * FT_TO_M, 3),
+            )
+    return None
 
 
 def _parse_area_m2(raw_tokens: list[str]) -> float | None:
@@ -216,8 +245,12 @@ def _parse_area_m2(raw_tokens: list[str]) -> float | None:
     return None
 
 
-def _ocr_room_label(image: Image.Image, bbox: dict) -> dict:
-    """OCR the text printed inside a room bounding box to recover its name."""
+def _ocr_room_label(image: Image.Image, bbox: dict, polygon: list | None = None) -> dict:
+    """OCR the text printed inside a room to recover its name.
+
+    With a polygon (the room's traced outline) only the text inside that
+    outline is read; otherwise the whole, slightly padded, bounding box.
+    """
     empty = {"name": None, "confidence": None, "raw": [], "rawDimensions": []}
     try:
         reader = get_reader()
@@ -225,6 +258,10 @@ def _ocr_room_label(image: Image.Image, bbox: dict) -> dict:
         return empty
 
     w, h = image.size
+    if polygon:
+        xs = [p[0] for p in polygon]
+        ys = [p[1] for p in polygon]
+        bbox = {"x1": min(xs), "y1": min(ys), "x2": max(xs), "y2": max(ys)}
     bw = bbox["x2"] - bbox["x1"]
     bh = bbox["y2"] - bbox["y1"]
     pad_x = max(6.0, bw * 0.04)
@@ -237,6 +274,19 @@ def _ocr_room_label(image: Image.Image, bbox: dict) -> dict:
         return empty
 
     crop = image.crop((left, top, right, bottom))
+    if polygon:
+        # White out everything outside the outline, so a neighbouring room's
+        # label that falls inside this room's box isn't read. The outline
+        # stops at the inner face of the walls; grow it a few pixels so a
+        # label printed right against a wall isn't clipped.
+        inside = np.zeros((crop.height, crop.width), dtype=np.uint8)
+        pts = np.array([[x - left, y - top] for x, y in polygon], dtype=np.int32)
+        cv2.fillPoly(inside, [pts], 255)
+        grow = int(max(3, min(bw, bh) * 0.02))
+        inside = cv2.dilate(inside, np.ones((grow * 2 + 1, grow * 2 + 1), np.uint8))
+        pixels = np.asarray(crop).copy()
+        pixels[inside == 0] = 255
+        crop = Image.fromarray(pixels)
     if crop.width < 220:  # upscale small crops so OCR has something to work with
         factor = min(3, max(2, 220 // max(crop.width, 1)))
         crop = crop.resize((crop.width * factor, crop.height * factor))
@@ -330,6 +380,8 @@ async def detect(
     rooms: list[dict] = []
     counts: dict[str, int] = {}
     room_index = 0
+    wall_boxes: list[dict] = []
+    opening_boxes: list[dict] = []
 
     boxes = result.boxes
     if boxes is not None:
@@ -349,32 +401,24 @@ async def detect(
                 "bboxPct": _pct_box(x1, y1, x2, y2, width, height),
             }
             detections.append(det)
+            if label.lower() == "wall":
+                wall_boxes.append(det["bbox"])
+            elif label.lower() in ("door", "window"):
+                opening_boxes.append(det["bbox"])
 
             if label.lower() == "room" and score >= room_conf:
                 room_index += 1
                 fallback_name = f"Room {room_index}"
-                label_info = (
-                    _ocr_room_label(image, det["bbox"])
-                    if (ocr and OCR_ENABLED)
-                    else {"name": None, "confidence": None, "raw": [], "rawDimensions": []}
-                )
                 area_px = round((x2 - x1) * (y2 - y1), 2)
-                # a printed "W m x L m" beats area-only text: it gives both
-                # real dimensions directly instead of an area whose shape has
-                # to be guessed from the detected box's pixel aspect ratio.
-                label_wxl = _parse_wxl_m(label_info["raw"]) if (ocr and OCR_ENABLED) else None
-                label_area = (
-                    round(label_wxl[0] * label_wxl[1], 3)
-                    if label_wxl
-                    else (_parse_area_m2(label_info["raw"]) if (ocr and OCR_ENABLED) else None)
-                )
                 rooms.append(
                     {
                         "id": f"room-{room_index}",
-                        "name": label_info["name"] or fallback_name,
+                        # name / label / printed size are filled in by OCR
+                        # below, once the room's outline is known
+                        "name": fallback_name,
                         "fallbackName": fallback_name,
-                        "labelDetected": label_info["name"] is not None,
-                        "label": label_info,
+                        "labelDetected": False,
+                        "label": {"name": None, "confidence": None, "raw": [], "rawDimensions": []},
                         "class": label,
                         "confidence": score,
                         "bbox": det["bbox"],
@@ -382,49 +426,165 @@ async def detect(
                         "widthPx": round(x2 - x1, 2),
                         "heightPx": round(y2 - y1, 2),
                         "areaPx": area_px,
-                        # populated below, once a scale can be resolved
-                        "areaM2": label_area,
-                        "labelWidthM": label_wxl[0] if label_wxl else None,
-                        "labelHeightM": label_wxl[1] if label_wxl else None,
+                        # replaced below by the outline traced from the walls,
+                        # when one can be recovered
+                        "polygon": [[x1, y1], [x2, y1], [x2, y2], [x1, y2]],
+                        "polygonPct": [
+                            [round(x / width * 100, 3), round(y / height * 100, 3)]
+                            for x, y in ((x1, y1), (x2, y1), (x2, y2), (x1, y2))
+                        ],
+                        "shapeSource": "bbox",
+                        # populated below, from OCR or once a scale can be resolved
+                        "areaM2": None,
+                        "labelWidthM": None,
+                        "labelHeightM": None,
                         "areaSource": None,
                         "widthM": None,
                         "heightM": None,
                     }
                 )
 
-    # ── Real-world scale, recovered from any room's printed area ────────
-    # Many floor-plan exports print each room's true area right in its
-    # label (e.g. "Living & Dining 28.5 m²"). Where that's legible it beats
-    # guessing: back out mm-per-pixel from area_m2 = (scale_mm_per_px/1000)^2
-    # * area_px, take the median across every room that had one (robust to
-    # a single OCR misread), then apply that ONE scale to every room so
-    # figures stay consistent across the floor plan — including rooms whose
-    # own label didn't include an area.
-    scale_samples = [
-        1000.0 * math.sqrt(r["areaM2"] / r["areaPx"])
-        for r in rooms
-        if r["areaM2"] and r["areaPx"] > 0
-    ]
-    scale_mm_per_px = None
-    if scale_samples:
-        scale_samples.sort()
-        scale_mm_per_px = scale_samples[len(scale_samples) // 2]
+    # ── Room outlines traced from the walls ─────────────────────────────
+    # The YOLO box of an L-shaped room covers its whole bounding rectangle,
+    # overlapping the rooms beside it. Where the walls give a clean outline,
+    # that replaces the box; otherwise the box stays.
+    if rooms and SHAPES_ENABLED:
+        try:
+            shapes = trace_room_shapes(np.asarray(image), [r["bbox"] for r in rooms], wall_boxes, opening_boxes)
+        except Exception as exc:  # noqa: BLE001 - outlines are best-effort
+            print(f"[wall_detector] WARNING: room outline tracing failed: {exc}")
+            shapes = [None] * len(rooms)
+        for r, shape in zip(rooms, shapes):
+            if shape is None:
+                continue
+            r["polygon"] = shape["polygon"]
+            r["polygonPct"] = [
+                [round(x / width * 100, 3), round(y / height * 100, 3)] for x, y in shape["polygon"]
+            ]
+            r["shapeSource"] = "walls"
+            # the real floor area, not the bounding box's
+            r["areaPx"] = shape["areaPx"]
+
+    # ── Room names, OCR'd from the label printed inside each room ───────
+    # Read only inside the room's traced outline: an L room's box also
+    # covers the room in its notch, whose label would otherwise be read as
+    # part of this room's name (e.g. "Bath Primary Bedroom").
+    if ocr and OCR_ENABLED:
+        for r in rooms:
+            label_info = _ocr_room_label(
+                image, r["bbox"], r["polygon"] if r["shapeSource"] == "walls" else None
+            )
+            # a printed "W m x L m" beats area-only text: it gives both
+            # real dimensions directly instead of an area whose shape has
+            # to be guessed from the detected box's pixel aspect ratio.
+            label_wxl = _parse_wxl_m(label_info["raw"])
+            r["label"] = label_info
+            r["name"] = label_info["name"] or r["fallbackName"]
+            r["labelDetected"] = label_info["name"] is not None
+            r["areaM2"] = (
+                round(label_wxl[0] * label_wxl[1], 3) if label_wxl else _parse_area_m2(label_info["raw"])
+            )
+            if label_wxl:
+                r["labelWidthM"], r["labelHeightM"] = label_wxl
+
+    # ── Real-world scale, and printed sizes checked against the drawing ─
+    # Many floor plans print each room's size ("4 x 5 m", "12'6\" x 13'")
+    # or area ("28.5 m²") in its label. Where that's legible it beats
+    # guessing: each label gives mm-per-pixel for its room, the median over
+    # all rooms is the plan's scale (robust to a single OCR misread), and
+    # that ONE scale sizes every room the label doesn't.
+    #
+    # OCR does misread, most often by dropping a decimal point: "3.5 x 4 m"
+    # comes back as "35 x 4". So every printed size is checked against the
+    # room as drawn at the plan's scale; a value far off is tried with its
+    # decimal point put back (/10, /100), and dropped if nothing fits.
+    for r in rooms:
+        if r["shapeSource"] == "walls":  # the outline's extent: the room itself, without the walls
+            xs = [p[0] for p in r["polygon"]]
+            ys = [p[1] for p in r["polygon"]]
+            r["_extPx"] = (max(xs) - min(xs), max(ys) - min(ys))
+        else:
+            r["_extPx"] = (r["widthPx"], r["heightPx"])
+
+    def samples(bound: bool) -> list[float]:
+        """mm per px from each room's printed sides (or area), sides over the bound cut down first."""
+        def side(v: float) -> float:
+            while bound and v > MAX_ROOM_SIDE_M:
+                v /= 10.0
+            return v
+        out = []
+        for r in rooms:
+            if r["labelWidthM"] and r["labelHeightM"]:
+                printed = sorted((side(r["labelWidthM"]), side(r["labelHeightM"])))
+                for m, px in zip(printed, sorted(r["_extPx"])):
+                    if px > 0:
+                        out.append(1000.0 * m / px)
+            elif r["areaM2"] and r["areaPx"] > 0:
+                area = r["areaM2"]
+                while bound and area > MAX_ROOM_SIDE_M ** 2:
+                    area /= 10.0
+                out.append(1000.0 * math.sqrt(area / r["areaPx"]))
+        return sorted(out)
+
+    def fit(value: float, expected: float, tolerance: float) -> float | None:
+        """`value`, or it with a dropped decimal point put back, whichever matches the drawing."""
+        best = min((value, value / 10.0, value / 100.0), key=lambda v: abs(math.log(v / expected)))
+        return round(best, 3) if abs(math.log(best / expected)) <= math.log(tolerance) else None
+
+    first = samples(bound=True)
+    if first:
+        rough = first[len(first) // 2] / 1000.0  # m per px
+        for r in rooms:
+            if r["labelWidthM"] and r["labelHeightM"]:
+                raw = [r["labelWidthM"], r["labelHeightM"]]
+                drawn = [px * rough for px in r["_extPx"]]
+                # A dropped decimal can swap which printed side looks longer
+                # ("3.5 x 4" read as "35 x 4"), so both ways round are tried
+                # against the drawn width and height and the closer kept.
+                options = []
+                for a, b in ((raw[0], raw[1]), (raw[1], raw[0])):
+                    pair = [fit(a, drawn[0], SIZE_TOLERANCE), fit(b, drawn[1], SIZE_TOLERANCE)]
+                    if None not in pair:
+                        options.append((sum(abs(math.log(v / d)) for v, d in zip(pair, drawn)), sorted(pair)))
+                raw = sorted(raw)
+                sides = min(options)[1] if options else [None, None]
+                if None in sides:
+                    print(f"[wall_detector] {r['name']}: printed {raw[0]} x {raw[1]} m doesn't match the drawing; ignored")
+                    r["labelWidthM"] = r["labelHeightM"] = r["areaM2"] = None
+                else:
+                    if sides != raw:
+                        print(f"[wall_detector] {r['name']}: printed {raw[0]} x {raw[1]} m read as {sides[0]} x {sides[1]} m")
+                    r["labelWidthM"], r["labelHeightM"] = sides
+                    r["areaM2"] = round(sides[0] * sides[1], 3)
+            elif r["areaM2"]:
+                checked = fit(r["areaM2"], r["areaPx"] * rough * rough, SIZE_TOLERANCE ** 2)
+                if checked != r["areaM2"]:
+                    print(f"[wall_detector] {r['name']}: printed {r['areaM2']} m2 read as {checked}")
+                r["areaM2"] = checked
+
+    final = samples(bound=False)
+    scale_mm_per_px = final[len(final) // 2] if final else None
 
     for r in rooms:
+        r.pop("_extPx")
         if r["areaM2"]:
             r["areaSource"] = "ocr"
         if r["labelWidthM"] and r["labelHeightM"]:
             # exact printed dimensions for this room - use them as-is rather
-            # than the scale-derived estimate below.
-            r["widthM"] = r["labelWidthM"]
-            r["heightM"] = r["labelHeightM"]
+            # than the scale-derived estimate below. Plans print "W x L" in
+            # either order, so the longer printed side goes to the longer
+            # side of the room as drawn.
+            short, long_ = sorted((r["labelWidthM"], r["labelHeightM"]))
+            wide = r["widthPx"] >= r["heightPx"]
+            r["widthM"] = long_ if wide else short
+            r["heightM"] = short if wide else long_
             r["areaSource"] = "ocr"
         elif scale_mm_per_px:
             scale_m_per_px = scale_mm_per_px / 1000.0
             r["widthM"] = round(r["widthPx"] * scale_m_per_px, 2)
             r["heightM"] = round(r["heightPx"] * scale_m_per_px, 2)
             if not r["areaM2"]:
-                r["areaM2"] = round(r["widthM"] * r["heightM"], 2)
+                r["areaM2"] = round(r["areaPx"] * scale_m_per_px * scale_m_per_px, 2)
                 r["areaSource"] = "estimated"
 
     # ── Per-floor-plan room JSON (names + pixel dimensions) ─────────────
@@ -457,6 +617,8 @@ async def detect(
                     "areaSource": r["areaSource"],
                 },
                 "bbox": r["bbox"],
+                "polygon": r["polygon"],
+                "shapeSource": r["shapeSource"],
             }
             for r in rooms
         ],

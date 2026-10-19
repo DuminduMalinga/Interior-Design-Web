@@ -920,7 +920,17 @@ export default function ViewLayouts() {
       ? navState.detection.scaleMmPerPx / 1000
       : undefined;
     const request = {
-      room: { id: apiRoom.id, name: apiRoom.name, bbox: apiRoom.bbox },
+      room: {
+        id: apiRoom.id,
+        name: apiRoom.name,
+        bbox: apiRoom.bbox,
+        // the outline traced from the walls, so an L-shaped room is furnished as an L
+        polygon: apiRoom.shapeSource === "walls" ? apiRoom.polygon : undefined,
+        // the size printed on the plan, so the layout is planned at the size the room list shows
+        ...(apiRoom.labelWidthM && apiRoom.labelHeightM && apiRoom.widthM && apiRoom.heightM
+          ? { width_m: apiRoom.widthM, length_m: apiRoom.heightM }
+          : {}),
+      },
       detections: openings.map((d) => ({ id: d.id, class: d.class, bbox: d.bbox })),
       scaleMPerPx,
     };

@@ -186,7 +186,10 @@ class Evaluator:
         self.c = config.clearances
         self.main_door: Optional[Door] = next((d for d in doors if d.is_main), None)
         self.door_point: Optional[Point] = self.main_door.center(room) if self.main_door else None
-        self.door_zones = [d.keep_clear(room, self.c.door_entry_depth) for d in doors]
+        # every patch of floor nothing may stand on: each door's sweep, then the
+        # parts of a non-rectangular room's box that are not floor. The doors
+        # come first, so zip(self.doors, self.door_zones) still pairs them up.
+        self.door_zones = [d.keep_clear(room, self.c.door_entry_depth) for d in doors] + list(room.cutouts)
         self.window_bands = [(w, w.access(room, self.c.window_access_depth)) for w in windows]
         self.weights = {rule.id: float(getattr(config.weights, rule.key)) for rule in RULES}
         #: rule 10 widens every path when an occupant has mobility needs
@@ -307,7 +310,7 @@ class Evaluator:
                           if any(segment_hits(self.door_point, d.center(room), r) for r in solids))
             return (crossed, len(others))
         door = self.main_door
-        ahead = room.band(door.wall, door.start, door.end, c.route_ahead)
+        ahead = room.band(door.wall, door.start, door.end, c.route_ahead, door.inset)
         return (1 if hits_any(ahead, solids) else 0, 1)
 
     # ------------------------------------------------------------------ #

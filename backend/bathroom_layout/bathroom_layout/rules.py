@@ -195,7 +195,10 @@ class Evaluator:
         self.accessible = programme.accessible
         self.main_door: Optional[Door] = next((d for d in doors if d.is_main), None)
         self.door_point: Optional[Point] = self.main_door.center(room) if self.main_door else None
-        self.door_zones = [d.keep_clear(room, self.c.door_entry_depth) for d in doors]
+        # every patch of floor nothing may stand on: each door's sweep, then the
+        # parts of a non-rectangular room's box that are not floor. The doors
+        # come first, so zip(self.doors, self.door_zones) still pairs them up.
+        self.door_zones = [d.keep_clear(room, self.c.door_entry_depth) for d in doors] + list(room.cutouts)
         self.window_bands = [(w, w.access(room, self.c.window_access_depth)) for w in windows]
         self.weights = {rule.id: float(getattr(config.weights, rule.key)) for rule in RULES}
         corners = [(0.0, 0.0), (room.width, 0.0), (0.0, room.length), (room.width, room.length)]
@@ -424,7 +427,7 @@ class Evaluator:
         in_view = False
         if self.main_door is not None:
             door = self.main_door
-            ahead = room.band(door.wall, door.start, door.end, room.depth_from(door.wall))
+            ahead = room.band(door.wall, door.start, door.end, room.depth_from(door.wall) - door.inset, door.inset)
             in_view = intersects(ahead, toilet.rect)
         score = (0.45 * grade(side, c.toilet_side_min, c.toilet_side_preferred)
                  + 0.45 * grade(front, c.toilet_front_min, c.toilet_front_preferred)
@@ -527,7 +530,7 @@ class Evaluator:
         ahead = False
         for door, zone in zip(self.doors, self.door_zones):
             depth = self.room.depth_from(door.wall)
-            ahead = ahead or intersects(self.room.band(door.wall, door.start, door.end, depth), cabinet.rect)
+            ahead = ahead or intersects(self.room.band(door.wall, door.start, door.end, depth, door.inset), cabinet.rect)
         parts = [(0.4, 0.0 if ahead else 1.0)]
         if lines:
             parts.append((0.6, 1.0 - len(crossed) / float(len(lines))))

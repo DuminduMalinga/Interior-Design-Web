@@ -26,25 +26,37 @@ interface DetectedRoom {
   confidence: number;
   /** bbox as % of the floor-plan image, for overlays */
   bboxPct: { x: number; y: number; w: number; h: number };
+  /** room outline as % of the floor-plan image: the shape traced from the
+   * walls (an L room has 6 corners), or the bbox when none was traced */
+  outlinePct: [number, number][];
   /** thumbnail polygon in a 0-100 box, preserving aspect ratio */
   shape: [number, number][];
 }
 
-/** Fit a w×h rectangle into a padded 0-100 viewBox, keeping aspect ratio. */
-function rectShape(wPx: number, hPx: number): [number, number][] {
+/** The bbox's corners, for detections that have no traced outline. */
+function boxCorners(x1: number, y1: number, x2: number, y2: number): [number, number][] {
+  return [
+    [x1, y1],
+    [x2, y1],
+    [x2, y2],
+    [x1, y2],
+  ];
+}
+
+/** Fit a pixel polygon into a padded 0-100 viewBox, keeping aspect ratio. */
+function fitShape(points: [number, number][]): [number, number][] {
   const pad = 12;
   const span = 100 - pad * 2;
+  const xs = points.map(([x]) => x);
+  const ys = points.map(([, y]) => y);
+  const minX = Math.min(...xs);
+  const minY = Math.min(...ys);
+  const wPx = Math.max(...xs) - minX;
+  const hPx = Math.max(...ys) - minY;
   const scale = span / Math.max(wPx, hPx, 1);
-  const w = Math.max(wPx * scale, 6);
-  const h = Math.max(hPx * scale, 6);
-  const x = (100 - w) / 2;
-  const y = (100 - h) / 2;
-  return [
-    [x, y],
-    [x + w, y],
-    [x + w, y + h],
-    [x, y + h],
-  ];
+  const offX = (100 - wPx * scale) / 2;
+  const offY = (100 - hPx * scale) / 2;
+  return points.map(([x, y]) => [offX + (x - minX) * scale, offY + (y - minY) * scale]);
 }
 
 // What the layout engines assume when a plan comes without a scale (backend */floorplan.py):
@@ -69,6 +81,8 @@ function roomsFromDetection(detection: DetectionResult): DetectedRoom[] {
   const mPerPx = scale.mmPerPx / 1000;
   return detection.rooms.map((r) => {
     const printed = r.widthM != null && r.heightM != null && r.areaM2 != null;
+    const { x1, y1, x2, y2 } = r.bbox;
+    const { x, y, w, h } = r.bboxPct;
     return {
       id: r.id,
       name: r.name,
@@ -76,11 +90,13 @@ function roomsFromDetection(detection: DetectionResult): DetectedRoom[] {
       labelDetected: r.labelDetected,
       widthM: printed ? r.widthM! : r.widthPx * mPerPx,
       heightM: printed ? r.heightM! : r.heightPx * mPerPx,
-      areaM2: printed ? r.areaM2! : r.widthPx * r.heightPx * mPerPx * mPerPx,
+      // areaPx is the traced outline's area, so an L room isn't sized as its full box
+      areaM2: printed ? r.areaM2! : r.areaPx * mPerPx * mPerPx,
       areaSource: printed ? r.areaSource : scale.source,
       confidence: r.confidence,
       bboxPct: r.bboxPct,
-      shape: rectShape(r.widthPx, r.heightPx),
+      outlinePct: r.polygonPct ?? boxCorners(x, y, x + w, y + h),
+      shape: fitShape(r.polygon ?? boxCorners(x1, y1, x2, y2)),
     };
   });
 }
@@ -105,11 +121,13 @@ function formatSize(room: DetectedRoom): { dims: string; area: string; note: str
 function RoomRow({
   room,
   selected,
+  disabled = false,
   onClick,
   rowRef,
 }: {
   room: DetectedRoom;
   selected: boolean;
+  disabled?: boolean;
   onClick: () => void;
   rowRef: (el: HTMLButtonElement | null) => void;
 }) {
@@ -117,9 +135,13 @@ function RoomRow({
   const points = room.shape.map(([x, y]) => `${x},${y}`).join(" ");
 
   return (
-    <button ref={rowRef} type="button" onClick={onClick} aria-pressed={selected}
-      className={`flex w-full cursor-pointer items-center gap-4 rounded-[20px] border p-3 text-left transition-colors ${
-        selected ? "border-lv-accent bg-lv-wash/60 ring-1 ring-lv-accent/40" : "border-lv-line bg-lv-surface hover:border-lv-accent/50"
+    <button ref={rowRef} type="button" onClick={onClick} aria-pressed={selected} disabled={disabled}
+      className={`flex w-full items-center gap-4 rounded-[20px] border p-3 text-left transition-colors ${
+        disabled
+          ? "cursor-not-allowed border-dashed border-lv-line bg-lv-surface/50 opacity-60"
+          : selected
+            ? "cursor-pointer border-lv-accent bg-lv-wash/60 ring-1 ring-lv-accent/40"
+            : "cursor-pointer border-lv-line bg-lv-surface hover:border-lv-accent/50"
       }`}>
       <span className={`grid h-16 w-16 shrink-0 place-items-center rounded-2xl ${selected ? "bg-lv-wash text-lv-ink" : "bg-lv-wash/50 text-lv-muted"}`}>
         <svg viewBox="0 0 100 100" className="h-14 w-14" aria-hidden="true">
@@ -155,13 +177,12 @@ export default function SelectRoom() {
   }, [detection, navigate]);
 
 
-  // Only the rooms a layout engine can plan (living room, bedroom, bathroom, kitchen,
-  // dining); the others, such as a study, are left out for now.
-  const rooms = useMemo(
-    () => (detection ? roomsFromDetection(detection).filter((r) => roomKind(r.name) !== null) : []),
-    [detection],
-  );
-  const otherRooms = (detection?.rooms.length ?? 0) - rooms.length;
+  // Every detected room is listed, but only rooms with a layout engine (the same
+  // roomKind check View Layouts uses) can be picked; the rest are shown apart.
+  const rooms = useMemo(() => (detection ? roomsFromDetection(detection) : []), [detection]);
+  const furnishable = rooms.filter((r) => roomKind(r.name) !== null);
+  const unsupported = rooms.filter((r) => roomKind(r.name) === null);
+  const canFurnish = (id: string) => furnishable.some((r) => r.id === id);
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId) ?? null;
   const rowRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   useEffect(() => {
@@ -178,7 +199,9 @@ export default function SelectRoom() {
 
   if (!detection) return null;
 
-  const toggleRoom = (id: string) => setSelectedRoomId((prev) => (prev === id ? null : id));
+  const toggleRoom = (id: string) => {
+    if (canFurnish(id)) setSelectedRoomId((prev) => (prev === id ? null : id));
+  };
   const selectedSize = selectedRoom ? formatSize(selectedRoom) : null;
   const planRatio = detection.imageWidth > 0 && detection.imageHeight > 0 ? detection.imageWidth / detection.imageHeight : 4 / 3;
 
@@ -232,13 +255,9 @@ export default function SelectRoom() {
               <span className="grid h-14 w-14 place-items-center rounded-full bg-amber-500/10">
                 <AlertCircle className="h-7 w-7 text-amber-400" aria-hidden="true" />
               </span>
-              <h1 className="mt-6 text-2xl leading-tight text-lv-ink md:text-3xl">
-                {otherRooms > 0 ? "No rooms we can plan yet" : "No rooms were found"}
-              </h1>
+              <h1 className="mt-6 text-2xl leading-tight text-lv-ink md:text-3xl">No rooms were found</h1>
               <p className="mt-3 max-w-sm text-base leading-relaxed text-lv-muted">
-                {otherRooms > 0
-                  ? "Layouts are available for living rooms, bedrooms, bathrooms, kitchens and dining areas, and this plan has none of them."
-                  : "We couldn't make out any rooms in this plan. Try a clearer image where the walls are fully drawn."}
+                We couldn't make out any rooms in this plan. Try a clearer image where the walls are fully drawn.
               </p>
               <button type="button" onClick={() => navigate("/upload")} className="lv-btn mt-7">
                 <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Upload another plan
@@ -249,7 +268,7 @@ export default function SelectRoom() {
               <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="lg:col-start-1 lg:row-start-1">
                 <h1 className="text-4xl md:text-5xl leading-[1.05] tracking-tight text-lv-ink">Pick a room</h1>
                 <p className="mt-3 text-base md:text-lg text-lv-muted">
-                  {rooms.length} {rooms.length === 1 ? "room" : "rooms"} we can plan. Choose one from the list or on the plan.
+                  {rooms.length} {rooms.length === 1 ? "room" : "rooms"} found, {furnishable.length} we can furnish. Choose one from the list or on the plan.
                 </p>
               </motion.div>
 
@@ -262,28 +281,34 @@ export default function SelectRoom() {
                     // Sized to the image's own proportions so the room overlays line up with it.
                     <div className="relative" style={{ aspectRatio: String(planRatio), width: `min(100cqw, calc(100cqh * ${planRatio}))` }}>
                       <img src={planImage} alt="Your floor plan" className="block h-full w-full" />
-                      {rooms.map((room) => {
-                        const isSelected = room.id === selectedRoomId;
-                        return (
-                          <button
-                            key={room.id}
-                            type="button"
-                            tabIndex={-1}
-                            aria-hidden="true"
-                            title={room.name}
-                            onClick={() => toggleRoom(room.id)}
-                            className={`absolute cursor-pointer rounded-sm border-2 transition-colors duration-200 ${
-                              isSelected ? "border-[#6e6bc9] bg-[#6e6bc9]/30" : "border-transparent hover:border-[#6e6bc9]/70 hover:bg-[#6e6bc9]/15"
-                            }`}
-                            style={{
-                              left: `${room.bboxPct.x}%`,
-                              top: `${room.bboxPct.y}%`,
-                              width: `${room.bboxPct.w}%`,
-                              height: `${room.bboxPct.h}%`,
-                            }}
-                          />
-                        );
-                      })}
+                      {/* Each room's own outline (an L room is an L), so neighbouring rooms don't
+                          overlap. The viewBox is in % of the image and stretched to fit it. */}
+                      <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"
+                        className="absolute inset-0 h-full w-full">
+                        {rooms.map((room) => {
+                          const isSelected = room.id === selectedRoomId;
+                          const isFurnishable = canFurnish(room.id);
+                          return (
+                            <polygon
+                              key={room.id}
+                              points={room.outlinePct.map(([x, y]) => `${x},${y}`).join(" ")}
+                              onClick={() => toggleRoom(room.id)}
+                              vectorEffect="non-scaling-stroke"
+                              strokeWidth={2}
+                              strokeLinejoin="round"
+                              className={`transition-colors duration-200 ${
+                                !isFurnishable
+                                  ? "cursor-not-allowed fill-transparent stroke-transparent"
+                                  : isSelected
+                                    ? "cursor-pointer fill-[#6e6bc9]/30 stroke-[#6e6bc9]"
+                                    : "cursor-pointer fill-transparent stroke-transparent hover:fill-[#6e6bc9]/15 hover:stroke-[#6e6bc9]/70"
+                              }`}
+                            >
+                              <title>{isFurnishable ? room.name : `${room.name} (can't be furnished yet)`}</title>
+                            </polygon>
+                          );
+                        })}
+                      </svg>
                     </div>
                   ) : (
                     <div className="grid h-full w-full place-items-center bg-lv-wash text-sm text-lv-muted">No preview available</div>
@@ -304,13 +329,41 @@ export default function SelectRoom() {
 
               {/* Room buttons: the only part that scrolls when there are many */}
               <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-                role="group" aria-label="Rooms"
-                className="grid grid-cols-1 content-start gap-3 sm:grid-cols-2 lg:col-start-1 lg:row-start-2 lg:min-h-0 lg:overflow-y-auto lg:pr-2">
-                {rooms.map((room) => (
-                  <RoomRow key={room.id} room={room} selected={room.id === selectedRoomId}
-                    onClick={() => toggleRoom(room.id)}
-                    rowRef={(el) => { rowRefs.current[room.id] = el; }} />
-                ))}
+                className="flex flex-col gap-6 lg:col-start-1 lg:row-start-2 lg:min-h-0 lg:overflow-y-auto lg:pr-2">
+                <section role="group" aria-labelledby="rooms-furnishable">
+                  <h2 id="rooms-furnishable" className="text-sm font-medium text-lv-ink">
+                    Ready to furnish <span className="text-lv-muted tabular-nums">({furnishable.length})</span>
+                  </h2>
+                  {furnishable.length > 0 ? (
+                    <div className="mt-3 grid grid-cols-1 content-start gap-3 sm:grid-cols-2">
+                      {furnishable.map((room) => (
+                        <RoomRow key={room.id} room={room} selected={room.id === selectedRoomId}
+                          onClick={() => toggleRoom(room.id)}
+                          rowRef={(el) => { rowRefs.current[room.id] = el; }} />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-sm text-lv-muted">None of the rooms in this plan can be furnished yet.</p>
+                  )}
+                </section>
+
+                {unsupported.length > 0 && (
+                  <section role="group" aria-labelledby="rooms-unsupported">
+                    <h2 id="rooms-unsupported" className="text-sm font-medium text-lv-ink">
+                      Can't furnish yet <span className="text-lv-muted tabular-nums">({unsupported.length})</span>
+                    </h2>
+                    <p className="mt-1 text-xs text-lv-muted">
+                      Layouts are available for living rooms, bedrooms, bathrooms, kitchens and dining rooms.
+                    </p>
+                    <div className="mt-3 grid grid-cols-1 content-start gap-3 sm:grid-cols-2">
+                      {unsupported.map((room) => (
+                        <RoomRow key={room.id} room={room} selected={false} disabled
+                          onClick={() => {}}
+                          rowRef={(el) => { rowRefs.current[room.id] = el; }} />
+                      ))}
+                    </div>
+                  </section>
+                )}
               </motion.div>
 
               {/* Below lg the Generate card sticks to the bottom of the screen instead */}

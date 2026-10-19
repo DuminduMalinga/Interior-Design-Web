@@ -145,7 +145,10 @@ class Evaluator:
         self.config = config
         self.c = config.clearances
         self.main_door: Optional[Door] = next((d for d in doors if d.is_main), None)
-        self.door_zones = [d.keep_clear(room, self.c.door_entry_depth) for d in doors]
+        # every patch of floor nothing may stand on: each door's sweep, then the
+        # parts of a non-rectangular room's box that are not floor. The doors
+        # come first, so zip(self.doors, self.door_zones) still pairs them up.
+        self.door_zones = [d.keep_clear(room, self.c.door_entry_depth) for d in doors] + list(room.cutouts)
         self.window_bands = [(w, w.access(room, self.c.window_access_depth)) for w in windows]
         self.weights = {rule.id: float(getattr(config.weights, rule.key)) for rule in RULES}
 
@@ -326,7 +329,7 @@ class Evaluator:
             return self._skip("R3", "No door was detected, so there was no door swing to keep clear.")
         room = self.room
         depth = room.depth_from(door.wall)
-        line = room.band(door.wall, door.start, door.end, depth)
+        line = room.band(door.wall, door.start, door.end, depth, door.inset)
         ahead, first = depth, None
         for item in lay.items:
             if intersects(line, item.rect):
