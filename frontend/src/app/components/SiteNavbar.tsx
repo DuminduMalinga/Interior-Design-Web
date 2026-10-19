@@ -174,8 +174,10 @@ export default function SiteNavbar({
               aria-label="Open profile menu"
               className="flex items-center gap-2.5 rounded-full p-1 pr-2.5 min-h-11 border border-lv-line bg-lv-surface/70 hover:bg-lv-ink/8 transition-colors cursor-pointer"
             >
-              <span className="w-8 h-8 shrink-0 rounded-full bg-lv-ink text-lv-on-ink grid place-items-center text-xs font-semibold">
-                {initialsOf(displayName)}
+              <span className="w-8 h-8 shrink-0 overflow-hidden rounded-full bg-lv-ink text-lv-on-ink grid place-items-center text-xs font-semibold">
+                {profile.avatarUrl
+                  ? <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />
+                  : initialsOf(displayName)}
               </span>
               <span className="hidden xl:block max-w-40 truncate text-sm font-medium text-lv-ink">{displayName}</span>
               <ChevronDown
@@ -196,8 +198,10 @@ export default function SiteNavbar({
                 >
                   <div className="p-4 border-b border-lv-line">
                     <div className="flex items-center gap-3">
-                      <span className="w-11 h-11 shrink-0 rounded-full bg-lv-ink text-lv-on-ink grid place-items-center text-sm font-semibold">
-                        {initialsOf(displayName)}
+                      <span className="w-11 h-11 shrink-0 overflow-hidden rounded-full bg-lv-ink text-lv-on-ink grid place-items-center text-sm font-semibold">
+                        {profile.avatarUrl
+                          ? <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" />
+                          : initialsOf(displayName)}
                       </span>
                       <div className="min-w-0">
                         <p className="font-medium text-lv-ink text-sm truncate">{displayName}</p>

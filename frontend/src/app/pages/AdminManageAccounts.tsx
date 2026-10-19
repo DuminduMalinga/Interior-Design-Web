@@ -36,6 +36,7 @@ interface UserAccount {
   lastSignIn: string | null;
   role: Role;
   initials: string;
+  avatarUrl: string | null;
 }
 
 type UserRow = {
@@ -45,6 +46,7 @@ type UserRow = {
   Email: string | null;
   LastSignIn: string | null;
   Role: string | null;
+  AvatarUrl: string | null;
 };
 
 const PAGE_SIZE = 10;
@@ -69,6 +71,7 @@ function mapUserRow(row: UserRow): UserAccount {
     lastSignIn: row.LastSignIn ?? null,
     role: row.Role?.trim().toLowerCase() === "admin" ? "Admin" : "Customer",
     initials: getInitials(fullName, username),
+    avatarUrl: row.AvatarUrl?.trim() || null,
   };
 }
 
@@ -87,15 +90,18 @@ function lastActiveLabel(lastSignIn: string | null) {
   return years === 1 ? "A year ago" : `${years} years ago`;
 }
 
-function Avatar({ initials, size = "md" }: { initials: string; size?: "md" | "lg" }) {
+function Avatar({ initials, avatarUrl, size = "md" }: { initials: string; avatarUrl?: string | null; size?: "md" | "lg" }) {
+  const [failed, setFailed] = useState(false);
   return (
     <span
       aria-hidden="true"
-      className={`grid shrink-0 place-items-center rounded-full bg-lv-wash font-medium text-lv-ink ${
+      className={`grid shrink-0 place-items-center overflow-hidden rounded-full bg-lv-wash font-medium text-lv-ink ${
         size === "lg" ? "h-16 w-16 text-lg" : "h-10 w-10 text-sm"
       }`}
     >
-      {initials}
+      {avatarUrl && !failed
+        ? <img src={avatarUrl} alt="" onError={() => setFailed(true)} className="h-full w-full object-cover" />
+        : initials}
     </span>
   );
 }
@@ -181,7 +187,7 @@ function ViewUserDialog({ user, isYou, onClose }: { user: UserAccount; isYou: bo
   ];
   return (
     <Dialog labelledBy="view-user-title" onClose={onClose}>
-      <Avatar initials={user.initials} size="lg" />
+      <Avatar initials={user.initials} avatarUrl={user.avatarUrl} size="lg" />
       <div className="mt-5 flex flex-wrap items-center gap-2">
         <h2 id="view-user-title" className="text-2xl leading-tight text-lv-ink">{user.fullName}</h2>
         {isYou && <span className="text-sm text-lv-muted">(you)</span>}
@@ -288,7 +294,7 @@ export default function AdminManageAccounts() {
     try {
       const [{ data: authData }, { data: rows, error }] = await Promise.all([
         supabase.auth.getUser(),
-        supabase.from("User").select("UserID, UserName, FullName, Email, LastSignIn, Role").order("FullName", { ascending: true }),
+        supabase.from("User").select("UserID, UserName, FullName, Email, LastSignIn, Role, AvatarUrl").order("FullName", { ascending: true }),
       ]);
       if (error) setLoadError(error.message);
       else setUsers((rows ?? []).map((row) => mapUserRow(row as UserRow)));
@@ -546,7 +552,7 @@ export default function AdminManageAccounts() {
                       <tr key={user.id} className="transition-colors hover:bg-lv-ink/[0.03]">
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-3">
-                            <Avatar initials={user.initials} />
+                            <Avatar initials={user.initials} avatarUrl={user.avatarUrl} />
                             <div className="min-w-0">
                               <p className="truncate text-lv-ink">
                                 {user.fullName}
