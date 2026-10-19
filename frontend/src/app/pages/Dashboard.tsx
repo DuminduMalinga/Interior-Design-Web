@@ -406,7 +406,7 @@ export default function Dashboard() {
           <dl className="flex gap-8 border-t border-lv-on-deep/15 pt-6 md:flex-col md:gap-6 md:border-l md:border-t-0 md:pl-10 md:pt-0">
             {[
               { label: "Floor plans", value: designsLoading ? "–" : String(designs.length) },
-              { label: "Rooms furnished", value: designsLoading ? "–" : String(scores.length) },
+              { label: "Rooms furnished", value: designsLoading ? "–" : String(designs.filter((d) => d.score !== null).length) },
             ].map((stat) => (
               <div key={stat.label} className="flex flex-col-reverse">
                 <dt className="mt-1 text-sm text-lv-on-deep/65">{stat.label}</dt>
