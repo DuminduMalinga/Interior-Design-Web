@@ -304,7 +304,9 @@ export function buildShell(layout: LivingRoomLayoutResult, f: Frame, kit: Kit, k
   const height = f.height * MM;
   const width = f.width * MM;
   const length = f.length * MM;
-  const doors: LayoutDoor[] = layout.openings?.doors ?? [];
+  // a kitchen is entered through an open doorway: the lined opening, no leaf in it
+  const doors: LayoutDoor[] = (layout.openings?.doors ?? [])
+    .map((o) => (kind === "kitchen" ? { ...o, swing: "none" as const } : o));
   const windows: LayoutWindow[] = layout.openings?.windows ?? [];
   const cutouts = (layout.room.cutouts ?? []) as Cutout[];
 
