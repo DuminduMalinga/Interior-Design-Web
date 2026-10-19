@@ -1,47 +1,31 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
-  LogOut,
-  LayoutDashboard,
-  Users,
-  ShieldCheck,
-  Trash2,
-  Search,
-  X,
-  ChevronUp,
-  ChevronDown,
-  ChevronsLeft,
-  ChevronsRight,
-  ChevronLeft,
-  ChevronRight,
   AlertTriangle,
   CheckCircle2,
-  XCircle,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
   Eye,
-  Download,
-  Filter,
-  User,
-  Clock,
-  Menu,
-  Bell,
-  RefreshCw,
-  ClockAlert,
   Loader2,
-  UserX,
-  UserCheck,
-  Inbox
+  RefreshCw,
+  Search,
+  ShieldCheck,
+  Trash2,
+  User,
+  Users,
+  X,
+  XCircle,
 } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
-import { useNavigate } from "react-router";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { supabase } from "../lib/supabaseClient";
-import { useCurrentUserProfile } from "../context/UserContext";
-import AppNavbar from "../components/AppNavbar";
+import SiteNavbar from "../components/SiteNavbar";
 import PageGlows from "../components/marketing/PageGlows";
+import AppFooter from "../components/AppFooter";
 
-// ─────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────
 type Role = "Admin" | "Customer";
-type SortField = "id" | "fullName" | "username" | "email" | "role";
+type RoleFilter = "All" | Role;
+type SortField = "fullName" | "email" | "role" | "lastSignIn";
 type SortDir = "asc" | "desc";
 
 interface UserAccount {
@@ -51,57 +35,7 @@ interface UserAccount {
   email: string;
   lastSignIn: string | null;
   role: Role;
-  avatar: string;
-}
-
-interface DeletionRequest {
-  requestId: string;
-  userId: string;
-  fullName: string;
-  email: string;
-  username: string;
-  requestedAt: string;
-  status: string;
-}
-
-const PAGE_SIZE = 10;
-
-// ─────────────────────────────────────────────
-// Sidebar nav items
-// ─────────────────────────────────────────────
-const ADMIN_NAV = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
-  { id: "accounts", label: "Manage Accounts", icon: Users, path: "/admin/accounts" },
-];
-
-// ─────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────
-function avatarColor(initials: string) {
-  const colors = [
-    "from-blue-500 to-indigo-600",
-    "from-purple-500 to-violet-600",
-    "from-emerald-500 to-teal-600",
-    "from-rose-500 to-pink-600",
-    "from-amber-500 to-orange-600",
-    "from-cyan-500 to-sky-600",
-  ];
-  const idx = (initials.charCodeAt(0) + initials.charCodeAt(1)) % colors.length;
-  return colors[idx];
-}
-
-function SortIcon({ field, sort }: { field: SortField; sort: { f: SortField; d: SortDir } }) {
-  if (sort.f !== field)
-    return (
-      <span className="opacity-25 ml-1">
-        <ChevronUp className="w-3 h-3 inline -mb-0.5" />
-      </span>
-    );
-  return sort.d === "asc" ? (
-    <ChevronUp className="w-3.5 h-3.5 inline ml-1 text-teal-400" />
-  ) : (
-    <ChevronDown className="w-3.5 h-3.5 inline ml-1 text-teal-400" />
-  );
+  initials: string;
 }
 
 type UserRow = {
@@ -113,556 +47,298 @@ type UserRow = {
   Role: string | null;
 };
 
+const PAGE_SIZE = 10;
+
 function getInitials(fullName: string, username: string) {
-  const nameParts = fullName.trim().split(/\s+/).filter(Boolean);
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
   const fallback = username.trim().replace(/[^a-zA-Z0-9]/g, "");
-  const primary = nameParts.length > 0 ? nameParts : [fallback || "User"];
-  return primary
+  return (parts.length > 0 ? parts : [fallback || "User"])
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() ?? "U")
-    .join("")
-    .slice(0, 2);
+    .join("");
 }
 
 function mapUserRow(row: UserRow): UserAccount {
-  const fullName = row.FullName?.trim() || "Unnamed User";
-  const username = row.UserName?.trim() || row.Email?.split("@")[0] || row.UserID;
-  const email = row.Email?.trim() || "";
-  const role = row.Role?.trim().toLowerCase() === "admin" ? "Admin" : "Customer";
-
+  const fullName = row.FullName?.trim() || "Unnamed user";
+  const username = row.UserName?.trim() || row.Email?.split("@")[0] || "user";
   return {
     id: row.UserID,
     fullName,
     username,
-    email,
+    email: row.Email?.trim() || "",
     lastSignIn: row.LastSignIn ?? null,
-    role,
-    avatar: getInitials(fullName, username),
+    role: row.Role?.trim().toLowerCase() === "admin" ? "Admin" : "Customer",
+    initials: getInitials(fullName, username),
   };
 }
 
-/** Compute a user status badge from their LastSignIn timestamp */
-function getStatus(lastSignIn: string | null): { label: string; dotClass: string; textClass: string; bgClass: string } {
-  if (!lastSignIn) return { label: "Never", dotClass: "bg-zinc-500", textClass: "text-zinc-400", bgClass: "bg-zinc-500/10 border-zinc-500/20" };
-  const days = (Date.now() - new Date(lastSignIn).getTime()) / 86_400_000;
-  if (days < 7) return { label: "Active", dotClass: "bg-emerald-400", textClass: "text-emerald-400", bgClass: "bg-emerald-500/10 border-emerald-500/20" };
-  if (days < 30) return { label: "Inactive", dotClass: "bg-amber-400", textClass: "text-amber-400", bgClass: "bg-amber-500/10 border-amber-500/20" };
-  return { label: "Long time ago", dotClass: "bg-zinc-500", textClass: "text-zinc-400", bgClass: "bg-zinc-500/10 border-zinc-500/20" };
+const daysSince = (iso: string) => Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+
+/** "Today", "3 days ago", "2 months ago" or "Never". */
+function lastActiveLabel(lastSignIn: string | null) {
+  if (!lastSignIn) return "Never";
+  const days = daysSince(lastSignIn);
+  if (days <= 0) return "Today";
+  if (days === 1) return "Yesterday";
+  if (days < 30) return `${days} days ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return months === 1 ? "A month ago" : `${months} months ago`;
+  const years = Math.floor(months / 12);
+  return years === 1 ? "A year ago" : `${years} years ago`;
 }
 
-
-// ─────────────────────────────────────────────
-// Approve Deletion Request Modal
-// ─────────────────────────────────────────────
-function ApproveDeletionModal({
-  request,
-  onCancel,
-  onConfirm,
-  isLoading,
-}: {
-  request: DeletionRequest;
-  onCancel: () => void;
-  onConfirm: () => void;
-  isLoading: boolean;
-}) {
+function Avatar({ initials, size = "md" }: { initials: string; size?: "md" | "lg" }) {
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-      onClick={onCancel}
+    <span
+      aria-hidden="true"
+      className={`grid shrink-0 place-items-center rounded-full bg-lv-wash font-medium text-lv-ink ${
+        size === "lg" ? "h-16 w-16 text-lg" : "h-10 w-10 text-sm"
+      }`}
     >
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0, y: 20 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.9, opacity: 0, y: 20 }}
-        transition={{ type: "spring", stiffness: 320, damping: 26 }}
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md bg-popover border border-white/10 rounded-3xl shadow-2xl overflow-hidden"
-      >
-        <div className="bg-gradient-to-r from-red-500 to-rose-600 px-6 py-5">
-          <div className="flex items-center gap-3">
-            <div className="bg-white/20 p-2.5 rounded-xl">
-              <UserX className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h3 className="text-white font-bold text-lg">Approve Deletion Request</h3>
-              <p className="text-red-100 text-xs">This will permanently delete the user's account</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-6 space-y-4">
-          <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/20 rounded-2xl p-4">
-            <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${avatarColor(request.fullName.slice(0, 2))} flex items-center justify-center text-white font-bold text-sm shrink-0`}>
-              {request.fullName.trim().split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]?.toUpperCase() ?? "U").join("").slice(0, 2) || "??"}
-            </div>
-            <div className="min-w-0">
-              <p className="font-bold text-zinc-100 text-sm truncate">{request.fullName}</p>
-              <p className="text-xs text-zinc-500 truncate">{request.email}</p>
-              <p className="text-xs text-zinc-600">@{request.username}</p>
-            </div>
-          </div>
-
-          <div className="text-center space-y-1">
-            <p className="text-zinc-100 font-semibold text-sm">
-              Approve this deletion request?
-            </p>
-            <p className="text-zinc-500 text-xs">
-              The user's account and all linked profile data will be permanently removed.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2.5">
-            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
-            <p className="text-amber-300 text-[11px] font-semibold">
-              Warning: This action cannot be undone. The account will be permanently removed.
-            </p>
-          </div>
-
-          <div className="flex gap-3 pt-1">
-            <motion.button
-              whileHover={{ scale: isLoading ? 1 : 1.03 }}
-              whileTap={{ scale: isLoading ? 1 : 0.97 }}
-              onClick={onCancel}
-              disabled={isLoading}
-              className="flex-1 py-2.5 rounded-xl border border-white/10 bg-white/5 text-zinc-300 font-semibold text-sm hover:bg-white/10 transition-all disabled:opacity-50"
-            >
-              Cancel
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: isLoading ? 1 : 1.03 }}
-              whileTap={{ scale: isLoading ? 1 : 0.97 }}
-              onClick={onConfirm}
-              disabled={isLoading}
-              className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-red-500 to-rose-600 text-white font-bold text-sm shadow-md shadow-red-200 hover:shadow-red-300 transition-all flex items-center justify-center gap-2 disabled:opacity-60"
-            >
-              {isLoading
-                ? <><Loader2 className="w-4 h-4 animate-spin" /> Deleting…</>
-                : <><UserX className="w-4 h-4" /> Approve & Delete</>}
-            </motion.button>
-          </div>
-        </div>
-      </motion.div>
-    </motion.div>
+      {initials}
+    </span>
   );
 }
 
-// ─────────────────────────────────────────────
-// Delete Confirmation Modal
-// ─────────────────────────────────────────────
-function DeleteModal({
-  user,
-  onCancel,
-  onConfirm,
+function RolePill({ role }: { role: Role }) {
+  return (
+    <span
+      className={`inline-flex h-7 items-center rounded-full px-3 text-xs font-medium ${
+        role === "Admin" ? "bg-lv-ink text-lv-on-ink" : "border border-lv-line text-lv-muted"
+      }`}
+    >
+      {role}
+    </span>
+  );
+}
+
+/** Green when the person signed in during the last week. */
+function ActivityDot({ lastSignIn }: { lastSignIn: string | null }) {
+  const recent = lastSignIn !== null && daysSince(lastSignIn) < 7;
+  return <span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${recent ? "bg-emerald-500" : "bg-lv-muted/40"}`} />;
+}
+
+/** Shared dialog frame: dimmed backdrop; Escape and a backdrop click close it. */
+function Dialog({
+  labelledBy,
+  onClose,
+  locked = false,
+  children,
 }: {
-  user: UserAccount;
-  onCancel: () => void;
-  onConfirm: () => void;
+  labelledBy: string;
+  onClose: () => void;
+  locked?: boolean;
+  children: ReactNode;
 }) {
-  const [adminPass, setAdminPass] = useState("");
-  const [passError, setPassError] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
-    setTimeout(() => inputRef.current?.focus(), 120);
-  }, []);
-
-  const handleConfirm = () => {
-    if (adminPass.length === 0) {
-      setPassError(true);
-      return;
-    }
-    onConfirm();
-  };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && !locked && onClose();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose, locked]);
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-      onClick={onCancel}
+      transition={{ duration: 0.15 }}
+      onClick={() => !locked && onClose()}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#000]/45 p-4 backdrop-blur-sm"
     >
       <motion.div
-        initial={{ scale: 0.9, opacity: 0, y: 20 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.9, opacity: 0, y: 20 }}
-        transition={{ type: "spring", stiffness: 320, damping: 26 }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={labelledBy}
+        initial={reduceMotion ? false : { opacity: 0, y: 16, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={reduceMotion ? undefined : { opacity: 0, y: 16, scale: 0.98 }}
+        transition={{ duration: 0.2 }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md bg-popover border border-white/10 rounded-3xl shadow-2xl overflow-hidden"
+        className="relative w-full max-w-md rounded-[28px] border border-lv-line bg-lv-surface p-6 shadow-2xl sm:p-8"
       >
-        {/* Red header */}
-        <div className="bg-gradient-to-r from-red-500 to-rose-600 px-6 py-5">
-          <div className="flex items-center gap-3">
-            <div className="bg-white/20 p-2.5 rounded-xl">
-              <AlertTriangle className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h3 className="text-white font-bold text-lg">Delete Account</h3>
-              <p className="text-red-100 text-xs">This action is permanent and cannot be undone</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-6 space-y-4">
-          {/* User Preview */}
-          <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/20 rounded-2xl p-4">
-            <div
-              className={`w-11 h-11 rounded-xl bg-gradient-to-br ${avatarColor(user.avatar)} flex items-center justify-center text-white font-bold text-sm shrink-0`}
-            >
-              {user.avatar}
-            </div>
-            <div className="min-w-0">
-              <p className="font-bold text-zinc-100 text-sm truncate">{user.fullName}</p>
-              <p className="text-xs text-zinc-500 truncate">{user.email}</p>
-              <p className="text-xs text-zinc-600">@{user.username}</p>
-            </div>
-          </div>
-
-          {/* Warning text */}
-          <div className="text-center space-y-1">
-            <p className="text-zinc-100 font-semibold text-sm">
-              Are you sure you want to permanently delete this account?
-            </p>
-            <p className="text-zinc-500 text-xs">
-              This removes the user record and any linked profile data from the database.
-            </p>
-          </div>
-
-          {/* Admin password */}
-          <div>
-            {/* <label className="text-xs font-semibold text-gray-700 mb-1.5 flex items-center gap-1.5">
-              <Lock className="w-3.5 h-3.5 text-gray-500" />
-            </label> */}
-            <input
-              ref={inputRef}
-              type="password"
-              placeholder="Enter admin password…"
-              value={adminPass}
-              onChange={(e) => { setAdminPass(e.target.value); setPassError(false); }}
-              onKeyDown={(e) => e.key === "Enter" && handleConfirm()}
-              className={`w-full border rounded-xl px-4 py-2.5 text-sm outline-none transition-all bg-white/5 text-zinc-200 placeholder:text-zinc-600 ${passError
-                ? "border-red-500/40 ring-2 ring-red-500/20"
-                : "border-white/10 focus:border-teal-500/50 focus:ring-2 focus:ring-teal-500/20"
-                }`}
-            />
-            {passError && (
-              <p className="text-red-500 text-[11px] mt-1 flex items-center gap-1">
-                <XCircle className="w-3 h-3" /> Password is required.
-              </p>
-            )}
-          </div>
-
-          {/* Cannot be undone banner */}
-          <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2.5">
-            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
-            <p className="text-amber-300 text-[11px] font-semibold">
-              Warning: This action cannot be undone. The account will be permanently removed.
-            </p>
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-3 pt-1">
-            <motion.button
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={onCancel}
-              className="flex-1 py-2.5 rounded-xl border border-white/10 bg-white/5 text-zinc-300 font-semibold text-sm hover:bg-white/10 transition-all"
-            >
-              Cancel
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={handleConfirm}
-              className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-red-500 to-rose-600 text-white font-bold text-sm shadow-md shadow-red-200 hover:shadow-red-300 transition-all flex items-center justify-center gap-2"
-            >
-              <Trash2 className="w-4 h-4" />
-              Confirm Delete
-            </motion.button>
-          </div>
-        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={locked}
+          aria-label="Close"
+          className="absolute right-4 top-4 grid h-10 w-10 cursor-pointer place-items-center rounded-full text-lv-muted transition-colors hover:bg-lv-ink/8 hover:text-lv-ink disabled:opacity-40"
+        >
+          <X className="h-5 w-5" aria-hidden="true" />
+        </button>
+        {children}
       </motion.div>
     </motion.div>
   );
 }
 
-// ─────────────────────────────────────────────
-// View User Modal
-// ─────────────────────────────────────────────
-function ViewUserModal({
+function ViewUserDialog({ user, isYou, onClose }: { user: UserAccount; isYou: boolean; onClose: () => void }) {
+  const rows = [
+    { label: "Email", value: user.email || "Not set" },
+    { label: "Username", value: `@${user.username}` },
+    { label: "Last active", value: lastActiveLabel(user.lastSignIn) },
+  ];
+  return (
+    <Dialog labelledBy="view-user-title" onClose={onClose}>
+      <Avatar initials={user.initials} size="lg" />
+      <div className="mt-5 flex flex-wrap items-center gap-2">
+        <h2 id="view-user-title" className="text-2xl leading-tight text-lv-ink">{user.fullName}</h2>
+        {isYou && <span className="text-sm text-lv-muted">(you)</span>}
+      </div>
+      <div className="mt-2"><RolePill role={user.role} /></div>
+      <dl className="mt-6 divide-y divide-lv-line border-t border-lv-line">
+        {rows.map(({ label, value }) => (
+          <div key={label} className="flex items-baseline justify-between gap-4 py-3">
+            <dt className="text-sm text-lv-muted">{label}</dt>
+            <dd className="min-w-0 truncate text-right text-sm text-lv-ink">{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </Dialog>
+  );
+}
+
+function DeleteUserDialog({
   user,
-  onClose,
+  onCancel,
+  onConfirm,
 }: {
   user: UserAccount;
-  onClose: () => void;
+  onCancel: () => void;
+  onConfirm: () => Promise<void>;
 }) {
+  const [typed, setTyped] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const matches = typed.trim() === user.username;
+
+  const submit = async () => {
+    if (!matches || submitting) return;
+    setSubmitting(true);
+    await onConfirm();
+    setSubmitting(false);
+  };
+
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.92, opacity: 0, y: 16 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.92, opacity: 0, y: 16 }}
-        transition={{ type: "spring", stiffness: 300, damping: 24 }}
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm bg-popover border border-white/10 rounded-3xl shadow-2xl overflow-hidden"
-      >
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 px-6 py-5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div
-              className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${avatarColor(user.avatar)} flex items-center justify-center text-white font-bold text-base`}>
-              {user.avatar}
-            </div>
-            <div>
-              <h3 className="text-white font-bold">{user.fullName}</h3>
-              <p className="text-teal-300 text-xs">@{user.username}</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="text-white/70 hover:text-white transition-colors">
-            <X className="w-5 h-5" />
+    <Dialog labelledBy="delete-user-title" onClose={onCancel} locked={submitting}>
+      <span className="grid h-12 w-12 place-items-center rounded-full bg-red-500/15">
+        <Trash2 className="h-5 w-5 text-red-400" aria-hidden="true" />
+      </span>
+      <h2 id="delete-user-title" className="mt-5 text-2xl leading-tight text-lv-ink">Delete this account?</h2>
+      <p className="mt-2 text-sm leading-relaxed text-lv-muted">
+        <span className="text-lv-ink">{user.fullName}</span> ({user.email || `@${user.username}`}) will be signed out and
+        removed with all of their floor plans and designs. This can't be undone.
+      </p>
+
+      <form className="mt-6" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
+        <label htmlFor="delete-confirm" className="mb-1.5 block text-sm text-lv-muted">
+          Type <span className="font-medium text-lv-ink">{user.username}</span> to confirm
+        </label>
+        <input
+          id="delete-confirm"
+          autoFocus
+          autoComplete="off"
+          spellCheck={false}
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          className="lv-input"
+        />
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <button type="button" onClick={onCancel} disabled={submitting} className="lv-btn-quiet">
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={!matches || submitting}
+            className="lv-btn bg-red-500! text-[#fff]! hover:bg-red-600!"
+          >
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Trash2 className="h-4 w-4" aria-hidden="true" />}
+            {submitting ? "Deleting…" : "Delete account"}
           </button>
         </div>
-
-        <div className="p-6 space-y-3">
-          {[
-            { label: "User ID", value: user.id, icon: User },
-            { label: "Full Name", value: user.fullName, icon: User },
-            { label: "Email", value: user.email, icon: User },
-            { label: "Status", value: getStatus(user.lastSignIn).label, icon: Clock },
-            { label: "Role", value: user.role, icon: ShieldCheck },
-          ].map(({ label, value, icon: Icon }) => (
-            <div key={label} className="flex items-center gap-3 py-1.5 border-b border-white/5 last:border-0">
-              <Icon className="w-4 h-4 text-teal-400 shrink-0" />
-              <span className="text-xs text-zinc-500 w-24 shrink-0">{label}</span>
-              <span className={`text-xs font-semibold truncate ${label === "Role" && value === "Admin" ? "text-violet-400" : "text-zinc-200"}`}>
-                {value}
-              </span>
-            </div>
-          ))}
-        </div>
-      </motion.div>
-    </motion.div>
+      </form>
+    </Dialog>
   );
 }
 
-// ─────────────────────────────────────────────
-// Main Admin Page
-// ─────────────────────────────────────────────
 export default function AdminManageAccounts() {
-  const navigate = useNavigate();
-  const { signOut } = useCurrentUserProfile();
-
-  const handleLogout = async () => {
-    const success = await signOut();
-    if (success) {
-      navigate("/");
-    }
-  };
-
+  const reduceMotion = useReducedMotion();
   const [users, setUsers] = useState<UserAccount[]>([]);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeNav, setActiveNav] = useState("accounts");
   const [currentAdminId, setCurrentAdminId] = useState<string | null>(null);
-  const [currentAdminName, setCurrentAdminName] = useState("Administrator");
-  const [currentAdminUsername, setCurrentAdminUsername] = useState("admin");
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Search & filter
   const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState<"All" | Role>("All");
-
-  // Sort
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>("All");
   const [sort, setSort] = useState<{ f: SortField; d: SortDir }>({ f: "fullName", d: "asc" });
-
-  // Pagination
   const [page, setPage] = useState(1);
 
-  // Modals
-  const [deleteTarget, setDeleteTarget] = useState<UserAccount | null>(null);
   const [viewTarget, setViewTarget] = useState<UserAccount | null>(null);
-
-  // Deletion requests
-  const [deletionRequests, setDeletionRequests] = useState<DeletionRequest[]>([]);
-  const [approveTarget, setApproveTarget] = useState<DeletionRequest | null>(null);
-  const [approveLoading, setApproveLoading] = useState(false);
-  const [requestsLoading, setRequestsLoading] = useState(true);
-  const [requestsError, setRequestsError] = useState<string | null>(null);
-
-  // Notifications
+  const [deleteTarget, setDeleteTarget] = useState<UserAccount | null>(null);
   const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const notifRef = useRef<HTMLDivElement>(null);
 
-  // Close notification panel when clicking outside
-  useEffect(() => {
-    if (!showNotifications) return;
-    const handler = (e: MouseEvent) => {
-      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
-        setShowNotifications(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showNotifications]);
+  const showToast = (type: "success" | "error", msg: string) => {
+    setToast({ type, msg });
+    window.setTimeout(() => setToast(null), 3200);
+  };
 
   const loadUsers = async () => {
     setIsLoading(true);
     setLoadError(null);
-
     try {
-      const [{ data: authData, error: authError }, { data: userRows, error: usersError }] = await Promise.all([
+      const [{ data: authData }, { data: rows, error }] = await Promise.all([
         supabase.auth.getUser(),
         supabase.from("User").select("UserID, UserName, FullName, Email, LastSignIn, Role").order("FullName", { ascending: true }),
       ]);
-
-      if (authError) {
-        setLoadError(authError.message);
-      }
-
-      if (usersError) {
-        setLoadError(usersError.message);
-      } else {
-        setUsers((userRows ?? []).map((row) => mapUserRow(row as UserRow)));
-      }
-
-      const currentUser = authData.user;
-      setCurrentAdminId(currentUser?.id ?? null);
-
-      if (currentUser) {
-        const { data: currentRow } = await supabase
-          .from("User")
-          .select("UserName, FullName, Email")
-          .eq("UserID", currentUser.id)
-          .maybeSingle();
-
-        const metadata = currentUser.user_metadata as Record<string, unknown> | undefined;
-        const fallbackName = typeof metadata?.full_name === "string" && metadata.full_name ? metadata.full_name : currentUser.email?.split("@")[0] ?? "Administrator";
-        const fallbackUsername = typeof metadata?.username === "string" && metadata.username ? metadata.username : currentUser.email?.split("@")[0] ?? "admin";
-
-        setCurrentAdminName(currentRow?.FullName?.trim() || fallbackName);
-        setCurrentAdminUsername(currentRow?.UserName?.trim() || fallbackUsername);
-      }
+      if (error) setLoadError(error.message);
+      else setUsers((rows ?? []).map((row) => mapUserRow(row as UserRow)));
+      setCurrentAdminId(authData.user?.id ?? null);
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : "Unable to load users from the database.");
+      setLoadError(err instanceof Error ? err.message : "Couldn't load accounts.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const loadDeletionRequests = useCallback(async () => {
-    setRequestsLoading(true);
-    setRequestsError(null);
-    try {
-      const { data, error } = await supabase
-        .from("DeletionRequest")
-        .select("RequestID, UserID, FullName, Email, Username, RequestedAt, Status")
-        .eq("Status", "pending")
-        .order("RequestedAt", { ascending: true });
-      if (error) {
-        setRequestsError(error.message);
-      } else {
-        setDeletionRequests(
-          (data ?? []).map((r) => ({
-            requestId: r.RequestID as string,
-            userId: r.UserID as string,
-            fullName: (r.FullName as string) || "Unknown",
-            email: (r.Email as string) || "",
-            username: (r.Username as string) || "",
-            requestedAt: r.RequestedAt as string,
-            status: r.Status as string,
-          }))
-        );
-      }
-    } catch (err) {
-      setRequestsError(err instanceof Error ? err.message : "Failed to load deletion requests.");
-    } finally {
-      setRequestsLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
     void loadUsers();
-    void loadDeletionRequests();
-
-    const usersChannel = supabase
+    const channel = supabase
       .channel("admin-user-table-changes")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "User" },
-        () => { void loadUsers(); }
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "User" }, () => { void loadUsers(); })
       .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, []);
 
-    const requestsChannel = supabase
-      .channel("admin-deletion-requests")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "DeletionRequest" },
-        () => { void loadDeletionRequests(); }
-      )
-      .subscribe();
+  const counts = useMemo(() => ({
+    All: users.length,
+    Admin: users.filter((u) => u.role === "Admin").length,
+    Customer: users.filter((u) => u.role === "Customer").length,
+  }), [users]);
 
-    // Safety net: re-fetch when the admin tab regains focus
-    // (covers cases where real-time events are missed if the table
-    //  isn't yet in the supabase_realtime publication)
-    const onFocus = () => { void loadDeletionRequests(); };
-    window.addEventListener("focus", onFocus);
-
-    return () => {
-      void supabase.removeChannel(usersChannel);
-      void supabase.removeChannel(requestsChannel);
-      window.removeEventListener("focus", onFocus);
-    };
-  }, [loadDeletionRequests]);
-
-  // Show toast helper
-  const showToast = (type: "success" | "error", msg: string) => {
-    setToast({ type, msg });
-    setTimeout(() => setToast(null), 3200);
-  };
-
-  // ── Filter + Sort pipeline ──────────────────
   const filtered = useMemo(() => {
-    let arr = [...users];
     const q = search.toLowerCase().trim();
-    if (q)
-      arr = arr.filter(
-        (u) =>
-          u.fullName.toLowerCase().includes(q) ||
-          u.username.toLowerCase().includes(q) ||
-          u.email.toLowerCase().includes(q)
-      );
-    if (roleFilter !== "All") arr = arr.filter((u) => u.role === roleFilter);
-
-    arr.sort((a, b) => {
-      let va: string | number = a[sort.f as keyof UserAccount] as string | number;
-      let vb: string | number = b[sort.f as keyof UserAccount] as string | number;
-      if (typeof va === "string") va = va.toLowerCase();
-      if (typeof vb === "string") vb = vb.toLowerCase();
+    const arr = users.filter((u) =>
+      (roleFilter === "All" || u.role === roleFilter) &&
+      (!q || u.fullName.toLowerCase().includes(q) || u.username.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)),
+    );
+    const key = (u: UserAccount) =>
+      sort.f === "lastSignIn" ? (u.lastSignIn ? new Date(u.lastSignIn).getTime() : 0) : u[sort.f].toLowerCase();
+    return arr.sort((a, b) => {
+      const va = key(a);
+      const vb = key(b);
       if (va < vb) return sort.d === "asc" ? -1 : 1;
       if (va > vb) return sort.d === "asc" ? 1 : -1;
       return 0;
     });
-    return arr;
   }, [users, search, roleFilter, sort]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageUsers = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const currentPage = Math.min(page, totalPages);
+  const pageUsers = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const hasFilters = search !== "" || roleFilter !== "All";
 
   const handleSort = (f: SortField) => {
-    setSort((prev) =>
-      prev.f === f ? { f, d: prev.d === "asc" ? "desc" : "asc" } : { f, d: "asc" }
-    );
+    setSort((prev) => (prev.f === f ? { f, d: prev.d === "asc" ? "desc" : "asc" } : { f, d: f === "lastSignIn" ? "desc" : "asc" }));
     setPage(1);
   };
 
@@ -672,904 +348,271 @@ export default function AdminManageAccounts() {
     setPage(1);
   };
 
-  const hasFilters = search || roleFilter !== "All";
-
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
+    const target = deleteTarget;
     try {
-      // Step 1 – Remove the profile row (and any pending deletion request)
-      const { error } = await supabase.from("User").delete().eq("UserID", deleteTarget.id);
+      const { error } = await supabase.from("User").delete().eq("UserID", target.id);
       if (error) { showToast("error", error.message); return; }
 
-      await supabase.from("DeletionRequest").delete().eq("UserID", deleteTarget.id);
+      // Clear any request the user left behind, then revoke their login and sessions.
+      await supabase.from("DeletionRequest").delete().eq("UserID", target.id);
+      const { error: fnError } = await supabase.functions.invoke("delete-user", { body: { userId: target.id } });
+      if (fnError) console.warn("Auth user deletion warning:", fnError.message);
 
-      // Step 2 – Call the Edge Function to delete from auth.users via the Admin API.
-      //           This fully revokes login credentials and invalidates all active sessions.
-      const { error: fnError } = await supabase.functions.invoke("delete-user", {
-        body: { userId: deleteTarget.id },
-      });
-      if (fnError) {
-        // Profile already deleted — warn but don't fail visually
-        console.warn("Auth user deletion warning:", fnError.message);
-      }
-
-      setUsers((prev) => prev.filter((u) => u.id !== deleteTarget.id));
-      setDeletionRequests((prev) => prev.filter((r) => r.userId !== deleteTarget.id));
+      setUsers((prev) => prev.filter((u) => u.id !== target.id));
       setDeleteTarget(null);
-      showToast("success", `Account "${deleteTarget.username}" has been permanently deleted.`);
-      if (pageUsers.length === 1 && page > 1) setPage((p) => p - 1);
+      showToast("success", `Deleted ${target.fullName}'s account.`);
     } catch (err) {
-      showToast("error", err instanceof Error ? err.message : "Failed to delete account.");
+      showToast("error", err instanceof Error ? err.message : "Couldn't delete the account.");
     }
   };
 
-  const handleApproveRequest = async () => {
-    if (!approveTarget) return;
-    setApproveLoading(true);
-    try {
-      // Step 1 – Remove the profile row
-      const { error: deleteError } = await supabase
-        .from("User")
-        .delete()
-        .eq("UserID", approveTarget.userId);
+  const stats = [
+    { label: "Total Users", value: counts.All, icon: Users, tint: "bg-lv-wash/60 text-lv-accent" },
+    { label: "Admins", value: counts.Admin, icon: ShieldCheck, tint: "bg-violet-500/10 text-violet-500" },
+    { label: "Customers", value: counts.Customer, icon: User, tint: "bg-emerald-500/10 text-emerald-600" },
+  ];
 
-      if (deleteError) {
-        showToast("error", deleteError.message);
-        setApproveLoading(false);
-        return;
-      }
+  const columns: { key: SortField; label: string; className: string }[] = [
+    { key: "fullName", label: "Name", className: "" },
+    { key: "email", label: "Email", className: "hidden md:table-cell" },
+    { key: "role", label: "Role", className: "hidden sm:table-cell" },
+    { key: "lastSignIn", label: "Last active", className: "hidden lg:table-cell" },
+  ];
 
-      // Also remove the deletion request row
-      await supabase.from("DeletionRequest").delete().eq("UserID", approveTarget.userId);
-
-      // Step 2 – Call the Edge Function to delete from auth.users via the Admin API.
-      //           This fully revokes login credentials and invalidates all active sessions.
-      const { error: fnError } = await supabase.functions.invoke("delete-user", {
-        body: { userId: approveTarget.userId },
-      });
-      if (fnError) {
-        console.warn("Auth user deletion warning:", fnError.message);
-      }
-
-      setUsers((prev) => prev.filter((u) => u.id !== approveTarget.userId));
-      setDeletionRequests((prev) => prev.filter((r) => r.userId !== approveTarget.userId));
-      setApproveTarget(null);
-      showToast("success", `Account "${approveTarget.username}" has been permanently deleted as requested.`);
-    } catch (err) {
-      showToast("error", err instanceof Error ? err.message : "Failed to approve deletion request.");
-    } finally {
-      setApproveLoading(false);
-    }
-  };
-
-
-  const handleRejectRequest = async (request: DeletionRequest) => {
-    try {
-      const { error } = await supabase
-        .from("DeletionRequest")
-        .delete()
-        .eq("RequestID", request.requestId);
-
-      if (error) {
-        showToast("error", error.message);
-        return;
-      }
-
-      setDeletionRequests((prev) => prev.filter((r) => r.requestId !== request.requestId));
-      showToast("success", `Deletion request for "${request.username}" has been rejected.`);
-    } catch (err) {
-      showToast("error", err instanceof Error ? err.message : "Failed to reject deletion request.");
-    }
-  };
-
-  const handleExportCSV = () => {
-    const header = "ID,Full Name,Username,Email,Role\n";
-    const rows = filtered
-      .map((u) =>
-        [u.id, u.fullName, u.username, u.email, u.role].join(
-          ","
-        )
-      )
-      .join("\n");
-    const blob = new Blob([header + rows], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "users_export.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast("success", "User list exported as CSV.");
-  };
-
-  // Stats
-  const stats = {
-    total: users.length,
-    admins: users.filter((u) => u.role === "Admin").length,
-    customers: users.filter((u) => u.role === "Customer").length,
-    pendingDeletions: deletionRequests.length,
-  };
+  const roleTabs: { id: RoleFilter; label: string }[] = [
+    { id: "All", label: "All" },
+    { id: "Admin", label: "Admins" },
+    { id: "Customer", label: "Customers" },
+  ];
 
   return (
-    <div className="min-h-screen w-full bg-background relative isolate flex flex-col">
+    <div className="relative isolate flex min-h-screen w-full flex-col bg-background">
       <PageGlows />
+      <SiteNavbar />
 
-      {/* ── Modals ── */}
       <AnimatePresence>
-        {deleteTarget && (
-          <DeleteModal
-            user={deleteTarget}
-            onCancel={() => setDeleteTarget(null)}
-            onConfirm={handleDeleteConfirm}
-          />
-        )}
         {viewTarget && (
-          <ViewUserModal
-            user={viewTarget}
-            onClose={() => setViewTarget(null)}
-          />
+          <ViewUserDialog user={viewTarget} isYou={viewTarget.id === currentAdminId} onClose={() => setViewTarget(null)} />
         )}
-        {approveTarget && (
-          <ApproveDeletionModal
-            request={approveTarget}
-            onCancel={() => setApproveTarget(null)}
-            onConfirm={() => void handleApproveRequest()}
-            isLoading={approveLoading}
-          />
+        {deleteTarget && (
+          <DeleteUserDialog user={deleteTarget} onCancel={() => setDeleteTarget(null)} onConfirm={handleDeleteConfirm} />
         )}
       </AnimatePresence>
 
-      {/* ── Toast ── */}
       <AnimatePresence>
         {toast && (
           <motion.div
-            initial={{ opacity: 0, y: -24, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -24, scale: 0.95 }}
-            className={`fixed top-5 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2.5 px-5 py-3 rounded-2xl shadow-2xl text-sm font-semibold ${toast.type === "success"
-              ? "bg-green-600 text-white"
-              : "bg-red-600 text-white"
-              }`}
+            role="status"
+            initial={reduceMotion ? false : { opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reduceMotion ? undefined : { opacity: 0, y: 16 }}
+            className="fixed bottom-6 left-1/2 z-[100] flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2.5 rounded-full bg-lv-ink px-5 py-3 text-sm text-lv-on-ink shadow-2xl"
           >
-            {toast.type === "success" ? (
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
-            ) : (
-              <XCircle className="w-4 h-4 shrink-0" />
-            )}
+            {toast.type === "success"
+              ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" aria-hidden="true" />
+              : <XCircle className="h-4 w-4 shrink-0 text-red-400" aria-hidden="true" />}
             {toast.msg}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ── Top Navigation ── */}
-      <AppNavbar
-        leading={
-          <button
-            onClick={() => setSidebarOpen((p) => !p)}
-            className="lg:hidden text-zinc-400 hover:text-white"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
-        }
-        badge={
-          <span className="hidden sm:flex items-center gap-1 bg-teal-500/10 text-teal-400 text-[11px] font-bold px-2.5 py-1 rounded-full border border-teal-500/20">
-            <ShieldCheck className="w-3 h-3" />
-            Admin Panel
-          </span>
-        }
-        actions={
-            <div ref={notifRef} className="relative">
-              <button
-                onClick={() => setShowNotifications((p) => !p)}
-                className="relative p-2 rounded-xl border border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10 transition-colors"
-              >
-                <Bell className="w-4 h-4" />
-                {stats.pendingDeletions > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center animate-pulse">
-                    {stats.pendingDeletions}
-                  </span>
-                )}
-              </button>
-
-              {/* Dropdown panel */}
-              <AnimatePresence>
-                {showNotifications && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -8, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -8, scale: 0.95 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute right-0 top-full mt-2 w-80 z-50 rounded-2xl border border-white/10 bg-popover shadow-2xl overflow-hidden"
-                  >
-                    {/* Header */}
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-white/8 bg-white/3">
-                      <div className="flex items-center gap-2">
-                        <Bell className="w-3.5 h-3.5 text-teal-400" />
-                        <span className="text-xs font-bold text-zinc-200">Notifications</span>
-                      </div>
-                      {stats.pendingDeletions > 0 && (
-                        <span className="text-[10px] bg-red-500/15 text-red-400 border border-red-500/20 px-2 py-0.5 rounded-full font-bold">
-                          {stats.pendingDeletions} pending
-                        </span>
-                      )}
-                    </div>
-
-                    {/* List */}
-                    <div className="max-h-72 overflow-y-auto divide-y divide-white/5">
-                      {deletionRequests.length === 0 ? (
-                        <div className="flex flex-col items-center gap-2 py-8 text-zinc-500">
-                          <Inbox className="w-7 h-7 opacity-40" />
-                          <p className="text-xs">No pending requests</p>
-                        </div>
-                      ) : (
-                        deletionRequests.map((req) => {
-                          const initials = req.fullName
-                            .trim()
-                            .split(/\s+/)
-                            .slice(0, 2)
-                            .map((p) => p[0]?.toUpperCase() ?? "")
-                            .join("");
-                          const minsAgo = Math.round(
-                            (Date.now() - new Date(req.requestedAt).getTime()) / 60_000
-                          );
-                          const timeLabel =
-                            minsAgo < 60
-                              ? `${minsAgo}m ago`
-                              : minsAgo < 1440
-                                ? `${Math.floor(minsAgo / 60)}h ago`
-                                : `${Math.floor(minsAgo / 1440)}d ago`;
-                          return (
-                            <div
-                              key={req.requestId}
-                              className="flex items-start gap-3 px-4 py-3 hover:bg-white/3 transition-colors"
-                            >
-                              {/* Avatar */}
-                              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center text-white text-[11px] font-bold shrink-0 mt-0.5">
-                                {initials || "?"}
-                              </div>
-                              {/* Info */}
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs font-semibold text-zinc-200 truncate">{req.fullName}</p>
-                                <p className="text-[10px] text-zinc-500 truncate">{req.email}</p>
-                                <p className="text-[10px] text-amber-400/70 mt-0.5 flex items-center gap-1">
-                                  <ClockAlert className="w-2.5 h-2.5" />
-                                  Requested deletion · {timeLabel}
-                                </p>
-                              </div>
-                              {/* Action */}
-                              <button
-                                onClick={() => {
-                                  setApproveTarget(req);
-                                  setShowNotifications(false);
-                                }}
-                                className="shrink-0 text-[10px] font-bold px-2.5 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/15 transition-colors"
-                              >
-                                Review
-                              </button>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+      <main className="relative w-full flex-1 overflow-x-clip px-4 pb-16 pt-8 md:px-8 md:pt-12">
+        <div className="mx-auto max-w-6xl">
+          {/* Header */}
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h1 className="text-4xl leading-[1.05] tracking-tight text-lv-ink md:text-5xl">Manage user accounts</h1>
+              <p className="mt-3 text-base text-lv-muted">View, search and manage registered users.</p>
             </div>
-        }
-      />
-
-      <div className="flex flex-1 relative">
-
-        {/* ── Sidebar (desktop) ── */}
-        <aside className="hidden lg:flex flex-col w-60 glass-card border-r border-white/5 shadow-none min-h-[calc(100vh-69px)]">
-          <nav className="p-4 space-y-1 flex-1">
-            <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest px-3 mb-3">Administration</p>
-            {ADMIN_NAV.map((item) => {
-              const Icon = item.icon;
-              const isActive = item.id === activeNav;
-              return (
-                <motion.button key={item.id} whileHover={{ x: 3 }}
-                  onClick={() => { setActiveNav(item.id); navigate(item.path); }}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${isActive
-                    ? "bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-md shadow-teal-500/20"
-                    : "text-zinc-500 hover:bg-white/5 hover:text-teal-400"
-                    }`}>
-                  <Icon className="w-4 h-4" />
-                  {item.label}
-                  {item.id === "accounts" && (
-                    <span className={`ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full ${isActive ? "bg-white/20 text-white" : "bg-teal-500/10 text-teal-400"
-                      }`}>{users.length}</span>
-                  )}
-                </motion.button>
-              );
-            })}
-          </nav>
-          <div className="p-4 border-t border-white/5">
-            <button onClick={handleLogout}
-              className="w-full flex items-center gap-2 px-4 py-2.5 text-red-400 hover:bg-red-500/10 rounded-xl text-sm font-medium transition-all">
-              <LogOut className="w-4 h-4" /> Sign Out
+            <button type="button" onClick={() => void loadUsers()} disabled={isLoading} className="lv-btn-quiet self-start bg-lv-surface/70 sm:self-auto">
+              <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} aria-hidden="true" />
+              Refresh
             </button>
           </div>
-        </aside>
 
-        {/* ── Mobile Sidebar ── */}
-        <AnimatePresence>
-          {sidebarOpen && (
-            <>
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="lg:hidden fixed inset-0 bg-black/30 z-40"
-                onClick={() => setSidebarOpen(false)}
-              />
-              <motion.aside initial={{ x: -280 }} animate={{ x: 0 }} exit={{ x: -280 }}
-                transition={{ type: "spring", stiffness: 300, damping: 28 }}
-                className="lg:hidden fixed left-0 top-[69px] bottom-0 w-60 bg-sidebar border-r border-white/10 z-50 flex flex-col shadow-2xl">
-                <nav className="p-4 space-y-1 flex-1 overflow-y-auto">
-                  {ADMIN_NAV.map((item) => {
-                    const Icon = item.icon;
-                    const isActive = item.id === activeNav;
-                    return (
-                      <button key={item.id} onClick={() => { setActiveNav(item.id); setSidebarOpen(false); }}
-                        className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${isActive
-                          ? "bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-md"
-                          : "text-zinc-500 hover:bg-white/5 hover:text-teal-400"
-                          }`}>
-                        <Icon className="w-4 h-4" />{item.label}
-                      </button>
-                    );
-                  })}
-                </nav>
-                <div className="p-4 border-t border-white/10 mt-auto">
-                  <button onClick={() => { setSidebarOpen(false); void handleLogout(); }}
-                    className="w-full flex items-center gap-2 px-4 py-2.5 text-red-400 hover:bg-red-500/10 rounded-xl text-sm font-medium transition-all">
-                    <LogOut className="w-4 h-4" /> Sign Out
-                  </button>
+          {/* Stats */}
+          <ul className="mt-10 grid gap-3 sm:grid-cols-3">
+            {stats.map(({ label, value, icon: Icon, tint }) => (
+              <li key={label} className="flex items-center gap-4 rounded-[24px] border border-lv-line bg-lv-surface p-5">
+                <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl ${tint}`}>
+                  <Icon className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <div>
+                  <p className="text-3xl leading-none tracking-tight text-lv-ink">{isLoading && users.length === 0 ? "–" : value}</p>
+                  <p className="mt-1.5 text-sm text-lv-muted">{label}</p>
                 </div>
-              </motion.aside>
-            </>
-          )}
-        </AnimatePresence>
+              </li>
+            ))}
+          </ul>
 
-        {/* ── Main Content ── */}
-        <main className="flex-1 p-4 md:p-6 lg:p-7 overflow-x-hidden relative">
-          <div className="max-w-7xl mx-auto space-y-5">
-
-            {/* Page Header */}
-            <motion.div initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
-              <div>
-                <h2 className="text-2xl md:text-3xl font-extrabold bg-gradient-to-r from-teal-300 to-cyan-400 bg-clip-text text-transparent">
-                  Manage User Accounts
-                </h2>
-                <p className="text-zinc-500 text-sm mt-1">View, search, and manage registered users.</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
-                  onClick={loadUsers}
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10 text-sm font-semibold transition-all">
-                  <RefreshCw className="w-4 h-4" /> Refresh
-                </motion.button>
-                {/* <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
-                  onClick={handleExportCSV}
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10 text-sm font-semibold transition-all">
-                  <Download className="w-4 h-4" /> Export CSV
-                </motion.button> */}
-              </div>
-            </motion.div>
-
-            {/* Stats Row */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.07 }}
-              className="grid grid-cols-2 sm:grid-cols-4 gap-3"
-            >
-              {[
-                { label: "Total Users", value: stats.total, icon: Users, bg: "bg-teal-500/10", text: "text-teal-400" },
-                { label: "Admins", value: stats.admins, icon: ShieldCheck, bg: "bg-violet-500/10", text: "text-violet-400" },
-                { label: "Customers", value: stats.customers, icon: User, bg: "bg-emerald-500/10", text: "text-emerald-400" },
-                { label: "Pending Deletions", value: stats.pendingDeletions, icon: ClockAlert, bg: "bg-red-500/10", text: "text-red-400" },
-              ].map((stat) => {
-                const Icon = stat.icon;
+          {/* Role tabs and search */}
+          <div className="mt-8 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div role="tablist" aria-label="Filter by role"
+              className="flex w-full gap-1 rounded-full border border-lv-line bg-lv-surface/70 p-1 backdrop-blur-xl md:w-auto">
+              {roleTabs.map(({ id, label }) => {
+                const isActive = roleFilter === id;
                 return (
-                  <div key={stat.label} className="glass-card rounded-2xl border border-white/5 p-4 flex items-center gap-3">
-                    <div className={`p-2.5 rounded-xl ${stat.bg} border border-white/5`}>
-                      <Icon className={`w-5 h-5 ${stat.text}`} />
-                    </div>
-                    <div>
-                      <p className={`text-2xl font-extrabold ${stat.label === "Pending Deletions" && stat.value > 0 ? "text-red-400" : "text-zinc-100"}`}>{stat.value}</p>
-                      <p className="text-xs text-zinc-500 font-medium">{stat.label}</p>
-                    </div>
-                  </div>
+                  <button
+                    key={id}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    onClick={() => { setRoleFilter(id); setPage(1); }}
+                    className={`relative inline-flex h-10 flex-1 cursor-pointer items-center justify-center rounded-full px-5 text-sm transition-colors md:flex-none ${
+                      isActive ? "text-lv-on-ink" : "text-lv-ink hover:bg-lv-ink/8"
+                    }`}
+                  >
+                    {isActive && (
+                      <motion.span
+                        layoutId="admin-role-pill"
+                        className="absolute inset-0 rounded-full bg-lv-ink"
+                        transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 500, damping: 34 }}
+                      />
+                    )}
+                    <span className="relative">{label}</span>
+                  </button>
                 );
               })}
-            </motion.div>
+            </div>
 
-            {/* ── Deletion Requests Section (always visible) ── */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.14 }}
-              className="rounded-2xl border border-red-500/25 overflow-hidden shadow-lg shadow-red-500/5"
-            >
-              {/* Header */}
-              <div className="bg-gradient-to-r from-red-500/15 to-rose-500/10 border-b border-red-500/20 px-5 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-red-500/15 border border-red-500/20">
-                    <Inbox className="w-4 h-4 text-red-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-zinc-100 text-sm">Account Deletion Requests</h3>
-                    <p className="text-xs text-zinc-500">Review and action pending deletion requests from customers</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {requestsLoading ? (
-                    <span className="flex items-center gap-1.5 text-zinc-500 text-xs font-medium">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading…
-                    </span>
-                  ) : (
-                    <span className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border ${deletionRequests.length > 0
-                      ? "bg-red-500/15 text-red-400 border-red-500/20"
-                      : "bg-zinc-500/10 text-zinc-500 border-zinc-500/20"
-                      }`}>
-                      <ClockAlert className="w-3.5 h-3.5" />
-                      {deletionRequests.length} Pending
-                    </span>
-                  )}
-                  <motion.button
-                    whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                    onClick={() => void loadDeletionRequests()}
-                    title="Refresh deletion requests"
-                    className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-zinc-500 hover:text-zinc-300 hover:bg-white/10 transition-all"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                  </motion.button>
-                </div>
-              </div>
+            <div className="relative w-full md:max-w-sm">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-lv-muted" aria-hidden="true" />
+              <label htmlFor="account-search" className="sr-only">Search accounts</label>
+              <input
+                id="account-search"
+                type="search"
+                placeholder="Search by name, username or email"
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                className="lv-input rounded-full! pl-11"
+              />
+            </div>
+          </div>
 
-              {/* Body */}
-              <div className="bg-sidebar">
-                {requestsLoading ? (
-                  <div className="flex items-center justify-center gap-3 py-10 text-zinc-500">
-                    <Loader2 className="w-5 h-5 animate-spin text-red-400" />
-                    <span className="text-sm font-medium">Loading deletion requests…</span>
-                  </div>
-                ) : requestsError ? (
-                  <div className="flex flex-col items-center gap-4 py-8 px-5 text-center">
-                    <div className="p-3 rounded-2xl bg-red-500/10 border border-red-500/20">
-                      <AlertTriangle className="w-6 h-6 text-red-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-red-300 mb-1">Admin access blocked by RLS policy</p>
-                      <p className="text-xs text-zinc-500 max-w-md">
-                        The current RLS SELECT policy only allows users to view their own requests.
-                        Run the SQL below in your Supabase SQL Editor to grant admin access.
-                      </p>
-                    </div>
-                    <div className="w-full max-w-xl bg-background border border-amber-500/20 rounded-xl p-4 text-left">
-                      <p className="text-amber-400 text-[11px] font-bold mb-2 flex items-center gap-1.5">
-                        <AlertTriangle className="w-3 h-3" /> Supabase SQL Editor → run this:
-                      </p>
-                      <pre className="text-[10px] text-zinc-400 whitespace-pre-wrap leading-relaxed font-mono select-all">{`-- Drop the users-only SELECT policy
-DROP POLICY IF EXISTS "Users can view their own deletion request" ON "DeletionRequest";
-
--- New policy: users see own rows, admins see ALL rows
-CREATE POLICY "View deletion requests"
-ON "DeletionRequest" FOR SELECT TO authenticated
-USING (
-  auth.uid() = "UserID"
-  OR EXISTS (
-    SELECT 1 FROM "User"
-    WHERE "User"."UserID" = auth.uid()
-    AND lower("User"."Role") = 'admin'
-  )
-);
-
--- Admins can DELETE (approve/reject) any request
-CREATE POLICY "Manage deletion requests"
-ON "DeletionRequest" FOR DELETE TO authenticated
-USING (
-  auth.uid() = "UserID"
-  OR EXISTS (
-    SELECT 1 FROM "User"
-    WHERE "User"."UserID" = auth.uid()
-    AND lower("User"."Role") = 'admin'
-  )
-);`}</pre>
-                    </div>
-                    <div className="text-xs text-zinc-600 bg-zinc-800/40 rounded-lg px-3 py-2 border border-white/5">
-                      Error: {requestsError}
-                    </div>
-                    <motion.button
-                      whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-                      onClick={() => void loadDeletionRequests()}
-                      className="flex items-center gap-2 px-4 py-2 bg-red-500/15 border border-red-500/20 text-red-400 rounded-xl text-xs font-semibold hover:bg-red-500/25 transition-all"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" /> Retry
-                    </motion.button>
-                  </div>
-                ) : deletionRequests.length === 0 ? (
-                  <div className="flex flex-col items-center gap-2 py-10 text-zinc-600">
-                    <CheckCircle2 className="w-8 h-8 text-emerald-500/30" />
-                    <p className="text-sm font-medium text-zinc-500">No pending deletion requests</p>
-                    <p className="text-xs text-zinc-600">Customers who request account deletion will appear here.</p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-white/5">
-                    <AnimatePresence>
-                      {deletionRequests.map((req, idx) => {
-                        const initials = req.fullName.trim().split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]?.toUpperCase() ?? "U").join("").slice(0, 2) || "??";
-                        const requestedDate = new Date(req.requestedAt).toLocaleString();
-                        return (
-                          <motion.div
-                            key={req.requestId}
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: 10 }}
-                            transition={{ delay: idx * 0.05 }}
-                            className="flex flex-col sm:flex-row sm:items-center gap-4 px-5 py-4 hover:bg-white/[0.02] transition-colors"
-                          >
-                            <div className="flex items-center gap-3 flex-1 min-w-0">
-                              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${avatarColor(initials)} flex items-center justify-center text-white font-bold text-sm shrink-0`}>
-                                {initials}
-                              </div>
-                              <div className="min-w-0">
-                                <p className="font-semibold text-zinc-100 text-sm truncate">{req.fullName}</p>
-                                <p className="text-xs text-zinc-500 truncate">{req.email}</p>
-                                <p className="text-xs text-zinc-600">@{req.username}</p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-1.5 text-xs shrink-0">
-                              <ClockAlert className="w-3.5 h-3.5 text-amber-400" />
-                              <span className="text-amber-400/80 font-medium">{requestedDate}</span>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <motion.button
-                                whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                                onClick={() => setApproveTarget(req)}
-                                className="flex items-center gap-1.5 px-3 py-2 bg-red-500/15 text-red-400 hover:bg-red-500/25 border border-red-500/20 rounded-xl text-xs font-bold transition-all"
-                              >
-                                <UserX className="w-3.5 h-3.5" /> Approve
-                              </motion.button>
-                              <motion.button
-                                whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                                onClick={() => void handleRejectRequest(req)}
-                                className="flex items-center gap-1.5 px-3 py-2 bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/20 rounded-xl text-xs font-bold transition-all"
-                              >
-                                <UserCheck className="w-3.5 h-3.5" /> Reject
-                              </motion.button>
-                            </div>
-                          </motion.div>
-                        );
-                      })}
-                    </AnimatePresence>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-
-            {/* Search & Filters */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.12 }}
-              className="glass-card rounded-2xl border border-white/5 p-4"
-            >
-              <div className="flex flex-col lg:flex-row gap-3">
-                {/* Search */}
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-                  <input
-                    type="text"
-                    placeholder="Search by name, username, or email…"
-                    value={search}
-                    onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                    className="w-full pl-9 pr-4 py-2.5 border border-white/10 bg-white/5 rounded-xl text-sm outline-none focus:border-teal-500/50 focus:ring-2 focus:ring-teal-500/20 transition-all text-zinc-200 placeholder:text-zinc-600"
-                  />
-                </div>
-
-                {/* Role filter */}
-                <div className="relative">
-                  <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none" />
-                  <select
-                    value={roleFilter}
-                    onChange={(e) => { setRoleFilter(e.target.value as "All" | Role); setPage(1); }}
-                    className="pl-9 pr-8 py-2.5 border border-white/10 bg-sidebar rounded-xl text-sm outline-none focus:border-teal-500/50 appearance-none cursor-pointer font-medium text-zinc-300 min-w-[130px]"
-                  >
-                    <option value="All">All Roles</option>
-                    <option value="Admin">Admin</option>
-                    <option value="Customer">Customer</option>
-                  </select>
-                </div>
-
-                {/* Clear */}
-                {hasFilters && (
-                  <motion.button
-                    initial={{ opacity: 0, scale: 0.85 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={clearFilters}
-                    className="flex items-center gap-1.5 px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 rounded-xl text-sm font-semibold transition-all whitespace-nowrap"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    Clear
-                  </motion.button>
-                )}
-              </div>
-
-              {/* Result count */}
-              <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/5">
-                <p className="text-xs text-zinc-500">
-                  Showing{" "}
-                  <span className="font-bold text-zinc-300">{pageUsers.length}</span> of{" "}
-                  <span className="font-bold text-zinc-300">{filtered.length}</span> users
-                  {hasFilters && (
-                    <span className="ml-2 text-teal-400 font-medium">(filtered)</span>
-                  )}
-                </p>
-                <p className="text-xs text-zinc-600">
-                  Page {page} of {totalPages}
-                </p>
-              </div>
-            </motion.div>
-
-            {/* ── Table ── */}
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.18 }}
-              className="glass-card rounded-2xl border border-white/5 shadow-lg overflow-hidden"
-            >
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-gradient-to-r from-teal-500/5 to-violet-500/5 border-b border-white/8">
-                      {(
-                        [
-                          { key: "id", label: "User ID" },
-                          { key: "fullName", label: "Full Name" },
-                          { key: "username", label: "Username" },
-                          { key: "email", label: "Email" },
-                          { key: "role", label: "Role" },
-                        ] as { key: SortField; label: string }[]
-                      ).map(({ key, label }) => (
-                        <th
-                          key={key}
-                          onClick={() => handleSort(key)}
-                          className="px-4 py-3.5 text-left text-[11px] font-bold text-zinc-500 uppercase tracking-wider cursor-pointer hover:text-teal-400 whitespace-nowrap select-none transition-colors"
-                        >
+          {/* Table */}
+          <div className="mt-4 overflow-hidden rounded-[28px] border border-lv-line bg-lv-surface">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-lv-line">
+                  {columns.map(({ key, label, className }) => {
+                    const isSorted = sort.f === key;
+                    return (
+                      <th key={key} scope="col" className={`px-5 py-3 font-normal ${className}`}
+                        aria-sort={isSorted ? (sort.d === "asc" ? "ascending" : "descending") : "none"}>
+                        <button type="button" onClick={() => handleSort(key)}
+                          className={`-mx-2 inline-flex min-h-9 cursor-pointer items-center gap-1 rounded-full px-2 transition-colors hover:text-lv-ink ${
+                            isSorted ? "text-lv-ink" : "text-lv-muted"
+                          }`}>
                           {label}
-                          <SortIcon field={key} sort={sort} />
-                        </th>
-                      ))}
-                      <th className="px-4 py-3.5 text-left text-[11px] font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap">
-                        Status
+                          {isSorted
+                            ? (sort.d === "asc" ? <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" /> : <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />)
+                            : <ChevronDown className="h-3.5 w-3.5 opacity-0" aria-hidden="true" />}
+                        </button>
                       </th>
-                      <th className="px-4 py-3.5 text-center text-[11px] font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pageUsers.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="py-16 text-center">
-                          <div className="flex flex-col items-center gap-3 text-zinc-500">
-                            {isLoading ? (
-                              <RefreshCw className="w-10 h-10 opacity-30 animate-spin text-teal-400" />
-                            ) : (
-                              <Users className="w-10 h-10 opacity-30" />
-                            )}
-                            <p className="text-sm font-medium">
-                              {isLoading ? "Loading users from Supabase..." : loadError ?? "No users found."}
-                            </p>
-                            {!isLoading && hasFilters && (
-                              <button
-                                onClick={clearFilters}
-                                className="text-teal-400 text-xs font-semibold hover:text-teal-300 transition-colors"
-                              >
-                                Clear filters
-                              </button>
-                            )}
-                            {!isLoading && loadError && (
-                              <button
-                                onClick={loadUsers}
-                                className="text-teal-400 text-xs font-semibold hover:text-teal-300 transition-colors"
-                              >
-                                Retry loading users
-                              </button>
-                            )}
+                    );
+                  })}
+                  <th scope="col" className="px-5 py-3"><span className="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-lv-line">
+                {pageUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-5 py-20 text-center">
+                      <div className="flex flex-col items-center gap-3 text-lv-muted">
+                        {isLoading ? (
+                          <><Loader2 className="h-6 w-6 animate-spin" aria-hidden="true" /><p>Loading accounts…</p></>
+                        ) : loadError ? (
+                          <>
+                            <AlertTriangle className="h-6 w-6 text-amber-500" aria-hidden="true" />
+                            <p className="text-lv-ink">Couldn't load accounts</p>
+                            <p className="max-w-sm text-sm">{loadError}</p>
+                            <button type="button" onClick={() => void loadUsers()} className="lv-link text-sm">Try again</button>
+                          </>
+                        ) : (
+                          <>
+                            <Users className="h-6 w-6" aria-hidden="true" />
+                            <p>{hasFilters ? "No accounts match your search." : "No accounts yet."}</p>
+                            {hasFilters && <button type="button" onClick={clearFilters} className="lv-link text-sm">Clear filters</button>}
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  pageUsers.map((user) => {
+                    const isYou = user.id === currentAdminId;
+                    return (
+                      <tr key={user.id} className="transition-colors hover:bg-lv-ink/[0.03]">
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-3">
+                            <Avatar initials={user.initials} />
+                            <div className="min-w-0">
+                              <p className="truncate text-lv-ink">
+                                {user.fullName}
+                                {isYou && <span className="ml-2 text-xs text-lv-muted">(you)</span>}
+                              </p>
+                              <p className="truncate text-xs text-lv-muted">
+                                <span className="md:hidden">{user.email || `@${user.username}`}</span>
+                                <span className="hidden md:inline">@{user.username}</span>
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="hidden max-w-[16rem] truncate px-5 py-3.5 text-lv-muted md:table-cell">{user.email}</td>
+                        <td className="hidden px-5 py-3.5 sm:table-cell"><RolePill role={user.role} /></td>
+                        <td className="hidden px-5 py-3.5 lg:table-cell">
+                          <span className="inline-flex items-center gap-2 text-lv-muted">
+                            <ActivityDot lastSignIn={user.lastSignIn} />
+                            {lastActiveLabel(user.lastSignIn)}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3.5">
+                          <div className="flex items-center justify-end gap-1">
+                            <button type="button" onClick={() => setViewTarget(user)}
+                              aria-label={`View ${user.fullName}`} title="View details"
+                              className="grid h-10 w-10 cursor-pointer place-items-center rounded-full text-lv-muted transition-colors hover:bg-lv-ink/8 hover:text-lv-ink">
+                              <Eye className="h-4 w-4" aria-hidden="true" />
+                            </button>
+                            <button type="button" onClick={() => setDeleteTarget(user)} disabled={isYou}
+                              aria-label={`Delete ${user.fullName}`}
+                              title={isYou ? "You can't delete your own account here" : "Delete account"}
+                              className="grid h-10 w-10 cursor-pointer place-items-center rounded-full text-lv-muted transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-lv-muted">
+                              <Trash2 className="h-4 w-4" aria-hidden="true" />
+                            </button>
                           </div>
                         </td>
                       </tr>
-                    ) : (
-                      pageUsers.map((user, idx) => {
-                        const isOwnAccount = user.id === currentAdminId;
-                        const isEven = idx % 2 === 1;
-                        return (
-                          <motion.tr
-                            key={user.id}
-                            initial={{ opacity: 0, y: 6 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: idx * 0.04 }}
-                            className={`border-b border-white/5 last:border-0 transition-colors group ${isEven ? "bg-white/[0.02]" : ""
-                              } hover:bg-teal-500/[0.04]`}
-                          >
-                            {/* User ID */}
-                            <td className="px-4 py-3.5">
-                              <span className="font-mono text-[11px] font-bold text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded-lg border border-teal-500/20">
-                                {user.id}
-                              </span>
-                            </td>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
 
-                            {/* Full Name */}
-                            <td className="px-4 py-3.5">
-                              <div className="flex items-center gap-2.5">
-                                <div
-                                  className={`w-8 h-8 rounded-xl bg-gradient-to-br ${avatarColor(user.avatar)} flex items-center justify-center text-white text-[11px] font-bold shrink-0`}
-                                >
-                                  {user.avatar}
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="font-semibold text-zinc-200 text-sm truncate max-w-[140px]">
-                                    {user.fullName}
-                                    {isOwnAccount && (
-                                      <span className="ml-1.5 text-[9px] bg-teal-500/15 text-teal-400 px-1.5 py-0.5 rounded-full font-bold border border-teal-500/20">
-                                        YOU
-                                      </span>
-                                    )}
-                                  </p>
-                                </div>
-                              </div>
-                            </td>
-
-                            {/* Username */}
-                            <td className="px-4 py-3.5">
-                              <span className="text-zinc-400 text-sm font-medium">@{user.username}</span>
-                            </td>
-
-                            {/* Email */}
-                            <td className="px-4 py-3.5">
-                              <span className="text-zinc-500 text-xs truncate max-w-[180px] block">{user.email}</span>
-                            </td>
-
-                            {/* Role */}
-                            <td className="px-4 py-3.5">
-                              <span
-                                className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border ${user.role === "Admin"
-                                  ? "bg-violet-500/15 text-violet-400 border-violet-500/20"
-                                  : "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"
-                                  }`}
-                              >
-                                {user.role === "Admin" && <ShieldCheck className="w-3 h-3" />}
-                                {user.role === "Customer" && <User className="w-3 h-3" />}
-                                {user.role}
-                              </span>
-                            </td>
-
-                            {/* Status */}
-                            <td className="px-4 py-3.5">
-                              {(() => {
-                                const s = getStatus(user.lastSignIn);
-                                return (
-                                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-bold ${s.bgClass} ${s.textClass}`}>
-                                    <span className={`w-1.5 h-1.5 rounded-full ${s.dotClass}`} />
-                                    {s.label}
-                                  </span>
-                                );
-                              })()}
-                            </td>
-
-                            {/* Actions */}
-                            <td className="px-4 py-3.5">
-                              <div className="flex items-center justify-center gap-1.5">
-                                {/* View */}
-                                <motion.button
-                                  whileHover={{ scale: 1.15 }}
-                                  whileTap={{ scale: 0.9 }}
-                                  onClick={() => setViewTarget(user)}
-                                  title="View details"
-                                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-teal-500/10 text-teal-400 hover:bg-teal-500/20 border border-teal-500/20 transition-colors"
-                                >
-                                  <Eye className="w-3.5 h-3.5" />
-                                </motion.button>
-
-                                {/* Delete */}
-                                <motion.button
-                                  whileHover={{ scale: 1.15 }}
-                                  whileTap={{ scale: 0.9 }}
-                                  onClick={() => !isOwnAccount && setDeleteTarget(user)}
-                                  title={isOwnAccount ? "Cannot delete your own account" : "Delete account"}
-                                  disabled={isOwnAccount}
-                                  className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${isOwnAccount
-                                    ? "bg-white/5 text-zinc-700 cursor-not-allowed"
-                                    : "bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20"
-                                    }`}
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </motion.button>
-                              </div>
-                            </td>
-                          </motion.tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* ── Pagination ── */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between px-4 py-3.5 border-t border-white/5 bg-white/[0.02]">
-                  <p className="text-xs text-zinc-500">
-                    {(page - 1) * PAGE_SIZE + 1}–
-                    {Math.min(page * PAGE_SIZE, filtered.length)} of <span className="text-zinc-300 font-bold">{filtered.length}</span> users
-                  </p>
-                  <div className="flex items-center gap-1">
-                    <motion.button
-                      whileHover={{ scale: 1.08 }}
-                      whileTap={{ scale: 0.92 }}
-                      onClick={() => setPage(1)}
-                      disabled={page === 1}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg border border-white/10 bg-white/5 text-zinc-400 hover:bg-teal-500/10 hover:text-teal-400 hover:border-teal-500/20 disabled:opacity-25 disabled:cursor-not-allowed transition-all"
-                    >
-                      <ChevronsLeft className="w-3.5 h-3.5" />
-                    </motion.button>
-                    <motion.button
-                      whileHover={{ scale: 1.08 }}
-                      whileTap={{ scale: 0.92 }}
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      disabled={page === 1}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg border border-white/10 bg-white/5 text-zinc-400 hover:bg-teal-500/10 hover:text-teal-400 hover:border-teal-500/20 disabled:opacity-25 disabled:cursor-not-allowed transition-all"
-                    >
-                      <ChevronLeft className="w-3.5 h-3.5" />
-                    </motion.button>
-
-                    {/* Page number buttons */}
-                    {Array.from({ length: totalPages }, (_, i) => i + 1)
-                      .filter((p) => Math.abs(p - page) <= 2)
-                      .map((p) => (
-                        <motion.button
-                          key={p}
-                          whileHover={{ scale: 1.08 }}
-                          whileTap={{ scale: 0.92 }}
-                          onClick={() => setPage(p)}
-                          className={`w-7 h-7 flex items-center justify-center rounded-lg text-xs font-bold border transition-all ${p === page
-                            ? "bg-gradient-to-r from-teal-500 to-teal-600 text-white border-teal-500 shadow-sm shadow-teal-500/20"
-                            : "border-white/10 bg-white/5 text-zinc-400 hover:bg-teal-500/10 hover:text-teal-400 hover:border-teal-500/20"
-                            }`}
-                        >
-                          {p}
-                        </motion.button>
-                      ))}
-
-                    <motion.button
-                      whileHover={{ scale: 1.08 }}
-                      whileTap={{ scale: 0.92 }}
-                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                      disabled={page === totalPages}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg border border-white/10 bg-white/5 text-zinc-400 hover:bg-teal-500/10 hover:text-teal-400 hover:border-teal-500/20 disabled:opacity-25 disabled:cursor-not-allowed transition-all"
-                    >
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </motion.button>
-                    <motion.button
-                      whileHover={{ scale: 1.08 }}
-                      whileTap={{ scale: 0.92 }}
-                      onClick={() => setPage(totalPages)}
-                      disabled={page === totalPages}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg border border-white/10 bg-white/5 text-zinc-400 hover:bg-teal-500/10 hover:text-teal-400 hover:border-teal-500/20 disabled:opacity-25 disabled:cursor-not-allowed transition-all"
-                    >
-                      <ChevronsRight className="w-3.5 h-3.5" />
-                    </motion.button>
-                  </div>
+            {filtered.length > PAGE_SIZE && (
+              <div className="flex items-center justify-between gap-4 border-t border-lv-line px-5 py-3">
+                <p className="text-sm text-lv-muted">
+                  {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} of {filtered.length}
+                </p>
+                <div className="flex items-center gap-1">
+                  <button type="button" onClick={() => setPage(currentPage - 1)} disabled={currentPage === 1} aria-label="Previous page"
+                    className="grid h-10 w-10 cursor-pointer place-items-center rounded-full text-lv-ink transition-colors hover:bg-lv-ink/8 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent">
+                    <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                  <span className="px-2 text-sm text-lv-muted">{currentPage} / {totalPages}</span>
+                  <button type="button" onClick={() => setPage(currentPage + 1)} disabled={currentPage === totalPages} aria-label="Next page"
+                    className="grid h-10 w-10 cursor-pointer place-items-center rounded-full text-lv-ink transition-colors hover:bg-lv-ink/8 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent">
+                    <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                  </button>
                 </div>
-              )}
-            </motion.div>
+              </div>
+            )}
           </div>
-        </main>
-      </div>
+        </div>
+      </main>
+
+      <AppFooter />
     </div>
   );
 }
