@@ -1,14 +1,12 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
   Upload,
-  X,
   Mail,
   Phone,
   MapPin,
   Eye,
   EyeOff,
   CheckCircle2,
-  Trash2,
   AlertTriangle,
   Loader2,
   ArrowRight,
@@ -67,12 +65,6 @@ export default function Dashboard() {
   const [passMsg, setPassMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [passSaving, setPassSaving] = useState(false);
   const [notifications, setNotifications] = useState({ email: true, browser: false, updates: true });
-  // Delete account modal state
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deletePassword, setDeletePassword] = useState("");
-  const [deletePassError, setDeletePassError] = useState(false);
-  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
   useEffect(() => {
     const nextProfile = createProfileState({
       fullName: currentUser.fullName,
@@ -88,31 +80,6 @@ export default function Dashboard() {
   const displayName = profile.fullName?.trim() ? profile.fullName : profile.username;
   const initials = (displayName.trim().split(/\s+/).map((w) => w[0]).join("").slice(0, 2) || "?").toUpperCase();
 
-  const openDeleteModal = () => {
-    setDeletePassword("");
-    setDeletePassError(false);
-    setDeleteError(null);
-    setShowDeleteModal(true);
-  };
-  useEffect(() => {
-    if (!showDeleteModal) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !deleteSubmitting) setShowDeleteModal(false); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [showDeleteModal, deleteSubmitting]);
-
-  // TODO: delete the account here once the backend supports it. Until then
-  // nothing is removed; the dialog says so instead of pretending.
-  const handleDeleteAccount = async () => {
-    if (deletePassword.trim() === "") { setDeletePassError(true); return; }
-    setDeleteSubmitting(true);
-    setDeleteError(null);
-    try {
-      setDeleteError("Account deletion is not connected yet. Your account has not been changed.");
-    } finally {
-      setDeleteSubmitting(false);
-    }
-  };
   // ── Designs (real data) ─────────────────────
   const { designs, loading: designsLoading, error: designsError, reload: reloadDesigns } = useUserDesigns();
   const scored = designs.filter((d) => d.score !== null);
@@ -538,88 +505,12 @@ export default function Dashboard() {
             ))}
           </div>,
         )}
-
-        {/* Delete account */}
-        {settingsRow("profile-delete", "Delete account", "Permanently removes your account, your floor plans and every saved design.",
-          <div className="flex flex-col gap-5 rounded-[28px] border border-red-500/25 bg-red-500/[0.06] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-7">
-            <div className="flex min-w-0 items-start gap-4">
-              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-red-500/15">
-                <Trash2 className="h-5 w-5 text-red-400" aria-hidden="true" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-base text-lv-ink">This can't be undone</p>
-                <p className="mt-0.5 text-sm leading-relaxed text-lv-muted">Download anything you want to keep before you delete your account.</p>
-              </div>
-            </div>
-            <button type="button" onClick={openDeleteModal}
-              className="inline-flex min-h-11 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-full bg-red-600 px-5 text-sm font-medium text-white transition-colors hover:bg-red-700">
-              <Trash2 className="h-4 w-4" aria-hidden="true" /> Delete account
-            </button>
-          </div>,
-          true,
-        )}
       </div>
     </>
   );
   return (
     <div className="min-h-screen w-full bg-background relative isolate flex flex-col">
       <PageGlows />
-      {/* Delete Account Modal */}
-      <AnimatePresence>
-        {showDeleteModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
-            onClick={() => { if (!deleteSubmitting) setShowDeleteModal(false); }}>
-            <motion.div role="dialog" aria-modal="true" aria-labelledby="delete-title" aria-describedby="delete-desc"
-              initial={{ opacity: 0, y: 16, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 16, scale: 0.98 }} transition={{ duration: 0.2 }}
-              onClick={(e) => e.stopPropagation()}
-              className="relative w-full max-w-md rounded-[28px] border border-lv-line bg-lv-surface p-6 shadow-2xl sm:p-8">
-              <button type="button" onClick={() => setShowDeleteModal(false)} disabled={deleteSubmitting} aria-label="Close"
-                className="absolute right-4 top-4 grid h-10 w-10 cursor-pointer place-items-center rounded-full text-lv-muted transition-colors hover:bg-lv-ink/8 hover:text-lv-ink">
-                <X className="h-5 w-5" aria-hidden="true" />
-              </button>
-
-              <span className="grid h-12 w-12 place-items-center rounded-full bg-red-500/15">
-                <Trash2 className="h-5 w-5 text-red-400" aria-hidden="true" />
-              </span>
-              <h2 id="delete-title" className="mt-5 text-2xl leading-tight text-lv-ink">Delete your account?</h2>
-              <p id="delete-desc" className="mt-2 text-sm leading-relaxed text-lv-muted">
-                <span className="text-lv-ink">{profile.email || displayName}</span> and all of its floor plans and saved designs
-                will be removed for good. This can't be undone.
-              </p>
-
-              <form className="mt-6" onSubmit={(e) => { e.preventDefault(); if (!deleteSubmitting) void handleDeleteAccount(); }}>
-                <label htmlFor="delete-password" className={labelCls}>Enter your password to confirm</label>
-                <input id="delete-password" type="password" autoFocus autoComplete="current-password"
-                  value={deletePassword}
-                  aria-invalid={deletePassError}
-                  aria-describedby={deletePassError ? "delete-password-error" : undefined}
-                  onChange={(e) => { setDeletePassword(e.target.value); setDeletePassError(false); }}
-                  className={`lv-input ${deletePassError ? "border-red-500/60" : ""}`} />
-                {deletePassError && <p id="delete-password-error" className="mt-1.5 text-sm text-red-400">Enter your password to delete the account.</p>}
-                {deleteError && (
-                  <p role="alert" className="mt-4 flex items-start gap-2 rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-500">
-                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" /> {deleteError}
-                  </p>
-                )}
-
-                <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                  <button type="button" onClick={() => setShowDeleteModal(false)} disabled={deleteSubmitting} className="lv-btn-quiet">
-                    Cancel
-                  </button>
-                  <button type="submit" disabled={deleteSubmitting}
-                    className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-full bg-red-600 px-5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60">
-                    {deleteSubmitting
-                      ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Deleting account</>
-                      : <><Trash2 className="h-4 w-4" aria-hidden="true" /> Delete account</>}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
       {/* Top Nav */}
       <SiteNavbar
         activeNav={activeMenu}
