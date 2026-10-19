@@ -33,6 +33,7 @@ export const COMPONENT_LABELS: Record<string, string> = {
   tall_furniture: "10 · Tall furniture clear of windows",
   room_fit: "11 · Fit to room and occupants",
   reach_and_height: "12 · Convenient heights and reach",
+  furniture_count: "13 · Most furniture",
   // kitchen engine: one component per rule
   sink_location: "1 · Sink in a convenient place",
   prep_by_sink: "2 · Preparation worktop by the sink",

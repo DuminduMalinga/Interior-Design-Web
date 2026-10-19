@@ -8,7 +8,10 @@ Each rule is applied in up to three ways, and `RULES` records which:
 * **hard**     - a position that breaks it is discarded, and `violations()`
   re-checks every such limit on the finished layout;
 * **scored**   - a 0..1 mark for how well the layout does, weighted into the
-  0-100 total and reported with the measured numbers behind it.
+  0-100 rules score and reported with the measured numbers behind it.
+
+The rules score is then converted to 90 points, and the extra `FURNITURE_RULE`
+adds the last 10, rewarding the layout with the most furniture.
 
 `Evaluator.static()` scores the ten rules that depend only on where things
 stand; rules 8 and 9 need the walkability map and are added once a layout is
@@ -90,6 +93,26 @@ RULES: Tuple[Rule, ...] = (
          "the bed to the wardrobe."),
 )
 RULE_BY_ID: Dict[str, Rule] = {rule.id: rule for rule in RULES}
+
+#: the extra rule, scored last: it compares a layout with the others generated
+#: for the same room, so it is added once they are all chosen (see generator.py)
+FURNITURE_RULE = Rule(
+    "R13", "furniture_count", "Most furniture",
+    "Give the most points to the layout that fits the most furniture.",
+    "Scored after the rules score is converted to 90 points: the layout with the most furniture for this room "
+    "earns all 10 and one piece fewer earns 5; below that the points fall evenly with each piece fewer, to 0 "
+    "with no furniture.")
+
+
+def furniture_mark(count: int, most: int) -> float:
+    """The extra rule's 0..1 mark for `count` pieces when the fullest layout has `most`.
+
+    Full marks for the most furniture, half for one piece fewer, then falling
+    evenly with each piece fewer, to nothing with no furniture.
+    """
+    if count >= most:
+        return 1.0
+    return 0.5 * count / (most - 1) if most > 1 else 0.0
 
 
 @dataclass

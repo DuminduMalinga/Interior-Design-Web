@@ -33,6 +33,8 @@ export interface BedroomRuleResult {
   max_points: number;
   /** The measured numbers behind the score. */
   detail: string;
+  /** True for the extra rule ("Most furniture"), scored after the rules' total is converted to 90 and shown below it. */
+  extra?: boolean;
 }
 
 export interface GenerateAllBedroomLayoutsResponse extends GenerateAllLivingRoomLayoutsResponse {

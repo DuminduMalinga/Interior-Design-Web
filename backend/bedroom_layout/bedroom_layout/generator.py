@@ -19,8 +19,12 @@ be replayed:
     4. each finished layout is scored against all twelve rules, including how
        wide its walking path is and whether a pulled-out desk chair spoils it
        (rules 8 and 9);
-    5. the best layout for each distinct bed position is returned, best first,
-       with wardrobe-wall variants filling any slots left over.
+    5. the best layout for each distinct bed position is chosen, with
+       wardrobe-wall variants filling any slots left over;
+    6. each chosen layout's rules score (the twelve rules at their weights,
+       out of 100) is converted to 90 points, and the extra rule adds up to 10
+       more for the furniture it fits, the fullest layout earning all 10; the
+       layouts are then returned best first by that total.
 
 If the room cannot take the first-choice bed with every clearance intact, the
 search falls back to the next size down, and only then to a layout that gives
@@ -51,7 +55,7 @@ from .furniture import (
 from .geometry import Rect, distance, hits_any, intersects
 from .programme import Programme, select_programme
 from .room import OPPOSITE, WALL_ENDS, WALLS
-from .rules import RULE_BY_ID, RULES, Evaluator, RuleResult, metres
+from .rules import FURNITURE_RULE, RULE_BY_ID, RULES, Evaluator, RuleResult, furniture_mark, metres
 
 #: compass name of the corner at each end of each wall
 CORNERS = {
@@ -67,6 +71,35 @@ BED_SPACING = 400.0
 def reported(score: float) -> float:
     """A total as it is given out: to one decimal."""
     return round(score, 1)
+
+
+def rule_scale(rules: Iterable[RuleResult]) -> float:
+    """Reported points per unit of weight: every rule keeps its default share of 100,
+    even when another rule does not apply."""
+    return 100.0 / (sum(r.weight for r in rules) or 1.0)
+
+
+def tally(rules: List[RuleResult], furniture: RuleResult) -> Dict[str, float]:
+    """The scores given out, each worked from the reported figures above it so that they add up.
+
+    The twelve rules keep their weights (100 in all). The points they earn out
+    of the points the applicable ones could give are converted to what the
+    extra rule leaves of 100 (90), and the extra rule's points are added on top.
+    """
+    scale = rule_scale(rules)
+    applies = [r for r in rules if r.applicable]
+    earned = reported(sum(reported(r.points * scale) for r in applies))
+    possible = reported(sum(reported(r.weight * scale) for r in applies))
+    share = 100.0 - furniture.weight
+    converted = reported(share * earned / possible) if possible else 0.0
+    return {
+        "rules_earned": earned,
+        "rules_possible": possible,
+        "rules_score": reported(100.0 * earned / possible) if possible else 0.0,
+        "rules_points": converted,
+        "rules_max": share,
+        "total": reported(converted + reported(furniture.points)),
+    }
 
 
 def positions(length: float, size: float, step: float, snaps: Iterable[float] = ()) -> List[float]:
@@ -96,15 +129,22 @@ class Result:
 
     layout: Layout
     rules: Dict[str, RuleResult]
-    score: float
+    score: float                  # 0-100: the twelve rules alone, then the total once furniture is counted
     report: CirculationReport
     violations: List[Dict] = field(default_factory=list)
     type: str = ""
     title: str = ""
+    furniture: Optional[RuleResult] = None   # the extra rule, set once every layout is chosen
+    breakdown: Dict[str, float] = field(default_factory=dict)   # tally(), set with it
 
     @property
     def valid(self) -> bool:
         return not self.violations
+
+
+def best_first(result: Result) -> Tuple:
+    """Valid layouts first, then by score; the bed position settles ties."""
+    return (not result.valid, -result.score, result.layout.bed.wall, result.layout.anchor)
 
 
 class Generator:
@@ -142,7 +182,7 @@ class Generator:
                 break
             if results and (not chosen or max(r.score for r in results) > max(r.score for r in chosen)):
                 chosen = results
-        selected = self._select(chosen)
+        selected = self._count_furniture(self._select(chosen))
         self.elapsed = time.perf_counter() - started
         return selected
 
@@ -553,7 +593,7 @@ class Generator:
     # choosing and naming the alternatives
     # ------------------------------------------------------------------ #
     def _select(self, results: List[Result]) -> List[Result]:
-        order = lambda r: (not r.valid, -r.score, r.layout.bed.wall, r.layout.anchor)
+        order = best_first
         primary: Dict[Tuple[str, str], Result] = {}
         for result in sorted(results, key=order):
             primary.setdefault((result.layout.bed.wall, result.layout.anchor), result)
@@ -578,6 +618,28 @@ class Generator:
                 result.type += "_wardrobe_{}".format(where or "none")
                 result.title += ", wardrobe on the {} wall".format(where) if where else ", no wardrobe"
         return chosen
+
+    def _count_furniture(self, results: List[Result]) -> List[Result]:
+        """The extra rule: full points for the most furniture, half for one piece fewer, less below that.
+
+        Each rules score is converted to what it leaves of 100 and its points
+        are added on top, so the totals - and the order - change.
+        """
+        weight = self.config.weights.furniture_count
+        most = max((len(r.layout.items) for r in results), default=0)
+        for result in results:
+            count = len(result.layout.items)
+            placed = "{} piece{} of furniture {} placed".format(
+                count, "" if count == 1 else "s", "is" if count == 1 else "are")
+            if count >= most:
+                detail = "{} - the most of the {} layout{} for this room.".format(
+                    placed, len(results), "" if len(results) == 1 else "s")
+            else:
+                detail = "{}, {} fewer than the fullest layout for this room ({}).".format(placed, most - count, most)
+            result.furniture = RuleResult(FURNITURE_RULE, furniture_mark(count, most), weight, detail)
+            result.breakdown = tally(list(result.rules.values()), result.furniture)
+            result.score = result.breakdown["total"]
+        return sorted(results, key=best_first)
 
     # ------------------------------------------------------------------ #
     # serialisation - the shape the plan viewer already draws
@@ -623,9 +685,15 @@ class Generator:
         lay, room, c, report = result.layout, self.room, self.c, result.report
         rules = list(result.rules.values())
         # every rule keeps its default share of 100, even when another rule does not apply;
-        # the total is then the points earned out of the points the applicable rules could give
-        scale = 100.0 / (sum(r.weight for r in rules) or 1.0)
+        # the extra rule comes after them, at its own weight
+        scale = rule_scale(rules)
+        scaled = [(r, scale) for r in rules]
+        if result.furniture is not None:
+            scaled.append((result.furniture, 1.0))
         checks = {v["check"] for v in result.violations}
+
+        def points(r: RuleResult, k: float) -> str:
+            return "not applicable" if not r.applicable else "{:.1f} / {:.1f} points".format(r.points * k, r.weight * k)
 
         programme = self.programme
         explanation = [
@@ -633,14 +701,19 @@ class Generator:
                 programme.describe(),
                 "two occupants" if programme.occupants >= 2 else "one occupant"),
         ]
-        # each rule earns up to its weight, its share of the total
+        # each rule earns up to its weight, its share of the rules score
         explanation += [
-            "Rule {} - {}: {} [{}]".format(
-                r.rule.id[1:], r.rule.title, r.detail,
-                "not applicable" if not r.applicable else "{:.1f} / {:.1f} points".format(
-                    r.points * scale, r.weight * scale))
+            "Rule {} - {}: {} [{}]".format(r.rule.id[1:], r.rule.title, r.detail, points(r, scale))
             for r in rules
         ]
+        if result.furniture is not None:
+            tallied, extra = result.breakdown, result.furniture
+            explanation += [
+                "Rules total: {:.1f} / {:.1f} points, converted to {:.1f} / {:.0f}.".format(
+                    tallied["rules_earned"], tallied["rules_possible"], tallied["rules_points"], tallied["rules_max"]),
+                "Extra rule - {}: {} [{}]".format(extra.rule.title, extra.detail, points(extra, 1.0)),
+                "Total: {:.1f} / 100.".format(tallied["total"]),
+            ]
         explanation += list(lay.compromises)
         explanation += ["Not placed - {}: {}".format(u.label, " ".join(u.reasons)) for u in lay.unplaced]
 
@@ -688,10 +761,12 @@ class Generator:
             "scoring": {
                 "total": reported(result.score),
                 "max": 100,
-                "components": {r.rule.key: round(r.points * scale, 1) for r in rules if r.applicable},
+                # the rules on their own, and converted to their share of the total
+                **{key: value for key, value in result.breakdown.items() if key != "total"},
+                "components": {r.rule.key: round(r.points * k, 1) for r, k in scaled if r.applicable},
                 "contributions": [
-                    {"rule": r.rule.key, "points": round(r.points * scale, 2), "message": r.detail}
-                    for r in rules if r.applicable
+                    {"rule": r.rule.key, "points": round(r.points * k, 2), "message": r.detail}
+                    for r, k in scaled if r.applicable
                 ],
             },
             "rules": [
@@ -703,11 +778,12 @@ class Generator:
                     "method": r.rule.method,
                     "status": r.status,
                     "score": round(r.score, 3),
-                    "points": round(r.points * scale, 1),
-                    "max_points": round(r.weight * scale, 1) if r.applicable else 0.0,
+                    "points": round(r.points * k, 1),
+                    "max_points": round(r.weight * k, 1) if r.applicable else 0.0,
                     "detail": r.detail,
+                    "extra": r.rule is FURNITURE_RULE,
                 }
-                for r in rules
+                for r, k in scaled
             ],
             "layout_selection": {"ranking": ranking},
             "openings": {
@@ -719,12 +795,12 @@ class Generator:
 
 
 def rule_catalogue() -> List[Dict]:
-    """The twelve rules as written, and how the engine applies each one."""
+    """The twelve rules, then the extra furniture rule, as written and with the points each can give."""
     weights = Config().weights
     return [
         {"id": rule.id, "key": rule.key, "title": rule.title, "rule": rule.text, "method": rule.method,
-         "weight": getattr(weights, rule.key)}
-        for rule in RULES
+         "weight": getattr(weights, rule.key), "extra": rule is FURNITURE_RULE}
+        for rule in RULES + (FURNITURE_RULE,)
     ]
 
 

@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useId, useMemo, useState, type ReactNode } from "react";
 import { AlertTriangle, ArrowLeft, ChevronDown } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import type { GenerateLivingRoomLayoutResponse, LayoutFurnitureItem } from "../lib/livingRoomLayout";
@@ -29,23 +29,22 @@ const RULE_STATUS: Record<BedroomRuleResult["status"], string> = {
 
 // What each dot colour means: the share of a rule's points that every layout
 // engine's RuleResult.status (backend/<engine>/rules.py) maps to each status.
+// A rule that does not apply reads "n/a" in place of its points, so it needs no key.
 const RULE_LEGEND: { status: BedroomRuleResult["status"]; range: string }[] = [
   { status: "satisfied", range: "75%+" },
   { status: "partly_satisfied", range: "50–74%" },
   { status: "not_satisfied", range: "<50%" },
-  { status: "not_applicable", range: "" },
 ];
 
-function RuleLegend({ rules }: { rules: BedroomRuleResult[] }) {
-  const shown = RULE_LEGEND.filter((l) => l.status !== "not_applicable" || rules.some((r) => r.status === "not_applicable"));
+function RuleLegend() {
   return (
     <ul aria-label="Rule colours"
       className="mt-3 flex shrink-0 flex-nowrap items-center gap-x-3 self-start whitespace-nowrap rounded-full border border-lv-line bg-lv-wash/50 px-3 py-1.5 text-xs text-lv-muted">
-      {shown.map((l) => (
+      {RULE_LEGEND.map((l) => (
         <li key={l.status} className="flex items-center gap-1">
           <span className={`h-2 w-2 shrink-0 rounded-full ${RULE_TONE[l.status]}`} aria-hidden="true" />
           <span className="text-lv-ink">{RULE_STATUS[l.status]}</span>
-          {l.range && <span className="tabular-nums">{l.range}</span>}
+          <span className="tabular-nums">{l.range}</span>
         </li>
       ))}
     </ul>
@@ -63,6 +62,38 @@ const fmtTenth = (n: number) => {
 /** Rules heaviest first, as both the Rules and the Why tab list them. */
 const byWeight = (rules: BedroomRuleResult[]) => [...rules].sort((a, b) => b.max_points - a.max_points);
 
+type Scoring = GenerateLivingRoomLayoutResponse["layout"]["scoring"];
+
+/**
+ * The rules heaviest first and any extra rule apart (the bedroom's "Most
+ * furniture"), with the rules' total: the points earned out of the points the
+ * applicable rules could give, and that converted to the rules' share of the
+ * score - 90 when an extra rule gives the other 10. The bedroom engine reports
+ * these figures; they are worked out here for engines that do not.
+ */
+function splitRules(rules: BedroomRuleResult[], scoring: Scoring) {
+  const main = byWeight(rules.filter((r) => !r.extra));
+  const extra = rules.filter((r) => r.extra);
+  const applicable = main.filter((r) => r.status !== "not_applicable");
+  const earned = scoring.rules_earned ?? applicable.reduce((sum, r) => sum + r.points, 0);
+  const possible = scoring.rules_possible ?? applicable.reduce((sum, r) => sum + r.max_points, 0);
+  const share = scoring.rules_max ?? 100 - extra.reduce((sum, r) => sum + r.max_points, 0);
+  const converted = scoring.rules_points ?? (possible ? (earned * share) / possible : 0);
+  return { main, extra, earned, possible, share, converted, leftOut: applicable.length < main.length };
+}
+
+/** One line of the score's sum: points out of a maximum, in line with the rules' points above it. */
+function ScoreLine({ label, points, max, strong = false }: { label: string; points: number; max: number; strong?: boolean }) {
+  return (
+    <div className="flex items-baseline gap-3 pl-5 pr-10">
+      <dt className={`min-w-0 flex-1 text-sm leading-snug ${strong ? "font-medium text-lv-ink" : "text-lv-muted"}`}>{label}</dt>
+      <dd className="shrink-0 text-xs tabular-nums text-lv-muted">
+        <span className="font-medium text-lv-ink">{fmtTenth(points)}</span> / {fmtTenth(max)}
+      </dd>
+    </div>
+  );
+}
+
 /** "8" / "8.5 / 10" - a rule's points out of its default weight, or "n/a". */
 function RulePoints({ rule }: { rule: BedroomRuleResult }) {
   return (
@@ -77,10 +108,13 @@ function RulePoints({ rule }: { rule: BedroomRuleResult }) {
 /**
  * Each rule's points out of its default weight - the max_points the engine
  * reports - heaviest first; a rule that does not apply reads "n/a". The arrow
- * opens what the rule says. How each was scored is on the Why tab.
+ * opens what the rule says. How each was scored is on the Why tab. With an
+ * extra rule (the bedroom's "Most furniture"), the rules' total and that total
+ * converted to 90 come next, then the extra rule, then the total score.
  */
-function RuleList({ rules }: { rules: BedroomRuleResult[] }) {
-  const ordered = useMemo(() => byWeight(rules), [rules]);
+function RuleList({ rules, scoring, score }: { rules: BedroomRuleResult[]; scoring: Scoring; score: number }) {
+  const split = useMemo(() => splitRules(rules, scoring), [rules, scoring]);
+  const extraLabel = useId();
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
   const toggle = (id: string) =>
     setOpen((prev) => {
@@ -89,87 +123,120 @@ function RuleList({ rules }: { rules: BedroomRuleResult[] }) {
       return next;
     });
 
+  const row = (r: BedroomRuleResult) => {
+    const expanded = open.has(r.id);
+    return (
+      <li key={r.id} className="flex gap-3 py-2.5 first:pt-0">
+        <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${RULE_TONE[r.status]}`} aria-hidden="true" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-3">
+            <p className="min-w-0 flex-1 text-sm font-medium leading-snug text-lv-ink">
+              {r.title}
+              <span className="sr-only">. {RULE_STATUS[r.status]}</span>
+            </p>
+            <RulePoints rule={r} />
+            {r.rule && (
+              <button type="button" onClick={() => toggle(r.id)} aria-expanded={expanded} aria-controls={`rule-detail-${r.id}`}
+                aria-label={`${expanded ? "Hide" : "Show"} what ${r.title} means`} title={expanded ? "Hide the rule" : "What this rule means"}
+                className="-my-1 grid h-7 w-7 shrink-0 cursor-pointer place-items-center self-center rounded-full text-lv-accent transition-colors hover:bg-lv-ink/8 hover:text-lv-ink">
+                <ChevronDown className={`h-4 w-4 transition-transform ${expanded ? "rotate-180" : ""}`} aria-hidden="true" />
+              </button>
+            )}
+          </div>
+          {expanded && (
+            <p id={`rule-detail-${r.id}`} className="mt-1 text-xs leading-relaxed text-lv-muted">{r.rule}</p>
+          )}
+        </div>
+      </li>
+    );
+  };
+
+  const list = <ol className="divide-y divide-lv-line">{split.main.map(row)}</ol>;
+  if (split.extra.length === 0) return list;
   return (
-    <ol className="divide-y divide-lv-line">
-      {ordered.map((r) => {
-        const expanded = open.has(r.id);
-        return (
-          <li key={r.id} className="flex gap-3 py-2.5 first:pt-0">
-            <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${RULE_TONE[r.status]}`} aria-hidden="true" />
-            <div className="min-w-0 flex-1">
-              <div className="flex items-baseline gap-3">
-                <p className="min-w-0 flex-1 text-sm font-medium leading-snug text-lv-ink">
-                  {r.title}
-                  <span className="sr-only">. {RULE_STATUS[r.status]}</span>
-                </p>
-                <RulePoints rule={r} />
-                {r.rule && (
-                  <button type="button" onClick={() => toggle(r.id)} aria-expanded={expanded} aria-controls={`rule-detail-${r.id}`}
-                    aria-label={`${expanded ? "Hide" : "Show"} what ${r.title} means`} title={expanded ? "Hide the rule" : "What this rule means"}
-                    className="-my-1 grid h-7 w-7 shrink-0 cursor-pointer place-items-center self-center rounded-full text-lv-accent transition-colors hover:bg-lv-ink/8 hover:text-lv-ink">
-                    <ChevronDown className={`h-4 w-4 transition-transform ${expanded ? "rotate-180" : ""}`} aria-hidden="true" />
-                  </button>
-                )}
-              </div>
-              {expanded && (
-                <p id={`rule-detail-${r.id}`} className="mt-1 text-xs leading-relaxed text-lv-muted">{r.rule}</p>
-              )}
-            </div>
-          </li>
-        );
-      })}
-    </ol>
+    <>
+      {list}
+      <dl className="mt-1 space-y-1 rounded-2xl bg-lv-wash/60 py-2.5">
+        <ScoreLine label="Rules total" points={split.earned} max={split.possible} strong />
+        <ScoreLine label={`Converted to ${fmtTenth(split.share)}`} points={split.converted} max={split.share} />
+      </dl>
+      <p id={extraLabel} className="mt-4 pl-5 text-xs text-lv-muted">Extra rule</p>
+      <ol aria-labelledby={extraLabel} className="mt-2 divide-y divide-lv-line">{split.extra.map(row)}</ol>
+      <dl className="mt-1 rounded-2xl bg-lv-wash/60 py-2.5">
+        <ScoreLine label="Total score" points={score} max={100} strong />
+      </dl>
+    </>
   );
 }
 
 /**
  * How the score was made, rule by rule: how each rule is scored, what was
  * measured in this layout and the points it earned, then the total - the
- * points earned out of the points the applicable rules could give.
+ * points earned out of the points the applicable rules could give. With an
+ * extra rule, that total is converted to 90 and the extra rule's points are
+ * added to it.
  */
-function RuleScoring({ rules, score }: { rules: BedroomRuleResult[]; score: number }) {
-  const ordered = useMemo(() => byWeight(rules), [rules]);
-  const applicable = rules.filter((r) => r.status !== "not_applicable");
-  const earned = applicable.reduce((sum, r) => sum + r.points, 0);
-  const possible = applicable.reduce((sum, r) => sum + r.max_points, 0);
+function RuleScoring({ rules, scoring, score }: { rules: BedroomRuleResult[]; scoring: Scoring; score: number }) {
+  const split = useMemo(() => splitRules(rules, scoring), [rules, scoring]);
+  const extraLabel = useId();
+  const extraPoints = split.extra.reduce((sum, r) => sum + r.points, 0);
+  const num = (n: number) => <span className="font-medium tabular-nums">{fmtTenth(n)}</span>;
+  const leftOut = split.leftOut && " Rules that do not apply are left out, and the others keep their weights.";
+
+  const card = (r: BedroomRuleResult) => (
+    <li key={r.id} className="rounded-2xl border border-lv-line p-3">
+      <div className="flex items-baseline gap-3">
+        <span className={`h-2 w-2 shrink-0 self-center rounded-full ${RULE_TONE[r.status]}`} aria-hidden="true" />
+        <p className="min-w-0 flex-1 text-sm font-medium leading-snug text-lv-ink">
+          {r.title}
+          <span className="sr-only">. {RULE_STATUS[r.status]}</span>
+        </p>
+        <RulePoints rule={r} />
+      </div>
+      <dl className="mt-2 space-y-1.5 text-xs leading-relaxed">
+        {r.method && (
+          <div>
+            <dt className="font-medium text-lv-ink">How it is scored</dt>
+            <dd className="text-lv-muted">{r.method}</dd>
+          </div>
+        )}
+        {r.detail && (
+          <div>
+            <dt className="font-medium text-lv-ink">{r.status === "not_applicable" ? "Why it does not apply" : "In this layout"}</dt>
+            <dd className="text-lv-muted">{r.detail}</dd>
+          </div>
+        )}
+      </dl>
+    </li>
+  );
 
   return (
     <>
       <p className="text-xs text-lv-muted">How the score was made</p>
-      <ol className="mt-2 space-y-2">
-        {ordered.map((r) => (
-          <li key={r.id} className="rounded-2xl border border-lv-line p-3">
-            <div className="flex items-baseline gap-3">
-              <span className={`h-2 w-2 shrink-0 self-center rounded-full ${RULE_TONE[r.status]}`} aria-hidden="true" />
-              <p className="min-w-0 flex-1 text-sm font-medium leading-snug text-lv-ink">
-                {r.title}
-                <span className="sr-only">. {RULE_STATUS[r.status]}</span>
-              </p>
-              <RulePoints rule={r} />
-            </div>
-            <dl className="mt-2 space-y-1.5 text-xs leading-relaxed">
-              {r.method && (
-                <div>
-                  <dt className="font-medium text-lv-ink">How it is scored</dt>
-                  <dd className="text-lv-muted">{r.method}</dd>
-                </div>
-              )}
-              {r.detail && (
-                <div>
-                  <dt className="font-medium text-lv-ink">{r.status === "not_applicable" ? "Why it does not apply" : "In this layout"}</dt>
-                  <dd className="text-lv-muted">{r.detail}</dd>
-                </div>
-              )}
-            </dl>
-          </li>
-        ))}
-      </ol>
-      <p className="mt-3 rounded-2xl bg-lv-wash/60 p-3 text-xs leading-relaxed text-lv-ink">
-        Total: <span className="font-medium tabular-nums">{fmtTenth(earned)}</span> points earned out of the{" "}
-        <span className="font-medium tabular-nums">{fmtTenth(possible)}</span> the applicable rules could give
-        {" "}= <span className="font-medium tabular-nums">{Math.round(score)}%</span>.
-        {applicable.length < rules.length && " Rules that do not apply are left out, and the others keep their weights."}
-      </p>
+      <ol className="mt-2 space-y-2">{split.main.map(card)}</ol>
+      {split.extra.length === 0 ? (
+        <p className="mt-3 rounded-2xl bg-lv-wash/60 p-3 text-xs leading-relaxed text-lv-ink">
+          Total: {num(split.earned)} points earned out of the{" "}
+          {num(split.possible)} the applicable rules could give
+          {" "}= <span className="font-medium tabular-nums">{Math.round(score)}%</span>.
+          {leftOut}
+        </p>
+      ) : (
+        <>
+          <p className="mt-3 rounded-2xl bg-lv-wash/60 p-3 text-xs leading-relaxed text-lv-ink">
+            Rules total: {num(split.earned)} points earned out of the{" "}
+            {num(split.possible)} the applicable rules could give, converted to{" "}
+            {num(split.converted)} out of {fmtTenth(split.share)}.
+            {leftOut}
+          </p>
+          <p id={extraLabel} className="mt-4 text-xs text-lv-muted">Extra rule</p>
+          <ol aria-labelledby={extraLabel} className="mt-2 space-y-2">{split.extra.map(card)}</ol>
+          <p className="mt-3 rounded-2xl bg-lv-wash/60 p-3 text-xs leading-relaxed text-lv-ink">
+            Total score: {num(split.converted)} from the rules + {num(extraPoints)} from the extra rule ={" "}
+            {num(score)} out of 100.
+          </p>
+        </>
+      )}
     </>
   );
 }
@@ -326,7 +393,7 @@ export default function LivingRoomPlan({ data, footer }: { data: GenerateLivingR
           )}
 
           {/* Kept outside the scrolling panel so the key stays in view */}
-          {!selectedItem && rules && (tab === "rules" || tab === "why") && <RuleLegend rules={rules} />}
+          {!selectedItem && rules && (tab === "rules" || tab === "why") && <RuleLegend />}
 
           <div id="layout-tabpanel" role={selectedItem ? undefined : "tabpanel"}
             aria-labelledby={selectedItem ? undefined : `layout-tab-${tab}`}
@@ -336,7 +403,7 @@ export default function LivingRoomPlan({ data, footer }: { data: GenerateLivingR
             ) : tab === "why" ? (
               <>
                 {rules ? (
-                  <RuleScoring rules={rules} score={layout.layout.score} />
+                  <RuleScoring rules={rules} scoring={layout.scoring} score={layout.layout.score} />
                 ) : (
                   // engines without rule-by-rule results only give the summary
                   <ul className="space-y-3">
@@ -362,7 +429,8 @@ export default function LivingRoomPlan({ data, footer }: { data: GenerateLivingR
                 )}
               </>
             ) : tab === "rules" ? (
-              rules ? <RuleList rules={rules} /> : <ComponentList components={layout.scoring.components} />
+              rules ? <RuleList rules={rules} scoring={layout.scoring} score={layout.layout.score} />
+                : <ComponentList components={layout.scoring.components} />
             ) : (
               <>
                 <dl className="space-y-2.5">

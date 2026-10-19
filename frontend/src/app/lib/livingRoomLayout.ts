@@ -109,7 +109,20 @@ export interface LivingRoomLayoutResult {
   selected_layout: string;
   reason: string[];
   unplaced_furniture: Array<{ type: string; role: string; required: boolean; reasons: string[] }>;
-  scoring: { total: number; components: Record<string, number>; contributions?: unknown[] };
+  scoring: {
+    total: number;
+    components: Record<string, number>;
+    contributions?: unknown[];
+    // Bedroom engine, whose extra rule is added once the rules' total is converted to 90:
+    /** Points the rules earned, out of the points the applicable ones could give (100 when all apply). */
+    rules_earned?: number;
+    rules_possible?: number;
+    /** That total out of 100. */
+    rules_score?: number;
+    /** That total converted to the rules' share of the score: rules_points out of rules_max (90). */
+    rules_points?: number;
+    rules_max?: number;
+  };
   layout_selection: {
     ranking: Array<{ layout: string; score: number; feasible: boolean; reasons?: string[]; blockers?: string[] }>;
     rejected_layouts?: unknown[];
