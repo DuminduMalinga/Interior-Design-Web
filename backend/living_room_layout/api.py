@@ -13,7 +13,9 @@ boxes detected on the same floor plan, it:
      and the occupants' needs,
   4. places the seating group, the TV and a zone for each further activity
      according to ten living-room furniture-arrangement rules,
-  5. returns every layout it found, best first, each with a rule-by-rule report.
+  5. converts each layout's rules score (out of 100) to 90 points and adds up
+     to 10 for the furniture it fits, the fullest layout earning all 10,
+  6. returns every layout it found, best first, each with a rule-by-rule report.
 
 The request and the response have the same shape as the other room services',
 so the frontend calls them the same way and draws them with the same plan
@@ -80,7 +82,7 @@ def health():
 
 @app.get("/rules")
 def rules():
-    """The ten rules as written, and how the engine applies each one."""
+    """The ten rules and the extra furniture rule as written, and how the engine applies each one."""
     return {"rules": rule_catalogue()}
 
 

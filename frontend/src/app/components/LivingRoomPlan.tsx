@@ -65,11 +65,11 @@ const byWeight = (rules: BedroomRuleResult[]) => [...rules].sort((a, b) => b.max
 type Scoring = GenerateLivingRoomLayoutResponse["layout"]["scoring"];
 
 /**
- * The rules heaviest first and any extra rule apart (the bedroom's "Most
- * furniture"), with the rules' total: the points earned out of the points the
- * applicable rules could give, and that converted to the rules' share of the
- * score - 90 when an extra rule gives the other 10. The bedroom engine reports
- * these figures; they are worked out here for engines that do not.
+ * The rules heaviest first and any extra rule apart ("Most furniture"), with
+ * the rules' total: the points earned out of the points the applicable rules
+ * could give, and that converted to the rules' share of the score - 90 when an
+ * extra rule gives the other 10. The engines report these figures; they are
+ * worked out here for layouts that do not carry them.
  */
 function splitRules(rules: BedroomRuleResult[], scoring: Scoring) {
   const main = byWeight(rules.filter((r) => !r.extra));
@@ -109,8 +109,8 @@ function RulePoints({ rule }: { rule: BedroomRuleResult }) {
  * Each rule's points out of its default weight - the max_points the engine
  * reports - heaviest first; a rule that does not apply reads "n/a". The arrow
  * opens what the rule says. How each was scored is on the Why tab. With an
- * extra rule (the bedroom's "Most furniture"), the rules' total and that total
- * converted to 90 come next, then the extra rule, then the total score.
+ * extra rule ("Most furniture"), the rules' total and that total converted to
+ * 90 come next, then the extra rule, then the total score.
  */
 function RuleList({ rules, scoring, score }: { rules: BedroomRuleResult[]; scoring: Scoring; score: number }) {
   const split = useMemo(() => splitRules(rules, scoring), [rules, scoring]);

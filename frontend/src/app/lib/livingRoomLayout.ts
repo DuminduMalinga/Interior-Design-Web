@@ -113,7 +113,7 @@ export interface LivingRoomLayoutResult {
     total: number;
     components: Record<string, number>;
     contributions?: unknown[];
-    // Bedroom engine, whose extra rule is added once the rules' total is converted to 90:
+    // Every engine adds its extra rule once the rules' total is converted to 90 (missing on older layouts):
     /** Points the rules earned, out of the points the applicable ones could give (100 when all apply). */
     rules_earned?: number;
     rules_possible?: number;

@@ -29,6 +29,7 @@ if __package__ in (None, ""):  # allow running the file directly
 from kitchen_layout import RULES, InputError, generate_kitchen_layouts, rule_catalogue
 from kitchen_layout.config import Config
 from kitchen_layout.floorplan import build_shell
+from kitchen_layout.rules import FURNITURE_RULE, furniture_mark
 from kitchen_layout.runs import build_arrangements
 
 PX = 10.0                 # millimetres per pixel used by the test plans
@@ -344,20 +345,51 @@ class RuleComplianceTests(unittest.TestCase):
             self.assertAlmostEqual(sum(triangle["legs_mm"].values()), triangle["perimeter_mm"], delta=3, msg=name)
 
     def test_scores_are_reported_rule_by_rule_and_add_up(self):
-        # a rule that does not apply leaves the others at their default weights
+        # the rules keep their weights (100 in all) and a rule that does not apply leaves the
+        # others at theirs; the rules total is converted to 90 and the extra rule, last, adds 10
         weights = {r["id"]: r["weight"] for r in rule_catalogue()}
-        self.assertEqual(sum(weights.values()), 100)
+        self.assertEqual(sum(weights[rule.id] for rule in RULES), 100)
         for name, layout in self.each_layout():
-            rules = layout["rules"]
-            self.assertEqual([r["id"] for r in rules], [rule.id for rule in RULES], name)
-            self.assertTrue(0 <= layout["layout"]["score"] <= 100, name)
+            rules, scoring, score = layout["rules"], layout["scoring"], layout["layout"]["score"]
+            self.assertEqual([r["id"] for r in rules], [rule.id for rule in RULES] + [FURNITURE_RULE.id], name)
+            self.assertEqual([r["extra"] for r in rules], [False] * len(RULES) + [True], name)
+            self.assertTrue(0 <= score <= 100, name)
             applies = [r for r in rules if r["status"] != "not_applicable"]
             for r in applies:
                 self.assertAlmostEqual(r["max_points"], weights[r["id"]], delta=0.05, msg=name)
-            earned, possible = sum(r["points"] for r in applies), sum(r["max_points"] for r in applies)
-            self.assertAlmostEqual(100.0 * earned / possible, layout["layout"]["score"], delta=1.0, msg=name)
+            # every figure on show is worked from the ones above it, so they add up exactly
+            arranged = [r for r in applies if not r["extra"]]
+            earned, possible = sum(r["points"] for r in arranged), sum(r["max_points"] for r in arranged)
+            self.assertAlmostEqual(scoring["rules_earned"], earned, delta=1e-6, msg=name)
+            self.assertAlmostEqual(scoring["rules_possible"], possible, delta=1e-6, msg=name)
+            self.assertEqual(scoring["rules_max"], 90.0, name)
+            self.assertAlmostEqual(scoring["rules_points"], 90.0 * earned / possible, delta=0.05, msg=name)
+            self.assertAlmostEqual(scoring["rules_points"] + rules[-1]["points"], score, delta=1e-6, msg=name)
+            self.assertEqual(scoring["total"], score, name)
             for rule in rules:
                 self.assertTrue(rule["detail"], "{}: {}".format(name, rule["id"]))
+
+    def test_the_extra_rule_gives_10_for_the_most_furniture_and_5_for_one_piece_fewer(self):
+        for name, result in self.results.items():
+            layouts = [l for l in layouts_of(result) if "rules" in l]
+            if not layouts:
+                continue
+            counts = [len(l["furniture"]) for l in layouts]
+            most = max(counts)
+            for layout, count in zip(layouts, counts):
+                extra = layout["rules"][-1]
+                self.assertEqual(extra["max_points"], 10.0, name)
+                # below one piece fewer the points fall evenly, to 0 with no furniture
+                expected = 10.0 if count == most else 5.0 * count / (most - 1)
+                self.assertAlmostEqual(extra["points"], expected, delta=0.05, msg=name)
+
+    def test_the_furniture_mark_halves_for_one_piece_fewer_then_falls_evenly_to_nothing(self):
+        self.assertEqual(furniture_mark(7, 7), 1.0)
+        self.assertEqual(furniture_mark(6, 7), 0.5)
+        self.assertAlmostEqual(furniture_mark(3, 7), 0.25)
+        self.assertEqual(furniture_mark(0, 7), 0.0)
+        self.assertEqual(furniture_mark(1, 1), 1.0)
+        self.assertEqual(furniture_mark(0, 1), 0.0)
 
     def test_layouts_come_best_first(self):
         for name, result in self.results.items():
@@ -447,10 +479,12 @@ class BehaviourTests(unittest.TestCase):
             generate_kitchen_layouts(payload)
             self.assertLess(time.perf_counter() - started, 5.0, name)
 
-    def test_the_rule_catalogue_lists_all_twelve(self):
+    def test_the_rule_catalogue_lists_all_twelve_and_the_furniture_rule(self):
         catalogue = rule_catalogue()
-        self.assertEqual([r["id"] for r in catalogue], ["R%d" % n for n in range(1, 13)])
-        self.assertAlmostEqual(sum(r["weight"] for r in catalogue), 100.0)
+        self.assertEqual([r["id"] for r in catalogue], ["R%d" % n for n in range(1, 14)])
+        self.assertEqual(sum(r["weight"] for r in catalogue[:-1]), 100)
+        self.assertEqual(catalogue[-1]["weight"], 10.0)
+        self.assertEqual([r["extra"] for r in catalogue], [False] * 12 + [True])
 
     def test_the_result_has_the_shape_the_plan_viewer_draws(self):
         result = generate_kitchen_layouts(ROOMS["family"])
@@ -494,7 +528,7 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(caught.exception.status_code, 422)
 
     def test_rules_and_health(self):
-        self.assertEqual(len(service.rules()["rules"]), 12)
+        self.assertEqual(len(service.rules()["rules"]), 13)
         self.assertEqual(service.health(), {"status": "ok"})
 
 

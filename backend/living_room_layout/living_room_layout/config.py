@@ -96,7 +96,12 @@ class RoomThresholds:
 
 @dataclass
 class Weights:
-    """Points each of the ten rules can contribute; they add up to 100."""
+    """Points each rule can contribute.
+
+    The ten arrangement rules add up to 100. Their score is then converted
+    to what `furniture_count` leaves of the 100-point total (90), and the extra
+    rule's points are added on top.
+    """
 
     face_to_face: float = 12.0       # rule 1
     views: float = 8.0               # rule 2
@@ -108,6 +113,7 @@ class Weights:
     openness: float = 10.0           # rule 8
     movement: float = 10.0           # rule 9
     accessibility: float = 8.0       # rule 10
+    furniture_count: float = 10.0    # the extra rule: most furniture of the layouts generated
 
 
 @dataclass
