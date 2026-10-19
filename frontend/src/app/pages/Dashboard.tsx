@@ -115,11 +115,15 @@ export default function Dashboard() {
   };
   // ── Designs (real data) ─────────────────────
   const { designs, loading: designsLoading, error: designsError, reload: reloadDesigns } = useUserDesigns();
-  const scores = designs.flatMap((d) => (d.score === null ? [] : [d.score]));
+  const scored = designs.filter((d) => d.score !== null);
+  const lastScored = scored.reduce<UserDesign | null>(
+    (latest, d) => (!latest || (d.updatedAt ?? "") > (latest.updatedAt ?? "") ? d : latest),
+    null,
+  );
   const stats = [
     { label: "Floor plans uploaded", value: String(designs.length) },
-    { label: "Rooms furnished", value: String(scores.length) },
-    { label: "Best layout score", value: scores.length ? `${Math.max(...scores)}` : "–", suffix: scores.length ? "/100" : "" },
+    { label: "Rooms furnished", value: String(scored.length) },
+    { label: "Last layout score", value: lastScored ? `${lastScored.score}` : "–", suffix: lastScored ? "/100" : "" },
   ];
   const firstName = displayName.trim().split(/\s+/)[0] || "there";
   const hour = new Date().getHours();

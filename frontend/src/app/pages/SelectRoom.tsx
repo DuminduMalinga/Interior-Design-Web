@@ -7,6 +7,7 @@ import PageGlows from "../components/marketing/PageGlows";
 import AppFooter from "../components/AppFooter";
 import FlowStepper from "../components/FlowStepper";
 import type { DetectionResult } from "../lib/wallDetector";
+import { roomKind } from "../lib/roomKind";
 
 type RoomType = "Room";
 
@@ -120,11 +121,13 @@ function formatSize(room: DetectedRoom): { dims: string; area: string; note: str
 function RoomRow({
   room,
   selected,
+  disabled = false,
   onClick,
   rowRef,
 }: {
   room: DetectedRoom;
   selected: boolean;
+  disabled?: boolean;
   onClick: () => void;
   rowRef: (el: HTMLButtonElement | null) => void;
 }) {
@@ -132,9 +135,13 @@ function RoomRow({
   const points = room.shape.map(([x, y]) => `${x},${y}`).join(" ");
 
   return (
-    <button ref={rowRef} type="button" onClick={onClick} aria-pressed={selected}
-      className={`flex w-full cursor-pointer items-center gap-4 rounded-[20px] border p-3 text-left transition-colors ${
-        selected ? "border-lv-accent bg-lv-wash/60 ring-1 ring-lv-accent/40" : "border-lv-line bg-lv-surface hover:border-lv-accent/50"
+    <button ref={rowRef} type="button" onClick={onClick} aria-pressed={selected} disabled={disabled}
+      className={`flex w-full items-center gap-4 rounded-[20px] border p-3 text-left transition-colors ${
+        disabled
+          ? "cursor-not-allowed border-dashed border-lv-line bg-lv-surface/50 opacity-60"
+          : selected
+            ? "cursor-pointer border-lv-accent bg-lv-wash/60 ring-1 ring-lv-accent/40"
+            : "cursor-pointer border-lv-line bg-lv-surface hover:border-lv-accent/50"
       }`}>
       <span className={`grid h-16 w-16 shrink-0 place-items-center rounded-2xl ${selected ? "bg-lv-wash text-lv-ink" : "bg-lv-wash/50 text-lv-muted"}`}>
         <svg viewBox="0 0 100 100" className="h-14 w-14" aria-hidden="true">
@@ -170,9 +177,12 @@ export default function SelectRoom() {
   }, [detection, navigate]);
 
 
-  // Every detected room is listed. Rooms without a layout engine yet (a study, a
-  // closet) can still be picked; View Layouts shows its placeholder for them.
+  // Every detected room is listed, but only rooms with a layout engine (the same
+  // roomKind check View Layouts uses) can be picked; the rest are shown apart.
   const rooms = useMemo(() => (detection ? roomsFromDetection(detection) : []), [detection]);
+  const furnishable = rooms.filter((r) => roomKind(r.name) !== null);
+  const unsupported = rooms.filter((r) => roomKind(r.name) === null);
+  const canFurnish = (id: string) => furnishable.some((r) => r.id === id);
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId) ?? null;
   const rowRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   useEffect(() => {
@@ -189,7 +199,9 @@ export default function SelectRoom() {
 
   if (!detection) return null;
 
-  const toggleRoom = (id: string) => setSelectedRoomId((prev) => (prev === id ? null : id));
+  const toggleRoom = (id: string) => {
+    if (canFurnish(id)) setSelectedRoomId((prev) => (prev === id ? null : id));
+  };
   const selectedSize = selectedRoom ? formatSize(selectedRoom) : null;
   const planRatio = detection.imageWidth > 0 && detection.imageHeight > 0 ? detection.imageWidth / detection.imageHeight : 4 / 3;
 
@@ -256,7 +268,7 @@ export default function SelectRoom() {
               <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="lg:col-start-1 lg:row-start-1">
                 <h1 className="text-4xl md:text-5xl leading-[1.05] tracking-tight text-lv-ink">Pick a room</h1>
                 <p className="mt-3 text-base md:text-lg text-lv-muted">
-                  {rooms.length} {rooms.length === 1 ? "room" : "rooms"} found. Choose one from the list or on the plan.
+                  {rooms.length} {rooms.length === 1 ? "room" : "rooms"} found, {furnishable.length} we can furnish. Choose one from the list or on the plan.
                 </p>
               </motion.div>
 
@@ -275,6 +287,7 @@ export default function SelectRoom() {
                         className="absolute inset-0 h-full w-full">
                         {rooms.map((room) => {
                           const isSelected = room.id === selectedRoomId;
+                          const isFurnishable = canFurnish(room.id);
                           return (
                             <polygon
                               key={room.id}
@@ -283,13 +296,15 @@ export default function SelectRoom() {
                               vectorEffect="non-scaling-stroke"
                               strokeWidth={2}
                               strokeLinejoin="round"
-                              className={`cursor-pointer transition-colors duration-200 ${
-                                isSelected
-                                  ? "fill-[#6e6bc9]/30 stroke-[#6e6bc9]"
-                                  : "fill-transparent stroke-transparent hover:fill-[#6e6bc9]/15 hover:stroke-[#6e6bc9]/70"
+                              className={`transition-colors duration-200 ${
+                                !isFurnishable
+                                  ? "cursor-not-allowed fill-transparent stroke-transparent"
+                                  : isSelected
+                                    ? "cursor-pointer fill-[#6e6bc9]/30 stroke-[#6e6bc9]"
+                                    : "cursor-pointer fill-transparent stroke-transparent hover:fill-[#6e6bc9]/15 hover:stroke-[#6e6bc9]/70"
                               }`}
                             >
-                              <title>{room.name}</title>
+                              <title>{isFurnishable ? room.name : `${room.name} (can't be furnished yet)`}</title>
                             </polygon>
                           );
                         })}
@@ -314,13 +329,41 @@ export default function SelectRoom() {
 
               {/* Room buttons: the only part that scrolls when there are many */}
               <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-                role="group" aria-label="Rooms"
-                className="grid grid-cols-1 content-start gap-3 sm:grid-cols-2 lg:col-start-1 lg:row-start-2 lg:min-h-0 lg:overflow-y-auto lg:pr-2">
-                {rooms.map((room) => (
-                  <RoomRow key={room.id} room={room} selected={room.id === selectedRoomId}
-                    onClick={() => toggleRoom(room.id)}
-                    rowRef={(el) => { rowRefs.current[room.id] = el; }} />
-                ))}
+                className="flex flex-col gap-6 lg:col-start-1 lg:row-start-2 lg:min-h-0 lg:overflow-y-auto lg:pr-2">
+                <section role="group" aria-labelledby="rooms-furnishable">
+                  <h2 id="rooms-furnishable" className="text-sm font-medium text-lv-ink">
+                    Ready to furnish <span className="text-lv-muted tabular-nums">({furnishable.length})</span>
+                  </h2>
+                  {furnishable.length > 0 ? (
+                    <div className="mt-3 grid grid-cols-1 content-start gap-3 sm:grid-cols-2">
+                      {furnishable.map((room) => (
+                        <RoomRow key={room.id} room={room} selected={room.id === selectedRoomId}
+                          onClick={() => toggleRoom(room.id)}
+                          rowRef={(el) => { rowRefs.current[room.id] = el; }} />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-sm text-lv-muted">None of the rooms in this plan can be furnished yet.</p>
+                  )}
+                </section>
+
+                {unsupported.length > 0 && (
+                  <section role="group" aria-labelledby="rooms-unsupported">
+                    <h2 id="rooms-unsupported" className="text-sm font-medium text-lv-ink">
+                      Can't furnish yet <span className="text-lv-muted tabular-nums">({unsupported.length})</span>
+                    </h2>
+                    <p className="mt-1 text-xs text-lv-muted">
+                      Layouts are available for living rooms, bedrooms, bathrooms, kitchens and dining rooms.
+                    </p>
+                    <div className="mt-3 grid grid-cols-1 content-start gap-3 sm:grid-cols-2">
+                      {unsupported.map((room) => (
+                        <RoomRow key={room.id} room={room} selected={false} disabled
+                          onClick={() => {}}
+                          rowRef={(el) => { rowRefs.current[room.id] = el; }} />
+                      ))}
+                    </div>
+                  </section>
+                )}
               </motion.div>
 
               {/* Below lg the Generate card sticks to the bottom of the screen instead */}

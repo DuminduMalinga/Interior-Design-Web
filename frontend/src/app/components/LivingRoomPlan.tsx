@@ -27,6 +27,31 @@ const RULE_STATUS: Record<BedroomRuleResult["status"], string> = {
   not_applicable: "Does not apply",
 };
 
+// What each dot colour means: the share of a rule's points that every layout
+// engine's RuleResult.status (backend/<engine>/rules.py) maps to each status.
+const RULE_LEGEND: { status: BedroomRuleResult["status"]; range: string }[] = [
+  { status: "satisfied", range: "75%+" },
+  { status: "partly_satisfied", range: "50–74%" },
+  { status: "not_satisfied", range: "<50%" },
+  { status: "not_applicable", range: "" },
+];
+
+function RuleLegend({ rules }: { rules: BedroomRuleResult[] }) {
+  const shown = RULE_LEGEND.filter((l) => l.status !== "not_applicable" || rules.some((r) => r.status === "not_applicable"));
+  return (
+    <ul aria-label="Rule colours"
+      className="mt-3 flex shrink-0 flex-nowrap items-center gap-x-3 self-start whitespace-nowrap rounded-full border border-lv-line bg-lv-wash/50 px-3 py-1.5 text-xs text-lv-muted">
+      {shown.map((l) => (
+        <li key={l.status} className="flex items-center gap-1">
+          <span className={`h-2 w-2 shrink-0 rounded-full ${RULE_TONE[l.status]}`} aria-hidden="true" />
+          <span className="text-lv-ink">{RULE_STATUS[l.status]}</span>
+          {l.range && <span className="tabular-nums">{l.range}</span>}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 const titleCase = (value: string) => value.replace(/_/g, " ");
 
 /** "10" for a whole number, otherwise one decimal ("9.5"). */
@@ -299,6 +324,9 @@ export default function LivingRoomPlan({ data, footer }: { data: GenerateLivingR
               ))}
             </div>
           )}
+
+          {/* Kept outside the scrolling panel so the key stays in view */}
+          {!selectedItem && rules && (tab === "rules" || tab === "why") && <RuleLegend rules={rules} />}
 
           <div id="layout-tabpanel" role={selectedItem ? undefined : "tabpanel"}
             aria-labelledby={selectedItem ? undefined : `layout-tab-${tab}`}

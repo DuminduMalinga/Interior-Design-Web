@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState, type RefObject } from "react";
-import { ArrowRight, Box, ChevronsLeftRight, Github, Linkedin, Mail, MessageSquareText, Ruler } from "lucide-react";
+import { ArrowRight, Box, ChevronsLeftRight, MessageSquareText, Ruler } from "lucide-react";
 import { useNavigate } from "react-router";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -48,24 +48,6 @@ const PRINCIPLES = [
   { icon: MessageSquareText, title: "Every choice explained", desc: "Each piece says why it stands where it does: the wall it uses, the path it keeps clear." },
   { icon: Box, title: "See it before you buy", desc: "Look at the room from any angle in 3D before a single piece of furniture moves." },
 ];
-
-/**
- * The team. Placeholder details for now: replace each entry with the real
- * name, role and links. For a photo, put the image in public/about/team/ and
- * set `photo` to its path (e.g. "/about/team/akalanka.jpg"); without one the
- * card shows the person's initials. Leave a link empty ("") to hide it.
- */
-type Member = { name: string; role: string; photo: string | null; email: string; github: string; linkedin: string };
-
-const TEAM: Member[] = [
-  { name: "Member One", role: "Project lead", photo: null, email: "member.one@example.com", github: "#", linkedin: "#" },
-  { name: "Member Two", role: "Floor plan detection", photo: null, email: "member.two@example.com", github: "#", linkedin: "#" },
-  { name: "Member Three", role: "Layout engine", photo: null, email: "member.three@example.com", github: "#", linkedin: "#" },
-  { name: "Member Four", role: "3D visualisation", photo: null, email: "member.four@example.com", github: "#", linkedin: "#" },
-  { name: "Member Five", role: "Frontend and design", photo: null, email: "member.five@example.com", github: "#", linkedin: "#" },
-];
-
-const initialsOf = (name: string) => name.trim().split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 
 /**
  * The About page's motion. Different from the landing page on purpose: words
@@ -150,24 +132,6 @@ function useAboutMotion(
           clearProps: "transform",
           scrollTrigger: { trigger: "[data-ab-principles]", start: "top 85%", once: true },
         });
-
-        // Team: the cards rise in one after another, then each round photo pops
-        // in with a small overshoot. Transforms are cleared so the CSS hover lift works.
-        gsap
-          .timeline({ scrollTrigger: { trigger: "[data-ab-team]", start: "top 82%", once: true } })
-          .from("[data-ab-member]", {
-            y: 20,
-            autoAlpha: 0,
-            duration: 0.6,
-            stagger: 0.08,
-            ease: "power2.out",
-            clearProps: "transform",
-          })
-          .from(
-            "[data-ab-member-photo]",
-            { scale: 0.4, autoAlpha: 0, duration: 0.7, stagger: 0.08, ease: "back.out(2)", clearProps: "transform" },
-            0.15,
-          );
 
         // Closing card grows from a pill to full width (clipped, so the text is never squashed).
         gsap.fromTo(
@@ -375,50 +339,6 @@ export default function About() {
                   <p className="mt-2 text-sm leading-relaxed text-lv-muted">{desc}</p>
                 </li>
               ))}
-            </ul>
-          </section>
-
-          {/* ── Team ── */}
-          <section data-ab-team aria-labelledby="about-team" className="mt-24 text-center lg:mt-32">
-            <h2 id="about-team" className="text-2xl leading-tight tracking-tight text-lv-ink md:text-3xl">The team behind roomscape</h2>
-            <p className="mt-2 text-sm text-lv-muted md:text-base">Five of us built it, from reading the plan to the 3D room.</p>
-            {/* Wraps into centred rows on smaller screens, one row of five from lg */}
-            <ul className="mt-8 flex flex-wrap justify-center gap-3">
-              {TEAM.map((m, i) => {
-                const links = [
-                  { href: m.email ? `mailto:${m.email}` : "", icon: Mail, label: `Email ${m.name}` },
-                  { href: m.github, icon: Github, label: `${m.name} on GitHub` },
-                  { href: m.linkedin, icon: Linkedin, label: `${m.name} on LinkedIn` },
-                ].filter((l) => l.href);
-                return (
-                  <li key={i} data-ab-member
-                    className="group flex w-[calc(50%-0.375rem)] flex-col items-center rounded-[24px] border border-lv-line bg-lv-surface px-4 pb-4 pt-5 transition-[transform,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-[var(--lv-shadow)] motion-reduce:transition-none motion-reduce:hover:translate-y-0 sm:w-[calc(33.333%-0.5rem)] lg:w-auto lg:flex-1">
-                    <div data-ab-member-photo
-                      className="h-20 w-20 overflow-hidden rounded-full bg-lv-wash ring-2 ring-transparent ring-offset-2 ring-offset-lv-surface transition-shadow duration-300 group-hover:ring-lv-accent">
-                      {m.photo ? (
-                        <img src={m.photo} alt={`Photo of ${m.name}`} loading="lazy" className="h-full w-full object-cover" />
-                      ) : (
-                        <span aria-hidden="true" className="grid h-full w-full place-items-center text-xl font-medium tracking-tight text-lv-ink">
-                          {initialsOf(m.name)}
-                        </span>
-                      )}
-                    </div>
-                    <h3 className="mt-3 text-base leading-tight text-lv-ink">{m.name}</h3>
-                    <p className="mt-0.5 text-xs text-lv-accent">{m.role}</p>
-                    {links.length > 0 && (
-                      <div className="mt-3 flex gap-1">
-                        {links.map(({ href, icon: Icon, label }) => (
-                          <a key={label} href={href} aria-label={label} title={label}
-                            {...(href.startsWith("http") ? { target: "_blank", rel: "noreferrer" } : {})}
-                            className="grid h-9 w-9 place-items-center rounded-full text-lv-muted transition-colors hover:bg-lv-ink/8 hover:text-lv-ink">
-                            <Icon className="h-4 w-4" aria-hidden="true" />
-                          </a>
-                        ))}
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
             </ul>
           </section>
 
