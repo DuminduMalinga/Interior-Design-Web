@@ -9,6 +9,7 @@ import FlowStepper, { rememberFlowState } from "../components/FlowStepper";
 import { supabase } from "../lib/supabaseClient";
 import { detectFloorPlan } from "../lib/wallDetector";
 import { saveDetectionAnalysis } from "../lib/floorPlanAnalysis";
+import { emailMe, notifyBrowser } from "../lib/notifications";
 
 export default function UploadFloorPlan() {
   const navigate = useNavigate();
@@ -131,6 +132,8 @@ export default function UploadFloorPlan() {
         floorPlanId,
       });
       await saveDetectionAnalysis(floorPlanId, detection);
+      void notifyBrowser("Floor plan ready", `${detection.rooms.length} rooms found. Pick a room to furnish.`);
+      void emailMe("plan_ready", { rooms: detection.rooms.length });
 
       rememberFlowState({ floorPlanId, detection });
       setUploadProgress(100);

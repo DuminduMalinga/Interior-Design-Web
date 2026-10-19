@@ -37,6 +37,7 @@ import {
 } from "../lib/diningLayout";
 import { generateAllMasterBedroomLayouts } from "../lib/masterBedroomLayout";
 import { roomKind } from "../lib/roomKind";
+import { notifyBrowser } from "../lib/notifications";
 import LivingRoomLayoutGrid from "../components/LivingRoomLayoutGrid";
 import LivingRoomPlan from "../components/LivingRoomPlan";
 import {
@@ -170,6 +171,7 @@ export default function ViewLayouts() {
       .then(async (res) => {
         if (cancelled) return;
         setLivingAll(res);
+        void notifyBrowser("Layouts ready", `Your ${roomLabel.toLowerCase()} layouts are ready to compare.`);
         const selectedType = res.bestLayout ?? res.layouts.find((l) => !("error" in l))?.layout.type ?? null;
         setSelectedLayoutType(selectedType);
         const selected = res.layouts.find((l) => l.layout.type === selectedType);

@@ -8,6 +8,7 @@ import {
   ChevronUp,
   Eye,
   Loader2,
+  Mail,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -19,6 +20,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { supabase } from "../lib/supabaseClient";
+import { countNewsReaders, sendProductNews } from "../lib/notifications";
 import SiteNavbar from "../components/SiteNavbar";
 import PageGlows from "../components/marketing/PageGlows";
 import AppFooter from "../components/AppFooter";
@@ -267,6 +269,72 @@ function DeleteUserDialog({
   );
 }
 
+function NewsDialog({ onClose, onSent }: { onClose: () => void; onSent: (recipients: number) => void }) {
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [readers, setReaders] = useState<number | null>(null);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const ready = subject.trim() !== "" && message.trim() !== "";
+
+  useEffect(() => {
+    let cancelled = false;
+    countNewsReaders().then((n) => { if (!cancelled) setReaders(n); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  const submit = async () => {
+    if (!ready || sending || readers === 0) return;
+    setSending(true);
+    setError(null);
+    try {
+      onSent(await sendProductNews(subject.trim(), message.trim()));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "The message could not be sent.");
+      setSending(false);
+    }
+  };
+
+  return (
+    <Dialog labelledBy="news-title" onClose={onClose} locked={sending}>
+      <span className="grid h-12 w-12 place-items-center rounded-full bg-lv-wash">
+        <Mail className="h-5 w-5 text-lv-ink" aria-hidden="true" />
+      </span>
+      <h2 id="news-title" className="mt-5 text-2xl leading-tight text-lv-ink">Send product news</h2>
+      <p className="mt-2 text-sm leading-relaxed text-lv-muted">
+        {readers === null
+          ? "Emailed to everyone who turned on Product news."
+          : readers === 0
+            ? "Nobody has Product news turned on, so there is no one to send this to."
+            : `Emailed to ${readers} ${readers === 1 ? "person" : "people"} who turned on Product news. It can't be unsent.`}
+      </p>
+
+      <form className="mt-6 space-y-4" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
+        <div>
+          <label htmlFor="news-subject" className="mb-1.5 block text-sm text-lv-muted">Subject</label>
+          <input id="news-subject" autoFocus maxLength={150} value={subject} onChange={(e) => setSubject(e.target.value)} className="lv-input" />
+        </div>
+        <div>
+          <label htmlFor="news-message" className="mb-1.5 block text-sm text-lv-muted">Message</label>
+          <textarea id="news-message" rows={7} maxLength={5000} value={message} onChange={(e) => setMessage(e.target.value)} className="lv-input resize-y" />
+        </div>
+        {error && (
+          <p role="alert" className="flex items-start gap-2 rounded-2xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" /> {error}
+          </p>
+        )}
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <button type="button" onClick={onClose} disabled={sending} className="lv-btn-quiet">Cancel</button>
+          <button type="submit" disabled={!ready || sending || readers === 0} className="lv-btn">
+            {sending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Mail className="h-4 w-4" aria-hidden="true" />}
+            {sending ? "Sending…" : "Send to everyone"}
+          </button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+
 export default function AdminManageAccounts() {
   const reduceMotion = useReducedMotion();
   const [users, setUsers] = useState<UserAccount[]>([]);
@@ -281,6 +349,7 @@ export default function AdminManageAccounts() {
 
   const [viewTarget, setViewTarget] = useState<UserAccount | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<UserAccount | null>(null);
+  const [newsOpen, setNewsOpen] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
 
   const showToast = (type: "success" | "error", msg: string) => {
@@ -404,6 +473,12 @@ export default function AdminManageAccounts() {
         {deleteTarget && (
           <DeleteUserDialog user={deleteTarget} onCancel={() => setDeleteTarget(null)} onConfirm={handleDeleteConfirm} />
         )}
+        {newsOpen && (
+          <NewsDialog
+            onClose={() => setNewsOpen(false)}
+            onSent={(n) => { setNewsOpen(false); showToast("success", `Product news sent to ${n} ${n === 1 ? "person" : "people"}.`); }}
+          />
+        )}
       </AnimatePresence>
 
       <AnimatePresence>
@@ -431,10 +506,16 @@ export default function AdminManageAccounts() {
               <h1 className="text-4xl leading-[1.05] tracking-tight text-lv-ink md:text-5xl">Manage user accounts</h1>
               <p className="mt-3 text-base text-lv-muted">View, search and manage registered users.</p>
             </div>
-            <button type="button" onClick={() => void loadUsers()} disabled={isLoading} className="lv-btn-quiet self-start bg-lv-surface/70 sm:self-auto">
-              <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} aria-hidden="true" />
-              Refresh
-            </button>
+            <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+              <button type="button" onClick={() => setNewsOpen(true)} className="lv-btn-quiet bg-lv-surface/70">
+                <Mail className="h-4 w-4" aria-hidden="true" />
+                Send product news
+              </button>
+              <button type="button" onClick={() => void loadUsers()} disabled={isLoading} className="lv-btn-quiet bg-lv-surface/70">
+                <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} aria-hidden="true" />
+                Refresh
+              </button>
+            </div>
           </div>
 
           {/* Stats */}
