@@ -269,7 +269,7 @@ function DeleteUserDialog({
   );
 }
 
-function NewsDialog({ onClose, onSent }: { onClose: () => void; onSent: (recipients: number) => void }) {
+function NewsDialog({ onClose, onSent, onTestSent }: { onClose: () => void; onSent: (recipients: number) => void; onTestSent: () => void }) {
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [readers, setReaders] = useState<number | null>(null);
@@ -283,14 +283,17 @@ function NewsDialog({ onClose, onSent }: { onClose: () => void; onSent: (recipie
     return () => { cancelled = true; };
   }, []);
 
-  const submit = async () => {
-    if (!ready || sending || readers === 0) return;
+  const submit = async (testOnly = false) => {
+    if (!ready || sending || (!testOnly && readers === 0)) return;
     setSending(true);
     setError(null);
     try {
-      onSent(await sendProductNews(subject.trim(), message.trim()));
+      const recipients = await sendProductNews(subject.trim(), message.trim(), testOnly);
+      if (testOnly) onTestSent();
+      else onSent(recipients);
     } catch (err) {
       setError(err instanceof Error ? err.message : "The message could not be sent.");
+    } finally {
       setSending(false);
     }
   };
@@ -323,8 +326,11 @@ function NewsDialog({ onClose, onSent }: { onClose: () => void; onSent: (recipie
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" /> {error}
           </p>
         )}
-        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
           <button type="button" onClick={onClose} disabled={sending} className="lv-btn-quiet">Cancel</button>
+          <button type="button" onClick={() => void submit(true)} disabled={!ready || sending} className="lv-btn-quiet">
+            Send me a test
+          </button>
           <button type="submit" disabled={!ready || sending || readers === 0} className="lv-btn">
             {sending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Mail className="h-4 w-4" aria-hidden="true" />}
             {sending ? "Sending…" : "Send to everyone"}
@@ -477,6 +483,7 @@ export default function AdminManageAccounts() {
           <NewsDialog
             onClose={() => setNewsOpen(false)}
             onSent={(n) => { setNewsOpen(false); showToast("success", `Product news sent to ${n} ${n === 1 ? "person" : "people"}.`); }}
+            onTestSent={() => showToast("success", "Test sent to your own address. Check your inbox.")}
           />
         )}
       </AnimatePresence>

@@ -79,13 +79,14 @@ export async function countNewsReaders(): Promise<number> {
 const NEWS_PROBLEMS: Record<string, string> = {
   not_configured: "Email isn't set up yet. Add the RESEND_API_KEY secret in Supabase, then try again.",
   limit: "You've reached today's email limit. Try again tomorrow.",
-  provider_error: "The email service refused the message. Check the sender address and API key in Supabase.",
+  provider_error: "The email service refused the message. Check the API key and sender address in Supabase.",
+  domain_not_verified: "Resend only delivers to your own address until you verify a domain there. Use \"Send me a test\", or verify a domain in Resend and set MAIL_FROM to an address on it.",
 };
 
 /** Emails a product-news message to everyone who wants it. Returns how many people it went to. */
-export async function sendProductNews(subject: string, message: string): Promise<number> {
+export async function sendProductNews(subject: string, message: string, testOnly = false): Promise<number> {
   const { data, error } = await supabase.functions.invoke("send-notification", {
-    body: { kind: "news", params: { subject, message } },
+    body: { kind: "news", params: { subject, message, testOnly } },
   });
   if (error) {
     let reason = "";
