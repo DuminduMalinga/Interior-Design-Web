@@ -33,6 +33,7 @@ import type { DetectionResult } from "../lib/wallDetector";
 import type { LayoutFurnitureItem, LivingRoomLayoutResult } from "../lib/livingRoomLayout";
 import { furnitureColor } from "../lib/roomPalette3d";
 import { saveSelectedLivingRoomLayout } from "../lib/floorPlanAnalysis";
+import { saveDesign } from "../lib/savedDesign";
 
 // three.js is only needed on this page, so it is loaded with the 3D view itself
 const RoomScene3D = lazy(() => import("../components/RoomScene3D"));
@@ -326,6 +327,16 @@ export default function RoomView3D() {
     setSaving(true);
     try {
       await saveSelectedLivingRoomLayout(navState.floorPlanId, navState.room.id, layout);
+      // keep the 3D model and a preview picture too, when the 3D view is showing
+      const scene = viewMode === "3D" ? sceneRef.current : null;
+      await saveDesign({
+        floorPlanId: navState.floorPlanId,
+        roomId: navState.room.id,
+        roomName,
+        layout,
+        model: scene ? await scene.exportGLB() : null,
+        previewDataUrl: scene?.toPNG() ?? null,
+      });
       showToast({ text: "Design saved", ok: true });
     } catch (err) {
       showToast({ text: err instanceof Error ? err.message : "Could not save the design.", ok: false });
