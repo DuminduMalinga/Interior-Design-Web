@@ -479,7 +479,7 @@ export default function RoomView3D() {
                   {show3D && (
                     <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 flex items-end justify-between gap-3">
                       <p className={`hidden px-3.5 py-2 text-xs text-lv-muted md:block ${overlayPill}`}>
-                        Drag to rotate · Scroll to zoom · Right-drag to pan · Click a piece for details
+                        Drag to rotate · Scroll to zoom · Right-drag or WASD to move · Click a piece for details
                       </p>
                       <div className={`pointer-events-auto ml-auto flex items-center gap-0.5 p-1 ${overlayPill}`}>
                         {cameraControls.map(({ icon: Icon, title, action }) => (

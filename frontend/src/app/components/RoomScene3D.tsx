@@ -234,6 +234,11 @@ const RoomScene3D = forwardRef<RoomScene3DHandle, Props>(function RoomScene3D(
     };
     stageRef.current = stage;
     controls.addEventListener("start", () => { stage.touched = true; });
+    // The wheel moves the camera inside its own event handler (OrbitControls calls
+    // update() there), so by the time the loop's update() runs it sees no movement
+    // and skips the frame: zooming would only show on the next redraw. Any change
+    // the controls make, wherever it comes from, asks for a frame.
+    controls.addEventListener("change", () => { stage.dirty = true; });
 
     // What the opening view has to take in: the floor and the two far walls. The
     // camera looks in over the corner the room shows best from, where the walls are taken away.
@@ -312,6 +317,68 @@ const RoomScene3D = forwardRef<RoomScene3DHandle, Props>(function RoomScene3D(
     renderer.domElement.addEventListener("pointerdown", onDown);
     renderer.domElement.addEventListener("pointerup", onUp);
 
+    // WASD walks the view over the floor: W / S along the way the camera looks,
+    // A / D to the sides, Shift for double speed. Camera and orbit centre move
+    // together, so the mouse orbits and zooms from wherever the keys have taken
+    // it. The keys only count while the pointer is over the view or it has
+    // focus, and never while typing into a field.
+    const held = new Set<string>();
+    let hovered = false;
+    renderer.domElement.tabIndex = 0;
+    renderer.domElement.style.outline = "none";
+    const onEnter = () => { hovered = true; };
+    const onLeave = () => { hovered = false; };
+    const typing = (target: EventTarget | null) =>
+      target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
+    const onKeyDown = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase();
+      if (!"wasd".includes(key) || key.length !== 1 || e.ctrlKey || e.metaKey || e.altKey || typing(e.target)) return;
+      if (!hovered && document.activeElement !== renderer.domElement) return;
+      e.preventDefault();
+      held.add(key);
+      stage.touched = true;
+    };
+    const onKeyUp = (e: KeyboardEvent) => { held.delete(e.key.toLowerCase()); };
+    const release = () => held.clear();
+    renderer.domElement.addEventListener("pointerenter", onEnter);
+    renderer.domElement.addEventListener("pointerleave", onLeave);
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", release);
+
+    const forward = new THREE.Vector3();
+    const side = new THREE.Vector3();
+    const step = new THREE.Vector3();
+    // how far from the room the orbit centre may wander (m)
+    const roam = { x: width / 2 + 1, z: length / 2 + 1 };
+    const walk = (dt: number, fast: boolean): boolean => {
+      if (!held.size) return false;
+      camera.getWorldDirection(forward);
+      forward.y = 0;
+      if (forward.lengthSq() < 1e-6) return false;   // looking straight down: no "forward"
+      forward.normalize();
+      side.crossVectors(forward, UP);                 // to the right of the view
+      step.set(0, 0, 0);
+      if (held.has("w")) step.add(forward);
+      if (held.has("s")) step.sub(forward);
+      if (held.has("d")) step.add(side);
+      if (held.has("a")) step.sub(side);
+      if (step.lengthSq() === 0) return false;
+      const speed = Math.max(1.5, radius * 0.8) * (fast ? 2 : 1);   // m per second
+      step.normalize().multiplyScalar(speed * dt);
+      // keep the orbit centre near the room
+      const target = controls.target;
+      step.x = THREE.MathUtils.clamp(target.x + step.x, -roam.x, roam.x) - target.x;
+      step.z = THREE.MathUtils.clamp(target.z + step.z, -roam.z, roam.z) - target.z;
+      camera.position.add(step);
+      target.add(step);
+      return step.lengthSq() > 0;
+    };
+    let shift = false;
+    const onShift = (e: KeyboardEvent) => { shift = e.shiftKey; };
+    window.addEventListener("keydown", onShift);
+    window.addEventListener("keyup", onShift);
+
     // a frame is only drawn when the view has changed: the camera moved, a wall is coming or going
     let raf = 0;
     let frames = 0;
@@ -321,7 +388,8 @@ const RoomScene3D = forwardRef<RoomScene3DHandle, Props>(function RoomScene3D(
       raf = requestAnimationFrame(loop);
       const dt = Math.min((now - last) / 1000, 0.1);
       last = now;
-      const moved = controls.update();
+      const walked = walk(dt, shift);
+      const moved = controls.update() || walked;
       const walls = !stage.exporting && updateWalls(model.walls, camera.position, dt);
       if (moved || walls || stage.dirty) {
         stage.dirty = false;
@@ -342,6 +410,13 @@ const RoomScene3D = forwardRef<RoomScene3DHandle, Props>(function RoomScene3D(
       resize.disconnect();
       renderer.domElement.removeEventListener("pointerdown", onDown);
       renderer.domElement.removeEventListener("pointerup", onUp);
+      renderer.domElement.removeEventListener("pointerenter", onEnter);
+      renderer.domElement.removeEventListener("pointerleave", onLeave);
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("keydown", onShift);
+      window.removeEventListener("keyup", onShift);
+      window.removeEventListener("blur", release);
       controls.dispose();
       disposeModel(model);
       environment.dispose();
