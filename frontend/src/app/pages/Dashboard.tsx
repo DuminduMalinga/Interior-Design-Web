@@ -204,15 +204,15 @@ export default function Dashboard() {
   };
 
   // ── Designs (real data) ─────────────────────
-  const { designs, loading: designsLoading, error: designsError, reload: reloadDesigns } = useUserDesigns();
+  const { designs, counts, loading: designsLoading, error: designsError, reload: reloadDesigns } = useUserDesigns();
   const scored = designs.filter((d) => d.score !== null);
   const lastScored = scored.reduce<UserDesign | null>(
     (latest, d) => (!latest || (d.updatedAt ?? "") > (latest.updatedAt ?? "") ? d : latest),
     null,
   );
   const stats = [
-    { label: "Floor plans uploaded", value: String(designs.length) },
-    { label: "Rooms furnished", value: String(scored.length) },
+    { label: "Floor plans uploaded", value: String(counts.plans) },
+    { label: "Finished plans", value: String(counts.finished) },
     { label: "Last layout score", value: lastScored ? `${lastScored.score}` : "–", suffix: lastScored ? "/100" : "" },
   ];
   const firstName = displayName.trim().split(/\s+/)[0] || "there";
@@ -574,8 +574,8 @@ export default function Dashboard() {
 
           <dl className="flex gap-8 border-t border-lv-on-deep/15 pt-6 md:flex-col md:gap-6 md:border-l md:border-t-0 md:pl-10 md:pt-0">
             {[
-              { label: "Floor plans", value: designsLoading ? "–" : String(designs.length) },
-              { label: "Rooms furnished", value: designsLoading ? "–" : String(designs.filter((d) => d.score !== null).length) },
+              { label: "Floor plans", value: designsLoading ? "–" : String(counts.plans) },
+              { label: "Finished plans", value: designsLoading ? "–" : String(counts.finished) },
             ].map((stat) => (
               <div key={stat.label} className="flex flex-col-reverse">
                 <dt className="mt-1 text-sm text-lv-on-deep/65">{stat.label}</dt>
