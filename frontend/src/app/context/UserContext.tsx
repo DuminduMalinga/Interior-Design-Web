@@ -12,6 +12,7 @@ export type UserProfile = {
   phone: string;
   location: string;
   bio: string;
+  avatarUrl: string | null;
 };
 
 export type UserContextValue = {
@@ -23,6 +24,8 @@ export type UserContextValue = {
   profile: UserProfile;
   isLoading: boolean;
   signOut: () => Promise<boolean>;
+  /** Shows a new profile picture straight away, after it has been saved. */
+  setAvatarUrl: (url: string | null) => void;
 };
 
 export const defaultProfile: UserProfile = {
@@ -33,6 +36,7 @@ export const defaultProfile: UserProfile = {
   phone: "",
   location: "",
   bio: "",
+  avatarUrl: null,
 };
 
 const UserContext = createContext<UserContextValue>({
@@ -44,6 +48,7 @@ const UserContext = createContext<UserContextValue>({
   profile: defaultProfile,
   isLoading: true,
   signOut: async () => false,
+  setAvatarUrl: () => {},
 });
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
@@ -111,7 +116,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
         const { data } = await supabase
           .from("User")
-          .select("FullName, UserName, Email, Role, Phone, Location, Bio")
+          .select("*")
           .eq("UserID", authUser.id)
           .maybeSingle();
 
@@ -191,6 +196,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       const dbPhone = userRow.Phone ? String(userRow.Phone) : "";
       const dbLocation = userRow.Location ? String(userRow.Location) : "";
       const dbBio = userRow.Bio ? String(userRow.Bio) : "";
+      const dbAvatarUrl = userRow.AvatarUrl ? String(userRow.AvatarUrl) : null;
 
       setProfile({
         fullName: dbFullName ?? fallbackFullName,
@@ -200,6 +206,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         phone: dbPhone,
         location: dbLocation,
         bio: dbBio,
+        avatarUrl: dbAvatarUrl,
       });
       setIsProfileLoading(false);
 
@@ -325,6 +332,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   };
 
   const isLoading = isAuthLoading || isProfileLoading;
+  const setAvatarUrl = useCallback((url: string | null) => {
+    setProfile((p) => ({ ...p, avatarUrl: url }));
+  }, []);
 
   return (
     <UserContext.Provider
@@ -337,6 +347,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         profile,
         isLoading,
         signOut,
+        setAvatarUrl,
       }}
     >
       {children}

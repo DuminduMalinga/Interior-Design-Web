@@ -24,7 +24,7 @@ export async function deleteMyAccount(email: string, password: string): Promise<
   if (checkErr || !signIn.user) throw new Error("The password is not correct.");
   const userId = signIn.user.id;
 
-  for (const bucket of ["floorplans", "designs"]) {
+  for (const bucket of ["floorplans", "designs", "avatars"]) {
     const files = await listFiles(bucket, userId);
     for (let i = 0; i < files.length; i += 100) {
       const { error } = await supabase.storage.from(bucket).remove(files.slice(i, i + 100));

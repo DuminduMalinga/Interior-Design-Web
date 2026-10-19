@@ -1,6 +1,7 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import {
   Upload,
+  Camera,
   X,
   Mail,
   Phone,
@@ -24,6 +25,7 @@ import PlanSketch from "../components/marketing/PlanSketch";
 import { useUserDesigns, type UserDesign } from "../lib/useUserDesigns";
 import SavedDesignCard from "../components/SavedDesignCard";
 import { deleteMyAccount } from "../lib/account";
+import { checkAvatarFile, removeAvatar, uploadAvatar } from "../lib/avatar";
 import { deleteSavedDesign, listSavedDesigns, type SavedDesign } from "../lib/savedDesign";
 import AppFooter from "../components/AppFooter";
 type ProfileState = {
@@ -47,7 +49,7 @@ type NotificationPrefs = { email: boolean; browser: boolean; updates: boolean };
 const DEFAULT_NOTIFICATIONS: NotificationPrefs = { email: true, browser: false, updates: true };
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { profile: currentUser, authStatus } = useCurrentUserProfile();
+  const { profile: currentUser, authStatus, setAvatarUrl } = useCurrentUserProfile();
   const location = useLocation();
   // The shared navbar's page links and "My Profile" arrive here with { menu } in router state.
   const requestedMenu = (location.state as { menu?: string } | null)?.menu;
@@ -73,6 +75,38 @@ export default function Dashboard() {
   const [passSaving, setPassSaving] = useState(false);
   const [notifications, setNotifications] = useState<NotificationPrefs>(DEFAULT_NOTIFICATIONS);
   const [notifyError, setNotifyError] = useState<string | null>(null);
+  // Profile picture
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const handleAvatarPicked = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const problem = checkAvatarFile(file);
+    if (problem) { setAvatarError(problem); return; }
+    setAvatarBusy(true);
+    setAvatarError(null);
+    try {
+      setAvatarUrl(await uploadAvatar(file));
+    } catch (err) {
+      setAvatarError(err instanceof Error ? err.message : "The picture could not be saved.");
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
+  const handleAvatarRemove = async () => {
+    setAvatarBusy(true);
+    setAvatarError(null);
+    try {
+      await removeAvatar();
+      setAvatarUrl(null);
+    } catch (err) {
+      setAvatarError(err instanceof Error ? err.message : "The picture could not be removed.");
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
   // The saved notification choices, from the User row.
   useEffect(() => {
     let cancelled = false;
@@ -468,8 +502,32 @@ export default function Dashboard() {
         className="relative mt-10 overflow-hidden rounded-[32px] bg-lv-deep p-6 text-lv-on-deep sm:p-8 md:p-10">
         <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[radial-gradient(closest-side,var(--lv-glow-1),transparent)]" />
         <div className="relative grid items-center gap-8 md:grid-cols-[auto_minmax(0,1fr)_auto]">
-          <div className="grid h-36 w-28 place-items-center rounded-b-[24px] rounded-t-full bg-[#d8d7f3] pt-4 text-4xl font-medium tracking-tight text-[#26223f] sm:h-40 sm:w-32 sm:text-5xl">
-            {initials}
+          <div className="flex flex-col items-center gap-3">
+            <div className="relative grid h-36 w-28 place-items-center overflow-hidden rounded-b-[24px] rounded-t-full bg-[#d8d7f3] text-4xl font-medium tracking-tight text-[#26223f] sm:h-40 sm:w-32 sm:text-5xl">
+              {currentUser.avatarUrl
+                ? <img src={currentUser.avatarUrl} alt={`${displayName}'s profile picture`} className="h-full w-full object-cover" />
+                : <span className="pt-4">{initials}</span>}
+              {avatarBusy && (
+                <span className="absolute inset-0 grid place-items-center bg-black/45">
+                  <Loader2 className="h-6 w-6 animate-spin text-white" aria-label="Saving picture" />
+                </span>
+              )}
+            </div>
+            <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only"
+              aria-label="Choose a profile picture" onChange={(e) => void handleAvatarPicked(e)} />
+            <div className="flex items-center gap-2">
+              <button type="button" disabled={avatarBusy} onClick={() => avatarInputRef.current?.click()}
+                className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border border-lv-on-deep/25 px-3.5 text-sm text-lv-on-deep transition-colors hover:bg-lv-on-deep/10 disabled:cursor-not-allowed disabled:opacity-60">
+                <Camera className="h-3.5 w-3.5" aria-hidden="true" /> {currentUser.avatarUrl ? "Change photo" : "Add photo"}
+              </button>
+              {currentUser.avatarUrl && (
+                <button type="button" disabled={avatarBusy} onClick={() => void handleAvatarRemove()}
+                  className="min-h-9 cursor-pointer rounded-full px-3 text-sm text-lv-on-deep/70 transition-colors hover:text-lv-on-deep disabled:cursor-not-allowed disabled:opacity-60">
+                  Remove
+                </button>
+              )}
+            </div>
+            {avatarError && <p role="alert" className="max-w-40 text-center text-xs text-red-300">{avatarError}</p>}
           </div>
 
           <div className="min-w-0">
