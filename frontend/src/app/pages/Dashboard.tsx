@@ -1,12 +1,14 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
   Upload,
+  X,
   Mail,
   Phone,
   MapPin,
   Eye,
   EyeOff,
   CheckCircle2,
+  Trash2,
   AlertTriangle,
   Loader2,
   ArrowRight,
@@ -20,6 +22,9 @@ import PageGlows from "../components/marketing/PageGlows";
 import DesignCard from "../components/DesignCard";
 import PlanSketch from "../components/marketing/PlanSketch";
 import { useUserDesigns, type UserDesign } from "../lib/useUserDesigns";
+import SavedDesignCard from "../components/SavedDesignCard";
+import { deleteMyAccount } from "../lib/account";
+import { deleteSavedDesign, listSavedDesigns, type SavedDesign } from "../lib/savedDesign";
 import AppFooter from "../components/AppFooter";
 type ProfileState = {
   fullName: string;
@@ -33,14 +38,16 @@ const createProfileState = (overrides: Partial<ProfileState> = {}): ProfileState
   fullName: "User",
   username: "user",
   email: "",
-  phone: "+1 (555) 012-3456",
-  location: "New York, USA",
-  bio: "Interior design enthusiast. Using AI to bring floor plans to life.",
+  phone: "",
+  location: "",
+  bio: "",
   ...overrides,
 });
+type NotificationPrefs = { email: boolean; browser: boolean; updates: boolean };
+const DEFAULT_NOTIFICATIONS: NotificationPrefs = { email: true, browser: false, updates: true };
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { profile: currentUser } = useCurrentUserProfile();
+  const { profile: currentUser, authStatus } = useCurrentUserProfile();
   const location = useLocation();
   // The shared navbar's page links and "My Profile" arrive here with { menu } in router state.
   const requestedMenu = (location.state as { menu?: string } | null)?.menu;
@@ -64,7 +71,35 @@ export default function Dashboard() {
   const [passwords, setPasswords] = useState({ old: "", newP: "", conf: "" });
   const [passMsg, setPassMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [passSaving, setPassSaving] = useState(false);
-  const [notifications, setNotifications] = useState({ email: true, browser: false, updates: true });
+  const [notifications, setNotifications] = useState<NotificationPrefs>(DEFAULT_NOTIFICATIONS);
+  const [notifyError, setNotifyError] = useState<string | null>(null);
+  // The saved notification choices, from the User row.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data, error } = await supabase.from("User").select("NotificationPrefs").eq("UserID", user.id).maybeSingle();
+      if (cancelled) return;
+      if (error) setNotifyError("Your notification choices could not be loaded.");
+      else if (data?.NotificationPrefs) setNotifications({ ...DEFAULT_NOTIFICATIONS, ...data.NotificationPrefs });
+    })();
+    return () => { cancelled = true; };
+  }, []);
+  const toggleNotification = async (key: keyof NotificationPrefs) => {
+    const previous = notifications;
+    const next = { ...notifications, [key]: !notifications[key] };
+    setNotifications(next);
+    setNotifyError(null);
+    const { data: { user } } = await supabase.auth.getUser();
+    const { error } = user
+      ? await supabase.from("User").update({ NotificationPrefs: next }).eq("UserID", user.id)
+      : { error: new Error("Session expired. Please sign in again.") };
+    if (error) {
+      setNotifications(previous);
+      setNotifyError(`Your choice could not be saved. ${error.message}`);
+    }
+  };
   useEffect(() => {
     const nextProfile = createProfileState({
       fullName: currentUser.fullName,
@@ -79,6 +114,39 @@ export default function Dashboard() {
   }, [currentUser.email, currentUser.fullName, currentUser.username, currentUser.phone, currentUser.location, currentUser.bio]);
   const displayName = profile.fullName?.trim() ? profile.fullName : profile.username;
   const initials = (displayName.trim().split(/\s+/).map((w) => w[0]).join("").slice(0, 2) || "?").toUpperCase();
+
+  // Delete account modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deletePassError, setDeletePassError] = useState(false);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const isAdmin = currentUser.role === "Admin";
+  const openDeleteModal = () => {
+    setDeletePassword("");
+    setDeletePassError(false);
+    setDeleteError(null);
+    setShowDeleteModal(true);
+  };
+  useEffect(() => {
+    if (!showDeleteModal) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !deleteSubmitting) setShowDeleteModal(false); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [showDeleteModal, deleteSubmitting]);
+
+  const handleDeleteAccount = async () => {
+    if (deletePassword.trim() === "") { setDeletePassError(true); return; }
+    setDeleteSubmitting(true);
+    setDeleteError(null);
+    try {
+      await deleteMyAccount(profile.email, deletePassword);
+      navigate("/", { replace: true });
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Your account could not be deleted. Try again.");
+      setDeleteSubmitting(false);
+    }
+  };
 
   // ── Designs (real data) ─────────────────────
   const { designs, loading: designsLoading, error: designsError, reload: reloadDesigns } = useUserDesigns();
@@ -96,6 +164,42 @@ export default function Dashboard() {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
+  // ── Saved 3D designs ────────────────────────
+  const [savedDesigns, setSavedDesigns] = useState<SavedDesign[]>([]);
+  const [savedError, setSavedError] = useState<string | null>(null);
+  useEffect(() => {
+    if (authStatus !== "authenticated") return;
+    let cancelled = false;
+    void (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      try {
+        const rows = await listSavedDesigns(user.id);
+        if (!cancelled) { setSavedDesigns(rows); setSavedError(null); }
+      } catch (err) {
+        if (!cancelled) setSavedError(err instanceof Error ? err.message : "Your saved 3D designs could not be loaded.");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [authStatus]);
+  const openSavedDesign = (design: SavedDesign) => {
+    navigate("/room-view-3d", {
+      state: {
+        floorPlanId: design.floorPlanId,
+        room: { id: design.roomId, name: design.roomName },
+        livingRoomLayout: design.layout,
+      },
+    });
+  };
+  const removeSavedDesign = async (design: SavedDesign) => {
+    try {
+      await deleteSavedDesign(design);
+      setSavedDesigns((list) => list.filter((d) => d.designId !== design.designId));
+      setSavedError(null);
+    } catch (err) {
+      setSavedError(err instanceof Error ? err.message : "The design could not be removed.");
+    }
+  };
   // Reopen a saved plan at the step it reached. The flow pages rebuild from the
   // stored detection, the same router state the upload flow hands them.
   const openDesign = (design: UserDesign) => {
@@ -283,6 +387,23 @@ export default function Dashboard() {
       </header>
 
       {designsErrorBox}
+
+      {(savedDesigns.length > 0 || savedError) && (
+        <section className="mt-10">
+          <h2 className="text-2xl leading-tight text-lv-ink md:text-3xl">Saved 3D designs</h2>
+          {savedError && (
+            <p role="alert" className="mt-4 flex items-center gap-2 text-sm text-red-400">
+              <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" /> {savedError}
+            </p>
+          )}
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {savedDesigns.map((design) => (
+              <SavedDesignCard key={design.designId} design={design} onOpen={openSavedDesign} onDelete={removeSavedDesign} />
+            ))}
+          </div>
+          <h2 className="mt-14 text-2xl leading-tight text-lv-ink md:text-3xl">Floor plans</h2>
+        </section>
+      )}
 
       {designsLoading ? designsSkeleton : designs.length === 0 ? (!designsError && emptyState) : (
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -495,7 +616,7 @@ export default function Dashboard() {
                   <p className="mt-0.5 text-sm text-lv-muted">{desc}</p>
                 </div>
                 <button type="button" role="switch" aria-checked={notifications[key]} aria-labelledby={`nt-${key}`}
-                  onClick={() => setNotifications((n) => ({ ...n, [key]: !n[key] }))}
+                  onClick={() => void toggleNotification(key)}
                   className={`relative h-7 w-12 shrink-0 cursor-pointer rounded-full transition-colors ${notifications[key] ? "bg-lv-ink" : "bg-lv-line"}`}>
                   <span className={`absolute left-1 top-1 h-5 w-5 rounded-full shadow-sm transition-transform duration-200 ${
                     notifications[key] ? "translate-x-5 bg-lv-on-ink" : "translate-x-0 bg-lv-surface"
@@ -503,7 +624,38 @@ export default function Dashboard() {
                 </button>
               </div>
             ))}
+            {notifyError && (
+              <p role="alert" className="flex items-center gap-1.5 py-4 text-sm text-red-400">
+                <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" /> {notifyError}
+              </p>
+            )}
           </div>,
+        )}
+
+        {/* Delete account */}
+        {settingsRow("profile-delete", "Delete account", "Permanently removes your account, your floor plans and every saved design.",
+          <div className="flex flex-col gap-5 rounded-[28px] border border-red-500/25 bg-red-500/[0.06] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-7">
+            <div className="flex min-w-0 items-start gap-4">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-red-500/15">
+                <Trash2 className="h-5 w-5 text-red-400" aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-base text-lv-ink">{isAdmin ? "Admin accounts can't be deleted" : "This can't be undone"}</p>
+                <p className="mt-0.5 text-sm leading-relaxed text-lv-muted">
+                  {isAdmin
+                    ? "An admin account stays on the site. Ask the site owner if it needs to be removed."
+                    : "Download anything you want to keep before you delete your account."}
+                </p>
+              </div>
+            </div>
+            {!isAdmin && (
+              <button type="button" onClick={openDeleteModal}
+                className="inline-flex min-h-11 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-full bg-red-600 px-5 text-sm font-medium text-white transition-colors hover:bg-red-700">
+                <Trash2 className="h-4 w-4" aria-hidden="true" /> Delete account
+              </button>
+            )}
+          </div>,
+          true,
         )}
       </div>
     </>
@@ -511,6 +663,62 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen w-full bg-background relative isolate flex flex-col">
       <PageGlows />
+      {/* Delete Account Modal */}
+      <AnimatePresence>
+        {showDeleteModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+            onClick={() => { if (!deleteSubmitting) setShowDeleteModal(false); }}>
+            <motion.div role="dialog" aria-modal="true" aria-labelledby="delete-title" aria-describedby="delete-desc"
+              initial={{ opacity: 0, y: 16, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 16, scale: 0.98 }} transition={{ duration: 0.2 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-md rounded-[28px] border border-lv-line bg-lv-surface p-6 shadow-2xl sm:p-8">
+              <button type="button" onClick={() => setShowDeleteModal(false)} disabled={deleteSubmitting} aria-label="Close"
+                className="absolute right-4 top-4 grid h-10 w-10 cursor-pointer place-items-center rounded-full text-lv-muted transition-colors hover:bg-lv-ink/8 hover:text-lv-ink">
+                <X className="h-5 w-5" aria-hidden="true" />
+              </button>
+
+              <span className="grid h-12 w-12 place-items-center rounded-full bg-red-500/15">
+                <Trash2 className="h-5 w-5 text-red-400" aria-hidden="true" />
+              </span>
+              <h2 id="delete-title" className="mt-5 text-2xl leading-tight text-lv-ink">Delete your account?</h2>
+              <p id="delete-desc" className="mt-2 text-sm leading-relaxed text-lv-muted">
+                <span className="text-lv-ink">{profile.email || displayName}</span> and all of its floor plans and saved designs
+                will be removed for good. This can't be undone.
+              </p>
+
+              <form className="mt-6" onSubmit={(e) => { e.preventDefault(); if (!deleteSubmitting) void handleDeleteAccount(); }}>
+                <label htmlFor="delete-password" className={labelCls}>Enter your password to confirm</label>
+                <input id="delete-password" type="password" autoFocus autoComplete="current-password"
+                  value={deletePassword}
+                  aria-invalid={deletePassError}
+                  aria-describedby={deletePassError ? "delete-password-error" : undefined}
+                  onChange={(e) => { setDeletePassword(e.target.value); setDeletePassError(false); }}
+                  className={`lv-input ${deletePassError ? "border-red-500/60" : ""}`} />
+                {deletePassError && <p id="delete-password-error" className="mt-1.5 text-sm text-red-400">Enter your password to delete the account.</p>}
+                {deleteError && (
+                  <p role="alert" className="mt-4 flex items-start gap-2 rounded-2xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" /> {deleteError}
+                  </p>
+                )}
+
+                <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  <button type="button" onClick={() => setShowDeleteModal(false)} disabled={deleteSubmitting} className="lv-btn-quiet">
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={deleteSubmitting}
+                    className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-full bg-red-600 px-5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60">
+                    {deleteSubmitting
+                      ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Deleting account</>
+                      : <><Trash2 className="h-4 w-4" aria-hidden="true" /> Delete account</>}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* Top Nav */}
       <SiteNavbar
         activeNav={activeMenu}
