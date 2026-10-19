@@ -65,13 +65,22 @@ function render(mail: Mail) {
   return { subject: mail.subject, html, text };
 }
 
+/** Resend only delivers to the account owner while mail goes out from its shared test address. */
+const usingTestSender = /@resend\.dev>?\s*$/i.test(MAIL_FROM);
+
+class ProviderError extends Error {
+  constructor(public status: number, detail: string) {
+    super(`Resend answered ${status}: ${detail}`);
+  }
+}
+
 async function resend(path: string, payload: unknown) {
   const res = await fetch(`https://api.resend.com${path}`, {
     method: "POST",
     headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error(`Resend answered ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  if (!res.ok) throw new ProviderError(res.status, (await res.text()).slice(0, 300));
 }
 
 Deno.serve(async (req) => {
@@ -110,13 +119,20 @@ Deno.serve(async (req) => {
       const message = clip(params.message, 5000);
       if (!subject || !message) return json({ error: "A subject and a message are needed." }, 400);
 
-      const { data: readers } = await db.from("User").select("Email").filter("NotificationPrefs->>updates", "eq", "true").not("Email", "is", null);
-      const addresses = [...new Set((readers ?? []).map((r) => String(r.Email).trim()).filter(Boolean))];
+      // A test goes to the admin's own address only.
+      let addresses: string[];
+      if (params.testOnly === true) {
+        if (!me.Email) return json({ sent: false, reason: "no_address" });
+        addresses = [String(me.Email).trim()];
+      } else {
+        const { data: readers } = await db.from("User").select("Email").filter("NotificationPrefs->>updates", "eq", "true").not("Email", "is", null);
+        addresses = [...new Set((readers ?? []).map((r) => String(r.Email).trim()).filter(Boolean))];
+      }
       const { subject: s, html, text } = render({ subject, text: message });
       for (let i = 0; i < addresses.length; i += BATCH_SIZE) {
         await resend("/emails/batch", addresses.slice(i, i + BATCH_SIZE).map((to) => ({ from: MAIL_FROM, to: [to], subject: s, html, text })));
       }
-      await db.from("EmailLog").insert({ UserID: user.id, Kind: "news", Recipients: addresses.length });
+      await db.from("EmailLog").insert({ UserID: user.id, Kind: params.testOnly === true ? "news_test" : "news", Recipients: addresses.length });
       return json({ sent: true, recipients: addresses.length });
     }
 
@@ -131,6 +147,9 @@ Deno.serve(async (req) => {
     return json({ sent: true });
   } catch (err) {
     console.error("send-notification failed:", err instanceof Error ? err.message : err);
+    if (err instanceof ProviderError && usingTestSender && (err.status === 403 || err.status === 422)) {
+      return json({ sent: false, reason: "domain_not_verified" }, 502);
+    }
     return json({ sent: false, reason: "provider_error" }, 502);
   }
 });
