@@ -14,9 +14,10 @@ services:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
-    depends_on: [detector, living-room, bedroom, kitchen, bathroom, dining, master-bedroom]
+    depends_on: [living-room, bedroom, kitchen, bathroom, dining, master-bedroom]
 
   detector:
+    profiles: ["detector"]   # heavy (torch + OCR, needs ~4 GB RAM): start with `docker compose --profile detector up -d`
     build: { context: .., dockerfile: deploy/Dockerfile.detector }
     restart: unless-stopped
     environment:
