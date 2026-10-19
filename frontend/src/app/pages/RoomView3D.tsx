@@ -34,6 +34,7 @@ import type { LayoutFurnitureItem, LivingRoomLayoutResult } from "../lib/livingR
 import { furnitureColor } from "../lib/roomPalette3d";
 import { saveSelectedLivingRoomLayout } from "../lib/floorPlanAnalysis";
 import { saveDesign } from "../lib/savedDesign";
+import { emailMe } from "../lib/notifications";
 
 // three.js is only needed on this page, so it is loaded with the 3D view itself
 const RoomScene3D = lazy(() => import("../components/RoomScene3D"));
@@ -338,6 +339,7 @@ export default function RoomView3D() {
         previewDataUrl: scene?.toPNG() ?? null,
       });
       showToast({ text: "Design saved", ok: true });
+      void emailMe("design_saved", { room: roomName, layout: layout.layout.title });
     } catch (err) {
       showToast({ text: err instanceof Error ? err.message : "Could not save the design.", ok: false });
     }

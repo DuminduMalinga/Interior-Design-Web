@@ -25,6 +25,15 @@ import PlanSketch from "../components/marketing/PlanSketch";
 import { useUserDesigns, type UserDesign } from "../lib/useUserDesigns";
 import SavedDesignCard from "../components/SavedDesignCard";
 import { deleteMyAccount } from "../lib/account";
+import {
+  DEFAULT_NOTIFICATIONS,
+  allowBrowserNotifications,
+  browserNotificationsSupported,
+  loadNotificationPrefs,
+  notifyBrowser,
+  saveNotificationPrefs,
+  type NotificationPrefs,
+} from "../lib/notifications";
 import { checkAvatarFile, removeAvatar, uploadAvatar } from "../lib/avatar";
 import { deleteSavedDesign, listSavedDesigns, type SavedDesign } from "../lib/savedDesign";
 import AppFooter from "../components/AppFooter";
@@ -45,8 +54,6 @@ const createProfileState = (overrides: Partial<ProfileState> = {}): ProfileState
   bio: "",
   ...overrides,
 });
-type NotificationPrefs = { email: boolean; browser: boolean; updates: boolean };
-const DEFAULT_NOTIFICATIONS: NotificationPrefs = { email: true, browser: false, updates: true };
 export default function Dashboard() {
   const navigate = useNavigate();
   const { profile: currentUser, authStatus, setAvatarUrl } = useCurrentUserProfile();
@@ -111,27 +118,41 @@ export default function Dashboard() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data, error } = await supabase.from("User").select("NotificationPrefs").eq("UserID", user.id).maybeSingle();
-      if (cancelled) return;
-      if (error) setNotifyError("Your notification choices could not be loaded.");
-      else if (data?.NotificationPrefs) setNotifications({ ...DEFAULT_NOTIFICATIONS, ...data.NotificationPrefs });
+      try {
+        const prefs = await loadNotificationPrefs();
+        if (cancelled) return;
+        // A browser alert needs the browser's permission as well; without it the switch is off.
+        const allowed = browserNotificationsSupported() && Notification.permission === "granted";
+        setNotifications({ ...prefs, browser: prefs.browser && allowed });
+      } catch {
+        if (!cancelled) setNotifyError("Your notification choices could not be loaded.");
+      }
     })();
     return () => { cancelled = true; };
   }, []);
   const toggleNotification = async (key: keyof NotificationPrefs) => {
     const previous = notifications;
     const next = { ...notifications, [key]: !notifications[key] };
-    setNotifications(next);
     setNotifyError(null);
-    const { data: { user } } = await supabase.auth.getUser();
-    const { error } = user
-      ? await supabase.from("User").update({ NotificationPrefs: next }).eq("UserID", user.id)
-      : { error: new Error("Session expired. Please sign in again.") };
-    if (error) {
+    if (key === "browser" && next.browser) {
+      if (!browserNotificationsSupported()) {
+        setNotifyError("This browser can't show notifications.");
+        return;
+      }
+      if (!(await allowBrowserNotifications())) {
+        setNotifyError("Your browser is blocking notifications for this site. Allow them in the browser's site settings, then try again.");
+        return;
+      }
+    }
+    setNotifications(next);
+    try {
+      await saveNotificationPrefs(next);
+      if (key === "browser" && next.browser) {
+        void notifyBrowser("Browser notifications are on", "We'll tell you here when your floor plan or layouts are ready.", true);
+      }
+    } catch (err) {
       setNotifications(previous);
-      setNotifyError(`Your choice could not be saved. ${error.message}`);
+      setNotifyError(`Your choice could not be saved. ${err instanceof Error ? err.message : ""}`.trim());
     }
   };
   useEffect(() => {
