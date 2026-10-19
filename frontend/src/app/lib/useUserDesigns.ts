@@ -42,7 +42,7 @@ const MAX_DESIGNS = 60;
 export interface DesignCounts {
   /** Every floor plan the user uploaded. */
   plans: number;
-  /** Plans where the user chose a layout and went on to the 3D view. */
+  /** Plans that have furniture layouts (generated or chosen). */
   finished: number;
 }
 
@@ -116,7 +116,7 @@ export function useUserDesigns() {
           .from("FloorPlanAnalysis")
           .select("FloorPlanID", { count: "exact", head: true })
           .eq("UserID", userId)
-          .eq("Status", "LayoutSelected"),
+          .in("Status", ["LayoutReady", "LayoutSelected"]),
       ]);
 
       if (plans.error) throw new Error(plans.error.message);
