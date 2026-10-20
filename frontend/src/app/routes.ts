@@ -1,3 +1,4 @@
+import { createElement } from "react";
 import { createBrowserRouter } from "react-router";
 import Welcome from "./pages/Welcome";
 import SignUp from "./pages/SignUp";
@@ -14,6 +15,7 @@ import AdminManageAccounts from "./pages/AdminManageAccounts";
 import AuthCallback from "./pages/AuthCallback";
 import About from "./pages/About";
 import PublicOnlyRoute from "./components/PublicOnlyRoute";
+import RequireAuth from "./components/RequireAuth";
 
 export const router = createBrowserRouter([
   {
@@ -46,44 +48,54 @@ export const router = createBrowserRouter([
     Component: ResetPassword,
   },
   {
-    path: "/dashboard",
-    Component: Dashboard,
-  },
-  {
-    path: "/my-designs",
-    Component: Dashboard,
-  },
-  {
-    path: "/profile",
-    Component: Dashboard,
-  },
-  {
-    path: "/upload",
-    Component: UploadFloorPlan,
-  },
-  {
-    path: "/processing",
-    Component: Processing,
-  },
-  {
-    path: "/select-room",
-    Component: SelectRoom,
-  },
-  {
-    path: "/view-layouts",
-    Component: ViewLayouts,
-  },
-  {
-    path: "/room-view-3d",
-    Component: RoomView3D,
-  },
-  {
     path: "/about",
     Component: About,
   },
   {
-    path: "/admin/accounts",
-    Component: AdminManageAccounts,
+    Component: RequireAuth,
+    children: [
+      {
+        path: "/dashboard",
+        Component: Dashboard,
+      },
+      {
+        path: "/my-designs",
+        Component: Dashboard,
+      },
+      {
+        path: "/profile",
+        Component: Dashboard,
+      },
+      {
+        path: "/upload",
+        Component: UploadFloorPlan,
+      },
+      {
+        path: "/processing",
+        Component: Processing,
+      },
+      {
+        path: "/select-room",
+        Component: SelectRoom,
+      },
+      {
+        path: "/view-layouts",
+        Component: ViewLayouts,
+      },
+      {
+        path: "/room-view-3d",
+        Component: RoomView3D,
+      },
+    ],
+  },
+  {
+    element: createElement(RequireAuth, { admin: true }),
+    children: [
+      {
+        path: "/admin/accounts",
+        Component: AdminManageAccounts,
+      },
+    ],
   },
   {
     path: "*",
