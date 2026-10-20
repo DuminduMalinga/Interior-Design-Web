@@ -668,20 +668,16 @@ export default function AdminManageAccounts() {
                               className="grid h-10 w-10 cursor-pointer place-items-center rounded-full text-lv-muted transition-colors hover:bg-lv-ink/8 hover:text-lv-ink">
                               <Eye className="h-4 w-4" aria-hidden="true" />
                             </button>
-                            <button type="button"
-                              onClick={() => {
-                                if (user.role === "Admin") {
-                                  showToast("error", "Admin accounts cannot be deleted.");
-                                  return;
-                                }
-                                setDeleteTarget(user);
-                              }}
-                              disabled={isYou}
-                              aria-label={`Delete ${user.fullName}`}
-                              title={isYou ? "You can't delete your own account here" : user.role === "Admin" ? "Admin accounts cannot be deleted" : "Delete account"}
-                              className="grid h-10 w-10 cursor-pointer place-items-center rounded-full text-lv-muted transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-lv-muted">
-                              <Trash2 className="h-4 w-4" aria-hidden="true" />
-                            </button>
+                            {/* Admin accounts can't be deleted, so admin rows get an empty slot to keep the columns aligned */}
+                            {user.role === "Admin" ? (
+                              <span className="h-10 w-10" aria-hidden="true" />
+                            ) : (
+                              <button type="button" onClick={() => setDeleteTarget(user)}
+                                aria-label={`Delete ${user.fullName}`} title="Delete account"
+                                className="grid h-10 w-10 cursor-pointer place-items-center rounded-full text-lv-muted transition-colors hover:bg-red-500/10 hover:text-red-400">
+                                <Trash2 className="h-4 w-4" aria-hidden="true" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
