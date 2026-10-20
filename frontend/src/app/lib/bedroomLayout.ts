@@ -9,6 +9,7 @@
  * plan viewer draws it; the bedroom-only extras are typed here.
  */
 
+import { authHeaders } from "./serviceAuth";
 import type { GenerateAllLivingRoomLayoutsResponse } from "./livingRoomLayout";
 
 const LAYOUT_URL = (
@@ -73,11 +74,12 @@ export interface GenerateBedroomLayoutsRequest {
 export async function generateAllBedroomLayouts(
   req: GenerateBedroomLayoutsRequest,
 ): Promise<GenerateAllBedroomLayoutsResponse> {
+  const auth = await authHeaders();
   let res: Response;
   try {
     res = await fetch(`${LAYOUT_URL}/generate-all`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...auth },
       body: JSON.stringify({
         room: req.room,
         detections: req.detections,

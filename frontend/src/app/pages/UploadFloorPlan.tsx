@@ -103,11 +103,7 @@ export default function UploadFloorPlan() {
 
       setUploadProgress(60);
 
-      // ── 4. Get the public URL ────────────────────────────────────────────
-      const { data: { publicUrl } } = supabase.storage
-        .from("floorplans")
-        .getPublicUrl(storagePath);
-
+      // ── 4. The bucket is private; only the path is stored, and viewing links are signed when needed ──
       setUploadProgress(80);
 
       // ── 5. Insert a record into the FloorPlan table ──────────────────────
@@ -116,7 +112,7 @@ export default function UploadFloorPlan() {
         .insert({
           FloorPlanID: floorPlanId,
           UploadDateTime: new Date().toISOString(),
-          ImagePath: publicUrl,
+          ImagePath: storagePath,
           Status: "Pending",
           UserID: user.id,
         });

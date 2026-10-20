@@ -19,13 +19,17 @@ const SITE_URL = (Deno.env.get("SITE_URL") ?? "").replace(/\/$/, "");
 const DAILY_LIMIT = 20;
 const BATCH_SIZE = 100;
 
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+// Browsers may call this only from the site itself and the local dev server.
+const ALLOWED_ORIGINS = [SITE_URL || "https://interior-design-web-mu.vercel.app", "http://localhost:5173"];
 
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
+const corsFor = (req: Request) => {
+  const origin = req.headers.get("Origin") ?? "";
+  return {
+    "Access-Control-Allow-Origin": ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Vary": "Origin",
+  };
+};
 
 const escapeHtml = (text: string) =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -84,6 +88,10 @@ async function resend(path: string, payload: unknown) {
 }
 
 Deno.serve(async (req) => {
+  const cors = corsFor(req);
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
+
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "Use POST." }, 405);
   if (!RESEND_API_KEY) return json({ sent: false, reason: "not_configured" }, 503);

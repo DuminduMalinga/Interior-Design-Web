@@ -3,6 +3,8 @@ x-layout: &layout
   restart: unless-stopped
   environment:
     ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+    SUPABASE_URL: ${SUPABASE_URL:?set SUPABASE_URL in .env}
+    SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:?set SUPABASE_ANON_KEY in .env}
 
 services:
   caddy:
@@ -22,6 +24,8 @@ services:
     restart: unless-stopped
     environment:
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      SUPABASE_URL: ${SUPABASE_URL:?set SUPABASE_URL in .env}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:?set SUPABASE_ANON_KEY in .env}
       MODEL_PATH: /models/best.pt
     volumes:
       - ./models:/models:ro

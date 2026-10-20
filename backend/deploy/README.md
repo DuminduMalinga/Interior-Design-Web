@@ -27,7 +27,7 @@ scp -i key.pem backend\wall_detector\models\best.pt ubuntu@<elastic-ip>:~/Interi
 ## 4. Configure and start
 ```bash
 cd ~/Interior-Design-Web/backend/deploy
-cp .env.example .env && nano .env      # SITE_ADDRESS + your Vercel URL
+cp .env.example .env && nano .env      # SITE_ADDRESS, your Vercel URL, SUPABASE_URL and SUPABASE_ANON_KEY (the public anon key only)
 docker compose up -d --build           # first build takes several minutes
 curl https://<SITE_ADDRESS>/detector/health
 ```

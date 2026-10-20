@@ -114,6 +114,8 @@ npm run dev                      # http://localhost:5173
 
 ### 3. Python services
 
+Every service answers only signed-in users: it asks Supabase whether the visitor's token is valid, so it needs the same two public values the web app uses. Copy each service's `.env.example` to `.env` and fill in `SUPABASE_URL` and `SUPABASE_ANON_KEY`. For local development you can set `REQUIRE_AUTH=false` instead; never do that on a server. With neither, the service refuses requests with 503. The interactive `/docs` page is off unless you set `ENABLE_DOCS=true`.
+
 Each service has its own folder, `requirements.txt` and README. For example:
 
 ```bash
@@ -156,7 +158,7 @@ Never put a Supabase service-role / secret key in the web app.
 
 ### Python services
 
-Each service reads `ALLOWED_ORIGINS` (comma-separated browser origins that may call it; default is the local dev server). See each service's `.env.example`.
+Each service reads `ALLOWED_ORIGINS` (comma-separated browser origins that may call it; default is the local dev server), `SUPABASE_URL` and `SUPABASE_ANON_KEY` (for the sign-in check), and optionally `REQUIRE_AUTH` and `ENABLE_DOCS`. See each service's `.env.example`.
 
 ---
 
@@ -174,8 +176,10 @@ Each service reads `ALLOWED_ORIGINS` (comma-separated browser origins that may c
 
 - Every table has row-level security. Users can read and change only their own floor plans, rooms, layouts and saved designs. Admins can read everything.
 - Users can update only their own profile fields (name, username, phone, location, bio, picture, notification choices). The `Role` column cannot be changed from the app.
-- The browser only holds the public key. Admin-only actions (deleting another user) go through an edge function that checks the caller's role.
-- Storage: `floorplans` and `avatars` are public-read with owner-only upload and delete; `designs` is private.
+- The browser only holds the public key. Admin-only actions (deleting another user) go through an edge function that checks the caller's role, removes the user's files and writes an audit-log line.
+- The detector and layout services refuse anonymous requests (401) and hide their API docs.
+- Storage: `floorplans` and `designs` are private (the app opens floor plans through short-lived signed links); `avatars` is public-read because the picture is shown in the navbar, with owner-only upload and delete.
+- Policies, hardening config and the pre-deploy checklist are in [`backend/security/`](backend/security/README.md); report vulnerabilities as described in [`SECURITY.md`](SECURITY.md).
 - Page guards in the app (`RequireAuth`) keep signed-out visitors and customers away from pages they cannot use; the database enforces the same rules.
 
 ---

@@ -10,6 +10,8 @@
  * the other clients (bedroom, kitchen, bathroom, dining) build on them.
  */
 
+import { authHeaders } from "./serviceAuth";
+
 const LAYOUT_URL = (
   import.meta.env.VITE_LIVING_ROOM_LAYOUT_URL ?? "http://localhost:8100"
 ).replace(/\/$/, "");
@@ -220,11 +222,12 @@ export interface GenerateAllLivingRoomLayoutsResponse {
 }
 
 async function postLayoutRequest<T>(path: string, req: GenerateLivingRoomLayoutRequest): Promise<T> {
+  const auth = await authHeaders();
   let res: Response;
   try {
     res = await fetch(`${LAYOUT_URL}${path}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...auth },
       body: JSON.stringify({
         room: req.room,
         detections: req.detections,

@@ -9,6 +9,7 @@
  * on it), so the same types and the same plan viewer are used.
  */
 
+import { authHeaders } from "./serviceAuth";
 import type { GenerateAllBedroomLayoutsResponse, GenerateBedroomLayoutsRequest } from "./bedroomLayout";
 
 const LAYOUT_URL = (
@@ -23,11 +24,12 @@ export type GenerateAllMasterBedroomLayoutsResponse = Omit<GenerateAllBedroomLay
 export async function generateAllMasterBedroomLayouts(
   req: GenerateBedroomLayoutsRequest,
 ): Promise<GenerateAllMasterBedroomLayoutsResponse> {
+  const auth = await authHeaders();
   let res: Response;
   try {
     res = await fetch(`${LAYOUT_URL}/generate-all`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...auth },
       body: JSON.stringify({
         room: req.room,
         detections: req.detections,
