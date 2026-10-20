@@ -21,6 +21,8 @@ import { seeded, tone, type Kit, type Rnd } from "./materials";
 import { MM, SLAB, WALL, bake, box, disc, metreUV, rbox, rod, type Frame, type RoomKind } from "./parts";
 
 const DOOR_HEIGHT = 2.1;
+/** mm: the widest opening one door leaf fills; anything wider is an open doorway. */
+const MAX_LEAF_WIDTH = 1100;
 const SKIRTING = 0.08;
 const KERB = 0.03;
 /** Seconds a wall takes to come or go. */
@@ -304,9 +306,10 @@ export function buildShell(layout: LivingRoomLayoutResult, f: Frame, kit: Kit, k
   const height = f.height * MM;
   const width = f.width * MM;
   const length = f.length * MM;
-  // a kitchen is entered through an open doorway: the lined opening, no leaf in it
+  // a kitchen is entered through an open doorway, and so is any opening too wide
+  // for one door leaf: the lined opening, no leaf in it
   const doors: LayoutDoor[] = (layout.openings?.doors ?? [])
-    .map((o) => (kind === "kitchen" ? { ...o, swing: "none" as const } : o));
+    .map((o) => (kind === "kitchen" || o.width > MAX_LEAF_WIDTH ? { ...o, swing: "none" as const } : o));
   const windows: LayoutWindow[] = layout.openings?.windows ?? [];
   const cutouts = (layout.room.cutouts ?? []) as Cutout[];
 

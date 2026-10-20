@@ -70,7 +70,7 @@ export function useLandingMotion(root: RefObject<HTMLElement | null>) {
       // Hero on scroll
       if (desktop) {
         // The section pins while the arch opens to the full viewport, the copy
-        // clears, and the chips settle into the bottom corners.
+        // clears, and the chips drift toward the bottom corners and fade away.
         const hero = el.querySelector<HTMLElement>("[data-hero]");
         const plan = el.querySelector<HTMLElement>('[data-hero-chip-move="plan"]');
         const score = el.querySelector<HTMLElement>('[data-hero-chip-move="score"]');
@@ -115,7 +115,9 @@ export function useLandingMotion(root: RefObject<HTMLElement | null>) {
                 duration: 1,
               },
               0,
-            );
+            )
+            // ...and fade out as they near the corners, gone by the time the arch is fully open
+            .to([plan, score], { autoAlpha: 0, scale: 0.94, duration: 0.4, ease: "power1.in" }, 0.6);
         }
       } else {
         gsap.fromTo(
