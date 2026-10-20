@@ -62,19 +62,19 @@ RULES: Tuple[Rule, ...] = (
          "the doorway to the table, and nothing standing in the direct line."),
     Rule("R2", "chair_pullout", "Room to pull chairs out",
          "Leave sufficient space around the table for chairs to be pulled out.",
-         "Hard: 700 mm from the table edge to a wall or furniture on every side with chairs. "
-         "Scored: up to 900 mm."),
+         "Hard: 0.70 m from the table edge to a wall or furniture on every side with chairs. "
+         "Scored: up to 0.90 m."),
     Rule("R3", "table_paths", "Clear paths round the table",
          "Keep clear walking paths around the dining table and chairs.",
-         "Hard: one continuous path at least 600 mm wide reaches every side with chairs. Scored: whether "
-         "it is 750 or 900 mm wide, and on how many sides someone can pass behind a seated person (1.1 m)."),
+         "Hard: one continuous path at least 0.60 m wide reaches every side with chairs. Scored: whether "
+         "it is 0.75 or 0.90 m wide, and on how many sides someone can pass behind a seated person (1.1 m)."),
     Rule("R4", "table_size", "Table sized to the floor",
          "Select a dining table size that fits the available floor space.",
          "Decides the table: the largest that fits with every clearance, a size down when it does not. "
          "Scored: the share of the floor the table and its seated diners cover."),
     Rule("R5", "seating_comfort", "Comfortable seating",
          "Arrange chairs so occupants can sit down and stand up comfortably.",
-         "Built in: one chair per 600 mm of table edge. Scored: the table edge each person gets and "
+         "Built in: one chair per 0.60 m of table edge. Scored: the table edge each person gets and "
          "free elbows for the chairs at the table's ends."),
     Rule("R6", "openings_clear", "Doors, windows and entrances clear",
          "Position the dining table to avoid blocking doors, windows, and entrances.",
@@ -82,7 +82,7 @@ RULES: Tuple[Rule, ...] = (
          "Scored: distance from the table to the nearest doorway, and window fronts left free."),
     Rule("R7", "furniture_gap", "Space to nearby furniture",
          "Keep sufficient space between the dining table and nearby furniture.",
-         "Hard: 900 mm between the table and the sideboard when chairs stand between them, 600 mm "
+         "Hard: 0.90 m between the table and the sideboard when chairs stand between them, 0.60 m "
          "otherwise. Scored: up to 1.2 m."),
     Rule("R8", "kitchen_proximity", "Close to the kitchen",
          "Position the dining area close to the kitchen when practical.",
@@ -90,11 +90,11 @@ RULES: Tuple[Rule, ...] = (
          "Not applicable when the plan shows no kitchen nearby."),
     Rule("R9", "main_route", "Main route unobstructed",
          "Ensure that the dining table does not obstruct the main circulation route.",
-         "Scored: with every chair occupied, a 750 mm path still links the entrance to the other doors "
+         "Scored: with every chair occupied, a 0.75 m path still links the entrance to the other doors "
          "and the sideboard, and the straight line between doors misses the diners."),
     Rule("R10", "lighting", "Light over the table",
          "Arrange lighting to provide sufficient illumination over the dining table.",
-         "Built in: a pendant centred over the table, 750 mm above its top (two over a long table). "
+         "Built in: a pendant centred over the table, 0.75 m above its top (two over a long table). "
          "Scored: daylight - how near the table stands to a window."),
     Rule("R11", "items_in_reach", "Dining items within reach",
          "Keep frequently used dining items within convenient reach.",
@@ -473,11 +473,11 @@ class Evaluator:
         for side in SIDES:
             if side in lay.chair_sides:
                 if clear[side] < c.chair_pull_min - 1.0:
-                    add("R2", "chair_pullout", "Only {:.0f} mm is clear on the {} side of the table; {:.0f} mm is "
-                        "needed to pull a chair out.".format(clear[side], side, c.chair_pull_min), table.id)
+                    add("R2", "chair_pullout", "Only {} is clear on the {} side of the table; {} is "
+                        "needed to pull a chair out.".format(metres(clear[side]), side, metres(c.chair_pull_min)), table.id)
             elif 1.0 < clear[side] < c.end_gap_min - 1.0 and lay.sideboard is None:
-                add("R5", "end_gap", "The {} end of the table is {:.0f} mm from the wall - too far to be against "
-                    "it, too close to walk past.".format(side, clear[side]), table.id)
+                add("R5", "end_gap", "The {} end of the table is {} from the wall - too far to be against "
+                    "it, too close to walk past.".format(side, metres(clear[side])), table.id)
         pulled = self.envelope(lay, c.chair_pull_min)
         for door, zone in zip(self.doors, self.door_zones):
             if intersects(pulled, zone):
@@ -492,8 +492,8 @@ class Evaluator:
                 add("R7", "overlap", "The sideboard overlaps the table.", board.id)
             gap, least = self.sideboard_gap(lay)
             if gap < least - 1.0:
-                add("R7", "furniture_gap", "Only {:.0f} mm separates the table and the sideboard; {:.0f} mm is "
-                    "needed.".format(gap, least), board.id)
+                add("R7", "furniture_gap", "Only {} separates the table and the sideboard; {} is "
+                    "needed.".format(metres(gap), metres(least)), board.id)
             for door, zone in zip(self.doors, self.door_zones):
                 if intersects(board.rect, zone):
                     add("R6", "door", "The sideboard stands where door {} needs to open.".format(door.id), board.id)
@@ -502,6 +502,6 @@ class Evaluator:
                     add("R6", "window", "The sideboard stands in front of window {}.".format(window.id), board.id)
 
         if report is not None and report.checked and not report.valid:
-            add("R3", "path", "No path at least {:.0f} mm wide links the entrance to {}.".format(
-                c.path_min, _join(report.unreachable) if report.unreachable else "the table"))
+            add("R3", "path", "No path at least {} wide links the entrance to {}.".format(
+                metres(c.path_min), _join(report.unreachable) if report.unreachable else "the table"))
         return found

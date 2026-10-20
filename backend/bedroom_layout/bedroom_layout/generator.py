@@ -249,8 +249,8 @@ class Generator:
         compromises: Tuple[str, ...] = ()
         if len(open_sides) < need:
             compromises = (
-                "The room is too narrow to leave {:.0f} mm on both sides of the bed, so only one side can be "
-                "used to get in and out.".format(c.bed_side_min),)
+                "The room is too narrow to leave {} on both sides of the bed, so only one side can be "
+                "used to get in and out.".format(metres(c.bed_side_min)),)
         anchor = "corner_lo" if gap["lo"] <= 1.0 else "corner_hi" if gap["hi"] <= 1.0 else "open"
         return Layout(bed=bed, bed_size=size, anchor=anchor, open_sides=open_sides, access_sides=tuple(access),
                       tables=tuple(tables), keep_clear=tuple(keep), compromises=compromises)

@@ -123,8 +123,9 @@ function frontCenter(item: LayoutFurnitureItem): { c: Vec; dir: Vec } {
   }
 }
 
+/** A length the engines give in millimetres, shown in metres: 450 -> "0.45m", 2000 -> "2.00m". */
 export function fmtMm(mm: number): string {
-  return mm >= 1000 ? `${(mm / 1000).toFixed(2)}m` : `${Math.round(mm)}mm`;
+  return `${(mm / 1000).toFixed(2)}m`;
 }
 
 export const scoreTone = (score: number) =>

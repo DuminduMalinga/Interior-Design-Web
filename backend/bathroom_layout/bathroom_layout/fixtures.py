@@ -54,10 +54,10 @@ TOILETS: Dict[str, Spec] = {
 }
 
 BASINS: Dict[str, Spec] = {
-    "vanity_900": Spec("washbasin", "vanity_900", "900 mm vanity basin", 900.0, 500.0, 850.0, doors=True),
-    "vanity_600": Spec("washbasin", "vanity_600", "600 mm vanity basin", 600.0, 460.0, 850.0, doors=True),
-    "wall_hung": Spec("washbasin", "wall_hung", "450 mm wall-hung basin", 450.0, 350.0, 850.0),
-    "accessible": Spec("washbasin", "accessible", "600 mm wall-hung basin with knee space", 600.0, 450.0, 800.0),
+    "vanity_900": Spec("washbasin", "vanity_900", "0.90 m vanity basin", 900.0, 500.0, 850.0, doors=True),
+    "vanity_600": Spec("washbasin", "vanity_600", "0.60 m vanity basin", 600.0, 460.0, 850.0, doors=True),
+    "wall_hung": Spec("washbasin", "wall_hung", "0.45 m wall-hung basin", 450.0, 350.0, 850.0),
+    "accessible": Spec("washbasin", "accessible", "0.60 m wall-hung basin with knee space", 600.0, 450.0, 800.0),
 }
 
 CABINET = Spec("bathroom_cabinet", "tall", "tall storage cabinet", 400.0, 350.0, 1800.0, doors=True)

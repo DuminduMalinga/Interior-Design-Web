@@ -40,17 +40,17 @@ SIZE_CLASSES = ("compact", "standard", "large")
 APPLIANCES: Dict[str, Dict[str, Spec]] = {
     "compact": {
         "sink": Spec("sink", "single bowl", "single-bowl sink", 600.0, 600.0, COUNTER_HEIGHT),
-        "stove": Spec("stove", "4-burner", "600 mm cooker", 600.0, 600.0, COUNTER_HEIGHT, door=500.0),
+        "stove": Spec("stove", "4-burner", "0.60 m cooker", 600.0, 600.0, COUNTER_HEIGHT, door=500.0),
         "fridge": Spec("fridge", "compact", "compact refrigerator", 600.0, 650.0, 1700.0, door=600.0),
     },
     "standard": {
         "sink": Spec("sink", "bowl and drainer", "sink with drainer", 900.0, 600.0, COUNTER_HEIGHT),
-        "stove": Spec("stove", "4-burner", "600 mm cooker", 600.0, 600.0, COUNTER_HEIGHT, door=500.0),
+        "stove": Spec("stove", "4-burner", "0.60 m cooker", 600.0, 600.0, COUNTER_HEIGHT, door=500.0),
         "fridge": Spec("fridge", "single door", "refrigerator", 700.0, 700.0, 1800.0, door=700.0),
     },
     "large": {
         "sink": Spec("sink", "double bowl", "double-bowl sink", 1200.0, 600.0, COUNTER_HEIGHT),
-        "stove": Spec("stove", "range", "900 mm range cooker", 900.0, 600.0, COUNTER_HEIGHT, door=500.0),
+        "stove": Spec("stove", "range", "0.90 m range cooker", 900.0, 600.0, COUNTER_HEIGHT, door=500.0),
         "fridge": Spec("fridge", "double door", "double-door refrigerator", 900.0, 750.0, 1800.0, door=450.0),
     },
 }

@@ -226,8 +226,8 @@ def _merge(openings: List[Dict], kind: str, notes: List[str]) -> List[Dict]:
             end = max(previous["position"] + previous["width"], opening["position"] + opening["width"])
             previous["width"] = end - previous["position"]
             previous["sources"] += opening["sources"]
-            notes.append("{} '{}' overlaps '{}' on the {} wall; merged into one {:.0f} mm opening".format(
-                kind, opening["id"], previous["id"], previous["wall"], previous["width"]))
+            notes.append("{} '{}' overlaps '{}' on the {} wall; merged into one {:.2f} m opening".format(
+                kind, opening["id"], previous["id"], previous["wall"], previous["width"] / 1000.0))
         else:
             merged.append(opening)
     return merged
@@ -348,14 +348,14 @@ def build_shell(
         spans = sorted(plan_door_spans)
         scale, scale_source = STANDARD_DOOR_WIDTH / spans[len(spans) // 2], "door"
         notes.append(
-            "No scale came with the plan; {:.1f} mm per pixel was recovered from the {} detected door{} "
-            "(a standard {:.0f} mm leaf).".format(
-                scale, len(spans), "" if len(spans) == 1 else "s", STANDARD_DOOR_WIDTH))
+            "No scale came with the plan; {:.4f} m per pixel was recovered from the {} detected door{} "
+            "(a standard {:.2f} m leaf).".format(
+                scale / 1000.0, len(spans), "" if len(spans) == 1 else "s", STANDARD_DOOR_WIDTH / 1000.0))
     else:
         scale, scale_source = float(default_mm_per_px), "default"
         notes.append(
-            "No scale and no door to recover one from; the default of {:.0f} mm per pixel was used, "
-            "so the room size is a rough estimate.".format(scale))
+            "No scale and no door to recover one from; the default of {:.3f} m per pixel was used, "
+            "so the room size is a rough estimate.".format(scale / 1000.0))
 
     # A room's own printed size ("4 x 5 m"), when the plan has one, is exact:
     # this room's width and length are scaled to it, each on its own, so the

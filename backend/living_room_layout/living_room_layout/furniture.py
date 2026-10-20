@@ -64,7 +64,7 @@ SIDE_TABLE = Spec("side_table", "side table", 450.0, 450.0, 550.0)
 DINING_TABLES: Tuple[DiningSpec, ...] = (
     DiningSpec(6, "1.8 m dining table for six", 1800.0, 900.0, 3),
     DiningSpec(4, "1.2 m dining table for four", 1200.0, 800.0, 2),
-    DiningSpec(2, "800 mm dining table for two", 800.0, 800.0, 1),
+    DiningSpec(2, "0.80 m dining table for two", 800.0, 800.0, 1),
 )
 DINING_CHAIR = Spec("dining_chair", "dining chair", 450.0, 500.0, 900.0, 1)
 DESK = Spec("desk", "1.2 m desk", 1200.0, 600.0, 750.0)
@@ -78,7 +78,7 @@ TIERS: Dict[str, Tier] = {
         "compact",
         Spec("loveseat", "1.5 m two-seat sofa", 1500.0, 850.0, 850.0, 2),
         Spec("chair", "armchair", 750.0, 800.0, 850.0, 1),
-        Spec("coffee_table", "900 mm coffee table", 900.0, 500.0, 420.0),
+        Spec("coffee_table", "0.90 m coffee table", 900.0, 500.0, 420.0),
         Spec("tv_console", "1.2 m TV unit", 1200.0, 400.0, 500.0),
         1000.0, 1, 1, DINING_TABLES[2]),
     "standard": Tier(

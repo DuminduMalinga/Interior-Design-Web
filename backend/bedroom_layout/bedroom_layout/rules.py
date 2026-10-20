@@ -62,19 +62,19 @@ RULES: Tuple[Rule, ...] = (
          "window and how much window access the bed takes away."),
     Rule("R5", "bed_access", "Space beside the bed",
          "Leave sufficient space beside the bed for comfortable access.",
-         "Hard: 600 mm beside the bed on every side an occupant uses. Scored: up to 750 mm beside it "
-         "and 900 mm at the foot."),
+         "Hard: 0.60 m beside the bed on every side an occupant uses. Scored: up to 0.75 m beside it "
+         "and 0.90 m at the foot."),
     Rule("R6", "bedside_tables", "Bedside tables in reach",
          "Place bedside tables within convenient reach of the bed.",
          "Built in: a table always touches the bed at the pillow end. Scored: tables placed out of "
          "tables wanted."),
     Rule("R7", "storage_clearance", "Clearance at wardrobes and drawers",
          "Leave sufficient clearance in front of wardrobes and drawers.",
-         "Hard: 750 mm in front of a wardrobe and 700 mm in front of drawers. Scored: up to 900 mm."),
+         "Hard: 0.75 m in front of a wardrobe and 0.70 m in front of drawers. Scored: up to 0.90 m."),
     Rule("R8", "walking_path", "Clear walking path",
          "Keep the walking path between the bedroom entrance, bed, and wardrobe clear.",
-         "Hard: one continuous path at least 600 mm wide links the entrance, the bed, the storage and the "
-         "desk. Scored: whether it is 750 or 900 mm wide, and how much floor is cut off."),
+         "Hard: one continuous path at least 0.60 m wide links the entrance, the bed, the storage and the "
+         "desk. Scored: whether it is 0.75 or 0.90 m wide, and how much floor is cut off."),
     Rule("R9", "desk_and_chair", "Desk and chair off the path",
          "Position study desks and chairs so they do not block essential walking paths.",
          "Hard: the desk and its chair stay out of every keep-clear zone. Scored: the path still works "
@@ -82,7 +82,7 @@ RULES: Tuple[Rule, ...] = (
     Rule("R10", "tall_furniture", "Tall furniture clear of windows",
          "Avoid placing tall furniture where it blocks windows or ventilation openings.",
          "Hard: nothing 1.1 m or taller, and nothing taller than the sill, stands in front of a window. "
-         "Scored: a 300 mm margin from the window edge."),
+         "Scored: a 0.30 m margin from the window edge."),
     Rule("R11", "room_fit", "Fit to room and occupants",
          "Arrange furniture according to room dimensions and the number of occupants.",
          "Decides the furniture list (bed size, wardrobe size, drawers, desk). Scored: bed fit, pieces "
@@ -514,8 +514,8 @@ class Evaluator:
             return self._skip("R8", "No door was detected, so there was no entrance to walk from.")
         widths = self.c.path_widths
         if not report.valid:
-            return self._result("R8", 0.0, "No path at least {:.0f} mm wide reaches {}.".format(
-                min(widths), ", ".join(report.unreachable) or "the room"))
+            return self._result("R8", 0.0, "No path at least {} wide reaches {}.".format(
+                metres(min(widths)), ", ".join(report.unreachable) or "the room"))
         span = max(widths) - min(widths)
         wide = 0.6 + 0.4 * (report.width - min(widths)) / span if span else 1.0
         # floor nobody can get to counts against the path: 5% is tolerated, half the room loses everything
@@ -525,13 +525,13 @@ class Evaluator:
         for item in (lay.wardrobe, lay.dresser, lay.desk):
             if item is not None:
                 places.append("the {}".format(label(item)))
-        text = ("A path {:.0f} mm wide links {} and {}; {:.0f}% of the open floor can be walked to "
-                "from the door.").format(report.width, ", ".join(places[:-1]), places[-1], report.reached_ratio * 100.0)
+        text = ("A path {} wide links {} and {}; {:.0f}% of the open floor can be walked to "
+                "from the door.").format(metres(report.width), ", ".join(places[:-1]), places[-1], report.reached_ratio * 100.0)
         if lost > 0.0:
             text += " The rest is cut off by the furniture{}.".format(
                 ", along with {}".format(", ".join(report.cut_off)) if report.cut_off else "")
         if report.pinch is not None:
-            text += " A {:.0f} mm path would not reach {}.".format(report.pinch[0], ", ".join(report.pinch[1]))
+            text += " A {} path would not reach {}.".format(metres(report.pinch[0]), ", ".join(report.pinch[1]))
         return self._result("R8", score, text)
 
     def chair_result(self, lay: Layout, report: CirculationReport) -> RuleResult:
@@ -546,11 +546,11 @@ class Evaluator:
             return self._result(
                 "R9", 1.0,
                 "The desk and chair are off the walking path: even with the chair pulled out, the route between "
-                "the entrance, the bed and the storage stays at least {:.0f} mm wide.".format(self.c.path_min))
+                "the entrance, the bed and the storage stays at least {} wide.".format(metres(self.c.path_min)))
         return self._result(
             "R9", 0.5,
             "The desk and chair stay out of every keep-clear zone, but a pulled-out chair narrows the route below "
-            "{:.0f} mm - it has to be tucked in for someone to pass.".format(self.c.path_min))
+            "{} - it has to be tucked in for someone to pass.".format(metres(self.c.path_min)))
 
     # ------------------------------------------------------------------ #
     # rule 10 - tall furniture and the windows / ventilation openings
@@ -632,8 +632,8 @@ class Evaluator:
                 marks.append(1.0 - clamp01(abs(table.height - MATTRESS_HEIGHT) / 300.0))
                 marks.append(1.0 - clamp01((reach - c.bedside_reach) / c.bedside_reach))
                 parts.append(
-                    "the bedside surface is {:.0f} mm high, level with the {:.0f} mm mattress, and {} from "
-                    "the bed edge".format(table.height, MATTRESS_HEIGHT, metres(reach)))
+                    "the bedside surface is {} high, level with the {} mattress, and {} from "
+                    "the bed edge".format(metres(table.height), metres(MATTRESS_HEIGHT), metres(reach)))
             else:
                 marks.append(0.0)
                 parts.append("nothing is within reach of the pillow")
@@ -644,7 +644,7 @@ class Evaluator:
                 (walk - c.storage_reach_good) / (c.storage_reach_far - c.storage_reach_good)))
             parts.append("the {} is {} from the bed".format(label(storage), metres(walk)))
         if lay.desk is not None:
-            parts.append("the desk top is at {:.0f} mm".format(lay.desk.height))
+            parts.append("the desk top is at {}".format(metres(lay.desk.height)))
         if not marks:
             return self._skip("R12", "This layout has no bedside table or storage to judge.")
         score = sum(marks) / len(marks)
@@ -690,15 +690,15 @@ class Evaluator:
         usable = [side for side in ("lo", "hi") if clear[side] >= c.bed_side_min - 1.0]
         if len(usable) < need:
             add("R5", "bed_access",
-                "The bed has {:.0f} mm of clear floor on {} side{} but {} needed.".format(
-                    c.bed_side_min, len(usable) or "no", "" if len(usable) == 1 else "s",
+                "The bed has {} of clear floor on {} side{} but {} needed.".format(
+                    metres(c.bed_side_min), len(usable) or "no", "" if len(usable) == 1 else "s",
                     "both are" if need == 2 else "one is"),
                 lay.bed.id)
 
         for item, minimum in ((lay.wardrobe, c.wardrobe_front_min), (lay.dresser, c.drawer_front_min)):
             if item is not None and self.front_clearance(lay, item) < minimum - 1.0:
                 add("R7", "storage",
-                    "Less than {:.0f} mm is clear in front of the {}.".format(minimum, label(item)), item.id)
+                    "Less than {} is clear in front of the {}.".format(metres(minimum), label(item)), item.id)
 
         if self.programme.wardrobe_sizes and self.programme.wardrobe_required and lay.wardrobe is None:
             add("R11", "missing", "No position was found for the wardrobe.")
@@ -710,6 +710,6 @@ class Evaluator:
                         "The desk chair stands in the clear floor needed at {}.".format(name), lay.chair.id)
 
         if report is not None and report.checked and not report.valid:
-            add("R8", "path", "No path at least {:.0f} mm wide links the entrance to {}.".format(
-                c.path_min, ", ".join(report.unreachable) or "the rest of the room"))
+            add("R8", "path", "No path at least {} wide links the entrance to {}.".format(
+                metres(c.path_min), ", ".join(report.unreachable) or "the rest of the room"))
         return found
