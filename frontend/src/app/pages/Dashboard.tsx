@@ -37,6 +37,7 @@ import {
 import { checkAvatarFile, removeAvatar, uploadAvatar } from "../lib/avatar";
 import { deleteSavedDesign, listSavedDesigns, type SavedDesign } from "../lib/savedDesign";
 import AppFooter from "../components/AppFooter";
+type RecentItem = { kind: "saved"; design: SavedDesign } | { kind: "plan"; design: UserDesign };
 type ProfileState = {
   fullName: string;
   username: string;
@@ -237,6 +238,8 @@ export default function Dashboard() {
     })();
     return () => { cancelled = true; };
   }, [authStatus]);
+  const planImageFor = (design: SavedDesign) =>
+    designs.find((d) => d.floorPlanId === design.floorPlanId)?.imageUrl ?? null;
   const openSavedDesign = (design: SavedDesign) => {
     navigate("/room-view-3d", {
       state: {
@@ -371,7 +374,12 @@ export default function Dashboard() {
   );
 
   const renderDashboard = () => {
-    const [latest, ...older] = designs;
+    // Saved 3D designs come first (they already show their 2D plan), then plans without one.
+    const savedPlanIds = new Set(savedDesigns.map((s) => s.floorPlanId));
+    const recent: RecentItem[] = [
+      ...savedDesigns.map((design): RecentItem => ({ kind: "saved", design })),
+      ...designs.filter((d) => !savedPlanIds.has(d.floorPlanId)).map((design): RecentItem => ({ kind: "plan", design })),
+    ];
     return (
       <>
         <header className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
@@ -403,24 +411,49 @@ export default function Dashboard() {
             <section className="mt-14">
               <div className="flex items-end justify-between gap-4">
                 <h2 className="text-2xl leading-tight text-lv-ink md:text-3xl">Recent designs</h2>
-                {designs.length > 1 && (
+                {recent.length > 1 && (
                   <button type="button" onClick={() => setActiveMenu("designs")} className="lv-btn-quiet shrink-0">
                     View all <span className="hidden sm:inline">designs</span>
                     <ArrowRight className="w-4 h-4" aria-hidden="true" />
                   </button>
                 )}
               </div>
-              <div className="mt-6">
-                <DesignCard design={latest} onOpen={openDesign} featured />
-              </div>
-              {older.length > 0 && (
-                <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {older.slice(0, 3).map((design) => (
-                    <DesignCard key={design.floorPlanId} design={design} onOpen={openDesign} />
-                  ))}
-                </div>
+              {savedError && (
+                <p role="alert" className="mt-4 flex items-center gap-2 text-sm text-red-400">
+                  <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" /> {savedError}
+                </p>
               )}
+              {/* Saved 3D designs are wide cards, one per row; plain floor plans follow in a grid. */}
+              <div className="mt-6 flex flex-col gap-4">
+                {recent.slice(0, 4).filter((item) => item.kind === "saved").map((item) => (
+                  <SavedDesignCard key={item.design.designId} design={item.design as SavedDesign}
+                    planUrl={planImageFor(item.design as SavedDesign)}
+                    onOpen={openSavedDesign} onDelete={removeSavedDesign} featured />
+                ))}
+              </div>
+              {(() => {
+                const plans = recent.slice(0, 4).filter((item) => item.kind === "plan").map((item) => item.design as UserDesign);
+                const hasSaved = recent[0].kind === "saved";
+                const [firstPlan, ...restPlans] = plans;
+                return (
+                  <>
+                    {!hasSaved && firstPlan && (
+                      <div className="mt-6">
+                        <DesignCard design={firstPlan} onOpen={openDesign} featured />
+                      </div>
+                    )}
+                    {(hasSaved ? plans : restPlans).length > 0 && (
+                      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {(hasSaved ? plans : restPlans).map((design) => (
+                          <DesignCard key={design.floorPlanId} design={design} onOpen={openDesign} />
+                        ))}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </section>
+
           </>
         )}
       </>
@@ -451,9 +484,9 @@ export default function Dashboard() {
               <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" /> {savedError}
             </p>
           )}
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-6 flex flex-col gap-4">
             {savedDesigns.map((design) => (
-              <SavedDesignCard key={design.designId} design={design} onOpen={openSavedDesign} onDelete={removeSavedDesign} />
+              <SavedDesignCard key={design.designId} design={design} planUrl={planImageFor(design)} onOpen={openSavedDesign} onDelete={removeSavedDesign} featured />
             ))}
           </div>
           <h2 className="mt-14 text-2xl leading-tight text-lv-ink md:text-3xl">Floor plans</h2>
