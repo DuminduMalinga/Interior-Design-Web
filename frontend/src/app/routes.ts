@@ -50,6 +50,14 @@ export const router = createBrowserRouter([
     Component: Dashboard,
   },
   {
+    path: "/my-designs",
+    Component: Dashboard,
+  },
+  {
+    path: "/profile",
+    Component: Dashboard,
+  },
+  {
     path: "/upload",
     Component: UploadFloorPlan,
   },

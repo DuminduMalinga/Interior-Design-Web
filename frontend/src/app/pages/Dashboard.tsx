@@ -59,16 +59,11 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { profile: currentUser, authStatus, setAvatarUrl } = useCurrentUserProfile();
   const location = useLocation();
-  // The shared navbar's page links and "My Profile" arrive here with { menu } in router state.
-  const requestedMenu = (location.state as { menu?: string } | null)?.menu;
-  const [activeMenu, setActiveMenu] = useState(
-    requestedMenu === "profile" || requestedMenu === "designs" ? requestedMenu : "dashboard",
-  );
-  useEffect(() => {
-    if (requestedMenu === "dashboard" || requestedMenu === "designs" || requestedMenu === "profile") {
-      setActiveMenu(requestedMenu);
-    }
-  }, [location.key, requestedMenu]);
+  // Each tab has its own address: /dashboard, /my-designs and /profile.
+  const activeMenu =
+    location.pathname === "/my-designs" ? "designs" : location.pathname === "/profile" ? "profile" : "dashboard";
+  const setActiveMenu = (menu: "dashboard" | "designs" | "profile") =>
+    navigate(menu === "designs" ? "/my-designs" : menu === "profile" ? "/profile" : "/dashboard");
   // Profile state
   const [profileSaved, setProfileSaved] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);

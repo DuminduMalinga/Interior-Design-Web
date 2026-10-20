@@ -88,9 +88,9 @@ export default function SiteNavbar({
   };
 
   const navItems = [
-    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, path: "/dashboard", state: { menu: "dashboard" } },
+    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, path: "/dashboard", state: undefined },
     { id: "upload", label: "Create design", icon: Upload, path: "/upload", state: undefined },
-    { id: "designs", label: "My designs", icon: FolderOpen, path: "/dashboard", state: { menu: "designs" } },
+    { id: "designs", label: "My designs", icon: FolderOpen, path: "/my-designs", state: undefined },
     { id: "about", label: "About", icon: Info, path: "/about", state: undefined },
     ...(profile.role.trim().toLowerCase() === "admin"
       ? [{ id: "admin-accounts", label: "Accounts", icon: ShieldCheck, path: "/admin/accounts", state: undefined }]
@@ -98,7 +98,8 @@ export default function SiteNavbar({
   ];
   // Every page of the upload → 3D flow belongs to "Create design".
   const routeNav =
-    pathname === "/dashboard" ? "dashboard"
+    pathname === "/dashboard" || pathname === "/profile" ? "dashboard"
+      : pathname === "/my-designs" ? "designs"
       : pathname === "/about" ? "about"
         : pathname.startsWith("/admin") ? "admin-accounts"
           : "upload";
@@ -109,7 +110,7 @@ export default function SiteNavbar({
     if (onProfile) {
       onProfile();
     } else {
-      navigate("/dashboard", { state: { menu: "profile" } });
+      navigate("/profile");
     }
   };
 
