@@ -9,24 +9,32 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // session tokens are returned for the client to adopt with `setSession`.
 //
 // This is a public login endpoint by design, so it is deployed with
-// `--no-verify-jwt` (the app's publishable key is not a JWT).
+// `--no-verify-jwt` (the app's publishable key is not a JWT). Browsers may
+// call it only from the site itself and the local dev server.
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+const SITE_URL = (Deno.env.get("SITE_URL") ?? "").replace(/\/$/, "");
+const ALLOWED_ORIGINS = [SITE_URL || "https://interior-design-web-mu.vercel.app", "http://localhost:5173"];
+
+const corsFor = (req: Request) => {
+  const origin = req.headers.get("Origin") ?? "";
+  return {
+    "Access-Control-Allow-Origin": ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Vary": "Origin",
+  };
 };
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
 
 const INVALID = "Invalid login credentials";
 
 serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  const cors = corsFor(req);
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...cors, "Content-Type": "application/json" },
+    });
+
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   try {

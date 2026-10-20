@@ -6,6 +6,8 @@
  * state (Upload -> Processing -> Select Room); nothing is persisted.
  */
 
+import { authHeaders } from "./serviceAuth";
+
 const DETECTOR_URL = (
   import.meta.env.VITE_DETECTOR_URL ?? "http://localhost:8000"
 ).replace(/\/$/, "");
@@ -162,10 +164,12 @@ export async function detectFloorPlan(
   form.append("file", file, file.name);
 
   const qs = params.toString();
+  const auth = await authHeaders();
   let res: Response;
   try {
     res = await fetch(`${DETECTOR_URL}/detect${qs ? `?${qs}` : ""}`, {
       method: "POST",
+      headers: auth,
       body: form,
       signal: opts.signal,
     });

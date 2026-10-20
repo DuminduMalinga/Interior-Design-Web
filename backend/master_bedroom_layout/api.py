@@ -32,7 +32,7 @@ import os
 import sys
 from typing import Any, Dict
 
-from fastapi import Body, FastAPI, HTTPException
+from fastapi import Body, Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -63,7 +63,9 @@ ALLOWED_ORIGINS = [
     if o.strip()
 ]
 
-app = FastAPI(title="Master Bedroom Layout", version="1.0.0")
+from supabase_auth import docs_kwargs, require_user  # noqa: E402
+
+app = FastAPI(title="Master Bedroom Layout", version="1.0.0", **docs_kwargs())
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -78,7 +80,7 @@ def health():
     return {"status": "ok"}
 
 
-@app.get("/rules")
+@app.get("/rules", dependencies=[Depends(require_user)])
 def rules():
     """The fifteen rules and the extra furniture rule as written, and how the engine applies each one."""
     return {"rules": rule_catalogue()}
@@ -99,13 +101,13 @@ def _generate(payload: Dict[str, Any]) -> Dict[str, Any]:
         raise HTTPException(500, f"layout generation failed: {exc}")
 
 
-@app.post("/generate-all")
+@app.post("/generate-all", dependencies=[Depends(require_user)])
 def generate_all(payload: Dict[str, Any] = Body(...)):
     """Every layout the room allows, best first - one per distinct bed position."""
     return _generate(payload)
 
 
-@app.post("/generate")
+@app.post("/generate", dependencies=[Depends(require_user)])
 def generate(payload: Dict[str, Any] = Body(...)):
     """The single best layout."""
     result = _generate(payload)

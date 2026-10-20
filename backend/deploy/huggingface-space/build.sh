@@ -3,6 +3,6 @@
 set -e
 cd "$(dirname "$0")"
 SRC=../../wall_detector
-cp "$SRC/main.py" "$SRC/room_shapes.py" "$SRC/requirements.txt" .
+cp "$SRC/main.py" "$SRC/room_shapes.py" "$SRC/supabase_auth.py" "$SRC/requirements.txt" .
 mkdir -p models && cp "$SRC/models/best.pt" models/
 echo "ready: $(pwd)"

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
+import { signFloorPlanImages } from "./floorPlanImage";
 import { useCurrentUserProfile } from "../context/UserContext";
 import type { DetectionResult } from "./wallDetector";
 
@@ -46,7 +47,7 @@ export interface DesignCounts {
   finished: number;
 }
 
-function toDesign(plan: FloorPlanRow, analysis: AnalysisRow | undefined): UserDesign {
+function toDesign(plan: FloorPlanRow, analysis: AnalysisRow | undefined, imageUrl: string | null): UserDesign {
   const detection = analysis?.DetectionJSON ?? null;
   const rooms = detection?.rooms ?? [];
   const room = analysis?.SelectedRoomID ? rooms.find((r) => r.id === analysis.SelectedRoomID) : undefined;
@@ -55,7 +56,7 @@ function toDesign(plan: FloorPlanRow, analysis: AnalysisRow | undefined): UserDe
 
   return {
     floorPlanId: plan.FloorPlanID,
-    imageUrl: plan.ImagePath,
+    imageUrl,
     uploadedAt: plan.UploadDateTime,
     updatedAt: analysis?.UpdatedAt ?? plan.UploadDateTime,
     status: analysis?.Status ?? "Uploaded",
@@ -126,7 +127,10 @@ export function useUserDesigns() {
       setCounts({ plans: planTotal.count ?? 0, finished: finishedTotal.count ?? 0 });
 
       const byPlan = new Map((analyses.data as AnalysisRow[]).map((row) => [row.FloorPlanID, row]));
-      setDesigns((plans.data as FloorPlanRow[]).map((plan) => toDesign(plan, byPlan.get(plan.FloorPlanID))));
+      const planRows = plans.data as FloorPlanRow[];
+      // The floorplans bucket is private: turn each stored path into a short-lived viewing link.
+      const imageUrls = await signFloorPlanImages(planRows.map((plan) => plan.ImagePath));
+      setDesigns(planRows.map((plan, i) => toDesign(plan, byPlan.get(plan.FloorPlanID), imageUrls[i])));
     } catch (err) {
       setDesigns([]);
       setCounts({ plans: 0, finished: 0 });

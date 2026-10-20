@@ -37,11 +37,12 @@ from functools import lru_cache
 
 import cv2
 import numpy as np
-from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 
 from room_shapes import trace_room_shapes
+from supabase_auth import docs_kwargs, require_user
 
 # ── Config ─────────────────────────────────────────────────────────────
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -113,7 +114,7 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title="Wall Detector", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="Wall Detector", version="1.0.0", lifespan=lifespan, **docs_kwargs())
 
 app.add_middleware(
     CORSMiddleware,
@@ -340,7 +341,7 @@ def health():
     }
 
 
-@app.post("/detect")
+@app.post("/detect", dependencies=[Depends(require_user)])
 async def detect(
     file: UploadFile = File(...),
     conf: float = Query(DEFAULT_CONF, ge=0.0, le=1.0),
@@ -658,7 +659,7 @@ async def detect(
     return payload
 
 
-@app.get("/rooms-json/{filename}")
+@app.get("/rooms-json/{filename}", dependencies=[Depends(require_user)])
 def get_rooms_json(filename: str):
     """Fetch a previously written output/<id>.json file."""
     safe = os.path.basename(filename)
