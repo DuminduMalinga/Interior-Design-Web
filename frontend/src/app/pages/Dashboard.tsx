@@ -460,6 +460,11 @@ export default function Dashboard() {
     );
   };
 
+  // The six best-scoring plans; unscored ones fill in only if there are fewer than six scored.
+  const topDesigns = [...designs]
+    .sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
+    .slice(0, 6);
+
   const renderDesigns = () => (
     <>
       <header className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
@@ -467,7 +472,9 @@ export default function Dashboard() {
           <h1 className={pageTitleCls}>My designs</h1>
           <p className="mt-3 text-base text-lv-muted md:text-lg">
             {designs.length > 0
-              ? `${designs.length} floor ${designs.length === 1 ? "plan" : "plans"}, newest first.`
+              ? designs.length > topDesigns.length
+                ? `Your ${topDesigns.length} best-scoring floor plans, out of ${designs.length}.`
+                : `${designs.length} floor ${designs.length === 1 ? "plan" : "plans"}, best score first.`
               : "Every floor plan you upload is kept here."}
           </p>
         </div>
@@ -495,7 +502,7 @@ export default function Dashboard() {
 
       {designsLoading ? designsSkeleton : designs.length === 0 ? (!designsError && emptyState) : (
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {designs.map((design) => (
+          {topDesigns.map((design) => (
             <DesignCard key={design.floorPlanId} design={design} onOpen={openDesign} />
           ))}
         </div>
