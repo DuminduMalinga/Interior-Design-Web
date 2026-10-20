@@ -47,6 +47,13 @@ Vercel > Project > Settings > Environment Variables, then **redeploy** the front
 
 (`VITE_SUPABASE_*` stay as they are; Supabase is not part of this.)
 
+## 6. Check it from outside
+From any machine with `curl`, run the check with your services address and your Vercel address. It confirms every service answers `/health` and that each one allows your web app's address (CORS):
+```bash
+./check-services.sh https://SITE https://your-app.vercel.app
+```
+Then try the whole flow on the live site: sign in, upload a floor plan, pick a room, open a layout in 3D, save it. If the browser console shows a CORS error, the web app's exact address is missing from `ALLOWED_ORIGINS` in `.env` (then `docker compose up -d`).
+
 ## Updating
 `git pull && docker compose up -d --build`. Logs: `docker compose logs -f detector`.
 

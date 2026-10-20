@@ -1,410 +1,198 @@
-<div align="center">
+# InteriorAI
 
-# 🏠 InteriorAI
+Upload a 2D floor plan, let the site find every room, compare scored furniture layouts for the room you pick, and walk through the result in 3D.
 
-### _Transform floor plans into stunning 3D spaces — powered by AI_
+The project has three parts:
 
-[![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Vite](https://img.shields.io/badge/Vite-6-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
-[![MUI](https://img.shields.io/badge/MUI-7-007FFF?style=for-the-badge&logo=mui&logoColor=white)](https://mui.com)
-[![Express](https://img.shields.io/badge/Express-4-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com)
-[![Supabase](https://img.shields.io/badge/Supabase-Backend-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com)
+| Part | What it is | Where |
+|------|------------|-------|
+| **Web app** | React + TypeScript single-page app (Vite) | `frontend/` |
+| **Layout and detection services** | Seven small Python (FastAPI) services | `backend/` |
+| **Accounts, data and files** | Supabase: Postgres with row-level security, Auth, Storage and Edge Functions | `backend/supabase/` |
 
-<br/>
-
-> Upload a 2D floor plan → AI detects every room → browse scored layouts → explore in 3D.  
-> **From blueprint to reality in under 15 seconds.**
-
-</div>
+There is no Node/Express server. The browser talks to Supabase directly and to the Python services over HTTP.
 
 ---
 
-## ✨ Features
-
-| Icon | Feature | Description |
-|:----:|---------|-------------|
-| 🔍 | **AI Room Detection** | Instantly maps every room, wall, door & window from any 2D floor plan image |
-| 🪑 | **Smart Furniture Placement** | Scores hundreds of layout combinations and surfaces only the best-fit arrangements |
-| 🧊 | **Interactive 3D Viewer** | The selected layout as a real-size 3D room (three.js) — orbit, zoom, click furniture, export PNG / GLB / JSON |
-| 📊 | **User Dashboard** | Manage projects, view design history, and configure profile & notifications |
-| 🛡️ | **Admin Panel** | Dedicated interface for user account management and approval workflows |
-| 🌗 | **Dark / Light Theme** | Full theme switching powered by a global `ThemeContext` |
-| 🔐 | **Authentication Flow** | Sign up, sign in, forgot-password & full password reset with form validation |
-| 🔒 | **Secure REST API** | Express backend with Helmet, CORS, and rate limiting (200 req / 15 min) |
-| ☁️ | **Supabase Backend** | Cloud database, auth, and storage powered by Supabase |
-
----
-
-## 🚀 Performance Highlights
+## How it works
 
 ```
-⚡  < 15s    AI processing time per floor plan
-🎯  98%      Room detection accuracy
-📐  500+     Layouts scored per session
-🏡  10k+     Rooms designed and counting
+Upload floor plan ──► Wall detector (YOLO + OCR) ──► Select a room
+        │                                                 │
+        ▼                                                 ▼
+ Supabase Storage + FloorPlan row            Room-type layout service
+                                              (rule-based, scores layouts)
+                                                          │
+                                                          ▼
+                                       Compare layouts ──► 3D view ──► Save / export
 ```
+
+1. **Upload** (`/upload`): the image goes to the `floorplans` storage bucket and a `FloorPlan` row is created.
+2. **Detect** (`/processing`): the wall detector finds walls, rooms, doors and windows and reads each room's printed label. The result is saved in `FloorPlanAnalysis`, and the rooms, doors and windows are copied into the `Room` and `StructuralElement` tables.
+3. **Select a room** (`/select-room`).
+4. **Layouts** (`/view-layouts`): the service for that room type (living room, bedroom, master bedroom, kitchen, bathroom, dining) returns several furniture arrangements, each scored against its design rules.
+5. **3D view** (`/room-view-3d`): the chosen layout as a real-size three.js room. Orbit and zoom, click furniture, export a PNG or a GLB model, and save the design to your account (`SavedDesign` table and the private `designs` bucket).
+
+Other pages: landing page, About, sign up, sign in, forgot and reset password, a dashboard (your designs, profile with picture, password, notifications) and an admin page for managing accounts.
 
 ---
 
-## 🛠️ Tech Stack
+## Features
 
-### Frontend
-
-<table>
-  <thead>
-    <tr>
-      <th>🏷️ Layer</th>
-      <th>⚙️ Technology</th>
-      <th>📌 Version</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr><td>⚛️ Framework</td><td><a href="https://react.dev">React</a> + <a href="https://www.typescriptlang.org/">TypeScript</a></td><td>18 / 5</td></tr>
-    <tr><td>⚡ Build Tool</td><td><a href="https://vitejs.dev">Vite</a></td><td>6</td></tr>
-    <tr><td>🧭 Routing</td><td><a href="https://reactrouter.com">React Router</a></td><td>v7</td></tr>
-    <tr><td>🎨 Styling</td><td><a href="https://tailwindcss.com">Tailwind CSS</a></td><td>v4</td></tr>
-    <tr><td>🧩 UI Primitives</td><td><a href="https://www.radix-ui.com">Radix UI</a> (shadcn/ui)</td><td>latest</td></tr>
-    <tr><td>🖼️ Component Lib</td><td><a href="https://mui.com">Material UI (MUI)</a></td><td>v7</td></tr>
-    <tr><td>🎞️ Animation</td><td><a href="https://motion.dev">Motion (Framer Motion)</a></td><td>12</td></tr>
-    <tr><td>📋 Forms</td><td><a href="https://react-hook-form.com">React Hook Form</a></td><td>7</td></tr>
-    <tr><td>🖱️ Drag & Drop</td><td><a href="https://react-dnd.github.io/react-dnd/">React DnD</a></td><td>16</td></tr>
-    <tr><td>📈 Charts</td><td><a href="https://recharts.org">Recharts</a></td><td>2</td></tr>
-    <tr><td>🔔 Toasts</td><td><a href="https://sonner.emilkowal.ski">Sonner</a></td><td>2</td></tr>
-    <tr><td>🖼️ Icons</td><td><a href="https://lucide.dev">Lucide React</a> + MUI Icons</td><td>latest</td></tr>
-  </tbody>
-</table>
-
-### Backend
-
-<table>
-  <thead>
-    <tr>
-      <th>🏷️ Layer</th>
-      <th>⚙️ Technology</th>
-      <th>📌 Version</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr><td>🚀 Runtime</td><td><a href="https://nodejs.org">Node.js</a> + <a href="https://www.typescriptlang.org/">TypeScript</a></td><td>≥ 18 / 5</td></tr>
-    <tr><td>🌐 Framework</td><td><a href="https://expressjs.com">Express</a></td><td>4</td></tr>
-    <tr><td>🔄 Dev Server</td><td><a href="https://github.com/remy/nodemon">nodemon</a> + <a href="https://typestrong.org/ts-node/">ts-node</a></td><td>3 / 10</td></tr>
-    <tr><td>🔒 Security</td><td><a href="https://helmetjs.github.io">Helmet</a> + <a href="https://github.com/express-rate-limit/express-rate-limit">express-rate-limit</a></td><td>8 / 7</td></tr>
-    <tr><td>☁️ Database & Auth</td><td><a href="https://supabase.com">Supabase</a> (service-role admin client)</td><td>2</td></tr>
-  </tbody>
-</table>
+- **Accounts:** sign up, sign in with email and password or with Google, password reset, profile with picture, notification choices, delete your own account.
+- **Roles:** `Customer` and `Admin`. Signed-out visitors are sent to the sign-in page, and customers cannot open the admin page. Admins can manage customer accounts but cannot edit or delete other admins.
+- **Floor plan analysis:** room, wall, door and window detection with room-name OCR.
+- **Layout engines:** rule-based and deterministic (no ML), one per room type, each with its own unit tests.
+- **3D viewer:** three.js scene, PNG and GLB export, saved designs.
+- **Email notifications:** "plan ready" and "design saved" emails, plus admin product news, sent by an edge function through Resend. Users can switch each kind off on their profile.
+- **Light and dark theme.**
 
 ---
 
-## 📁 Project Structure
+## Tech stack
+
+| Area | Technology |
+|------|-----------|
+| Web app | React 18, TypeScript, Vite 6, React Router 7, Tailwind CSS 4, Radix UI (shadcn/ui), Motion, GSAP, three.js, React Hook Form |
+| Services | Python, FastAPI, YOLO (Ultralytics) and EasyOCR for detection |
+| Data and auth | Supabase (Postgres, Auth, Storage, Edge Functions on Deno) |
+| Email | Resend (from the `send-notification` edge function) |
+| Hosting | Vercel for the web app; Docker Compose + Caddy (AWS EC2) or a Hugging Face Space for the services |
+
+---
+
+## Repository layout
 
 ```
-📦 Interiordesignweb/          ← Monorepo root
- ┣ 📄 package.json             ← Root scripts (dev, install:all, build:frontend)
- ┣ 📂 backend/                 ← Express REST API
- ┃  ┗ 📂 src/
- ┃     ┣ 📄 index.ts           ← Server entry — middleware, routes, error handler
- ┃     ┣ 📄 supabaseAdmin.ts   ← Supabase service-role admin client
- ┃     ┣ 📂 middleware/
- ┃     ┃  ┗ 📄 cors.ts         ← CORS configuration
- ┃     ┗ 📂 routes/
- ┃        ┣ 📄 auth.ts         ← POST /api/auth/*
- ┃        ┣ 📄 profile.ts      ← GET/PATCH /api/profile/*
- ┃        ┣ 📄 users.ts        ← GET/DELETE /api/users/*
- ┃        ┣ 📄 projects.ts     ← GET/POST/DELETE /api/projects/*
- ┃        ┣ 📄 admin.ts        ← GET/POST /api/admin/*
- ┃        ┗ 📄 deletionRequests.ts ← /api/deletion-requests/*
- ┗ 📂 frontend/                ← React + Vite SPA
-    ┗ 📂 src/
-       ┣ 📄 main.tsx           ← Application entry point
-       ┗ 📂 app/
-          ┣ 📄 App.tsx         ← Root component
-          ┣ 📄 routes.ts       ← React Router configuration
-          ┣ 📂 api/
-          ┃  ┗ 📄 client.ts   ← Typed fetch wrapper (auto-attaches Supabase JWT)
-          ┣ 📂 components/
-          ┃  ┣ 📂 figma/       ← Figma-generated helper components
-          ┃  ┗ 📂 ui/          ← shadcn/ui component library (30+ components)
-          ┣ 📂 context/
-          ┃  ┣ 📄 ThemeContext.tsx   ← Global dark/light theme provider
-          ┃  ┗ 📄 UserContext.tsx    ← Authenticated user state provider
-          ┣ 📂 lib/
-          ┃  ┗ 📄 supabaseClient.ts ← Supabase browser client initialisation
-          ┣ 📂 pages/
-          ┃  ┣ 🏠 Welcome.tsx           ← Landing page with features & testimonials
-          ┃  ┣ 🔐 SignIn.tsx            ← User login
-          ┃  ┣ 📝 SignUp.tsx            ← New user registration
-          ┃  ┣ 🔑 ForgotPassword.tsx   ← Password reset request flow
-          ┃  ┣ 🔏 ResetPassword.tsx    ← Password reset (email link handler)
-          ┃  ┣ 📊 Dashboard.tsx         ← Project history, profile & settings
-          ┃  ┣ 📤 UploadFloorPlan.tsx   ← Floor plan upload
-          ┃  ┣ ⏳ Processing.tsx        ← AI analysis progress screen
-          ┃  ┣ 🏷️ SelectRoom.tsx        ← Room selection post-detection
-          ┃  ┣ 🗂️ ViewLayouts.tsx       ← AI-scored layout gallery
-          ┃  ┣ 🧊 RoomView3D.tsx        ← 3D view of the selected layout (three.js)
-          ┃  ┗ 🛡️ AdminManageAccounts.tsx ← Admin user management panel
-          ┗ 📂 styles/
-             ┣ 📄 index.css
-             ┣ 📄 tailwind.css
-             ┣ 📄 theme.css
-             ┗ 📄 fonts.css
+frontend/                    React web app
+  src/app/pages/             one file per page
+  src/app/components/        shared UI (RequireAuth, PublicOnlyRoute, SiteNavbar, ...)
+  src/app/context/           UserContext (auth + profile), ThemeContext
+  src/app/lib/               Supabase client, service clients, 3D scene code
+backend/
+  wall_detector/             floor plan detection + room-name OCR      (port 8000)
+  living_room_layout/        living-room layouts                       (port 8100)
+  bedroom_layout/            bedroom layouts                           (port 8200)
+  kitchen_layout/            kitchen layouts                           (port 8300)
+  bathroom_layout/           bathroom layouts                          (port 8400)
+  dining_layout/             dining-area layouts                       (port 8500)
+  master_bedroom_layout/     master-bedroom layouts                    (port 8600)
+  deploy/                    Docker Compose, Caddy, Hugging Face Space bundle
+  supabase/
+    migrations/              the whole database, in order
+    functions/               edge functions: send-notification, delete-user, username-login
+  Layout_Engine/             early prototype with mock data (not used by the app)
 ```
 
 ---
 
-## 🗺️ Application Routes
+## Running it locally
 
-### Frontend Pages
+**Prerequisites:** Node.js 18+, Python 3.10+, and a Supabase project.
 
-| 🔗 Path | 📄 Page | 📝 Description |
-|---------|---------|----------------|
-| `/` | 🏠 Welcome | Landing page — features, stats & testimonials |
-| `/signup` | 📝 SignUp | New user registration |
-| `/signin` | 🔐 SignIn | User login |
-| `/forgot-password` | 🔑 ForgotPassword | Password reset request |
-| `/reset-password` | 🔏 ResetPassword | Password reset via email link |
-| `/dashboard` | 📊 Dashboard | History, profile & account settings |
-| `/upload` | 📤 UploadFloorPlan | Upload a 2D floor plan image |
-| `/processing` | ⏳ Processing | AI analysis progress screen |
-| `/select-room` | 🏷️ SelectRoom | Pick a detected room to optimise |
-| `/view-layouts` | 🗂️ ViewLayouts | Browse AI-ranked furniture layouts |
-| `/room-view-3d` | 🧊 RoomView3D | The selected layout as an interactive 3D room |
-| `/admin/accounts` | 🛡️ AdminManageAccounts | Admin user management |
+### 1. Database
 
-### Backend API Endpoints (`http://localhost:4000`)
+Create a Supabase project and apply every file in `backend/supabase/migrations/` in name order (the Supabase CLI does this with `supabase db push`, or paste them into the SQL editor one by one). The first file, `20260701000000_baseline_schema.sql`, creates the core tables, policies and the sign-up trigger.
 
-| 🔗 Route | 📝 Description |
-|----------|----------------|
-| `GET /health` | Health check — returns `{ status: "ok", timestamp }` |
-| `POST /api/auth/*` | Authentication helpers |
-| `GET /PATCH /api/profile/*` | User profile management |
-| `GET /DELETE /api/users/*` | User CRUD (admin-level) |
-| `GET /POST /DELETE /api/projects/*` | Project management |
-| `GET /POST /api/admin/*` | Admin account approval & management |
-| `GET /POST /api/deletion-requests/*` | Account deletion request workflow |
+Deploy the edge functions from `backend/supabase/functions/`:
 
----
+| Function | Purpose | JWT check at the gateway |
+|----------|---------|--------------------------|
+| `send-notification` | emails (needs the `RESEND_API_KEY` secret; optional `MAIL_FROM`, `SITE_URL`) | on |
+| `delete-user` | an admin deletes a customer; the function checks the caller is an admin | off (checks itself) |
+| `username-login` | sign in with a username instead of an email (deployed, but the current sign-in form does not call it) | off (public by design) |
 
-## 🏁 Getting Started
+In the Supabase dashboard, also turn on **leaked password protection** (Authentication settings) and make the first admin by setting `Role` to `Admin` on one row of the `User` table.
 
-### 📋 Prerequisites
-
-- 🟢 [Node.js](https://nodejs.org/) v18 or later
-- 📦 `npm`
-- ☁️ A [Supabase](https://supabase.com) project (database, auth & storage)
-
-### ⬇️ Installation
+### 2. Web app
 
 ```bash
-# 1. Clone the repository
-git clone <repository-url>
-cd Interiordesignweb
-
-# 2. Install dependencies (the root install also installs the frontend)
-npm install
+npm install                      # root install also installs frontend/
+cp frontend/.env.example frontend/.env   # then fill in the values
+npm run dev                      # http://localhost:5173
 ```
 
-### 🔧 Environment Variables
+### 3. Python services
 
-#### Backend — `backend/.env`
-
-```env
-SUPABASE_URL=https://<your-project-ref>.supabase.co
-SUPABASE_SERVICE_KEY=your_service_role_key_here   # Never expose this to the browser!
-SUPABASE_ANON_KEY=your_anon_key_here
-PORT=4000
-FRONTEND_URL=http://localhost:5173
-```
-
-> See `backend/.env.example` for a full template.
-
-#### Frontend — `frontend/.env`
-
-```env
-VITE_SUPABASE_URL=https://<your-project-ref>.supabase.co
-VITE_SUPABASE_ANON_KEY=your_anon_key_here
-VITE_API_URL=http://localhost:4000
-```
-
-### 💻 Development Server
-
-Run the **entire monorepo** (backend + frontend) with a single command from the root:
-
-```bash
-npm run dev
-```
-
-| Service | URL |
-|---------|-----|
-| 🌐 Frontend (Vite) | http://localhost:5173 |
-| 🔌 Backend (Express) | http://localhost:4000 |
-| ❤️ Health check | http://localhost:4000/health |
-
-Or run each service independently:
-
-```bash
-npm run dev:backend    # Express API only
-npm run dev:frontend   # Vite dev server only
-```
-
-### 🧱 Wall Detector service (AI room/wall detection)
-
-The Upload → Processing → Select Room flow calls a local Python service that runs
-the YOLO floor-plan model (`Wall`, `Room`, `Door`, `Window`), then **OCRs the
-printed label inside each room box** (EasyOCR) to recover the room name. It reads
-an image and returns detections as JSON, and writes a per-floor-plan
-`output/<id>.json` of room names + pixel dimensions. It does **not** touch the database.
-
-```bash
-cd backend/wall_detector
-python -m venv venv
-source venv/Scripts/activate     # Git Bash  (venv\Scripts\activate in PowerShell; venv/bin/activate on POSIX)
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
-```
-
-Weights live at `backend/wall_detector/models/best.pt` (git-ignored). The frontend
-reads `VITE_DETECTOR_URL` (default `http://localhost:8000`). See
-[`backend/wall_detector/README.md`](backend/wall_detector/README.md) for details.
-
-### 🛋️ Living Room Layout service (rule-based living-room layouts)
-
-When the room picked on Select Room is a living room (its name contains
-"living"), View Layouts calls a local Python service that arranges a sofa,
-armchairs, a coffee table, side tables, a TV unit and a rug according to ten
-living-room furniture-arrangement rules, and scores every layout against each
-rule. The furniture follows the household's daily activities — a dining table,
-a desk or a reading corner gets a zone of its own — and is sized to the room.
-Pure Python — no model, no database.
+Each service has its own folder, `requirements.txt` and README. For example:
 
 ```bash
 cd backend/living_room_layout
 python -m venv venv
-source venv/Scripts/activate     # Git Bash  (venv\Scripts\activate in PowerShell; venv/bin/activate on POSIX)
+source venv/Scripts/activate      # Git Bash; venv\Scripts\activate in PowerShell
 pip install -r requirements.txt
 uvicorn api:app --port 8100
 ```
 
-The frontend reads `VITE_LIVING_ROOM_LAYOUT_URL` (default `http://localhost:8100`). See
-[`backend/living_room_layout/README.md`](backend/living_room_layout/README.md) for the rules and the API.
+| Service | Command | Port |
+|---------|---------|------|
+| wall_detector | `uvicorn main:app --port 8000` (needs `models/best.pt`, which is git-ignored) | 8000 |
+| living_room_layout | `uvicorn api:app --port 8100` | 8100 |
+| bedroom_layout | `uvicorn api:app --port 8200` | 8200 |
+| kitchen_layout | `uvicorn api:app --port 8300` | 8300 |
+| bathroom_layout | `uvicorn api:app --port 8400` | 8400 |
+| dining_layout | `uvicorn api:app --port 8500` | 8500 |
+| master_bedroom_layout | `uvicorn api:app --port 8600` | 8600 |
 
-### 🛏️ Bedroom Layout service (rule-based furniture layouts)
+---
 
-When the room picked on Select Room is a bedroom, View Layouts calls a second
-local Python service that arranges a bed, bedside tables, wardrobe, drawers and
-a study desk according to twelve furniture-arrangement rules, and scores every
-layout against each rule. Pure Python — no model, no database.
+## Configuration
 
-```bash
-cd backend/bedroom_layout
-python -m venv venv
-source venv/Scripts/activate     # Git Bash  (venv\Scripts\activate in PowerShell; venv/bin/activate on POSIX)
-pip install -r requirements.txt
-uvicorn api:app --port 8200
-```
+### Web app (`frontend/.env`, see `frontend/.env.example`)
 
-The frontend reads `VITE_BEDROOM_LAYOUT_URL` (default `http://localhost:8200`). See
-[`backend/bedroom_layout/README.md`](backend/bedroom_layout/README.md) for the rules and the API.
+| Variable | Meaning | Default |
+|----------|---------|---------|
+| `VITE_SUPABASE_URL` | your Supabase project URL | required |
+| `VITE_SUPABASE_ANON_KEY` | the project's public (anon / publishable) key | required |
+| `VITE_DETECTOR_URL` | wall detector | `http://localhost:8000` |
+| `VITE_LIVING_ROOM_LAYOUT_URL` | living-room service | `http://localhost:8100` |
+| `VITE_BEDROOM_LAYOUT_URL` | bedroom service | `http://localhost:8200` |
+| `VITE_KITCHEN_LAYOUT_URL` | kitchen service | `http://localhost:8300` |
+| `VITE_BATHROOM_LAYOUT_URL` | bathroom service | `http://localhost:8400` |
+| `VITE_DINING_LAYOUT_URL` | dining service | `http://localhost:8500` |
+| `VITE_MASTER_BEDROOM_LAYOUT_URL` | master-bedroom service | `http://localhost:8600` |
 
-### 🍳 Kitchen Layout service (rule-based kitchen layouts)
+Never put a Supabase service-role / secret key in the web app.
 
-When the room picked is a kitchen, View Layouts calls a third local Python
-service that lays out the kitchen shapes the room allows (one-wall, L, U,
-galley) and places sink, stove, refrigerator, worktops and a dining table by
-twelve kitchen-arrangement rules. Same setup as the bedroom service:
+### Python services
 
-```bash
-cd backend/kitchen_layout
-python -m venv venv
-source venv/Scripts/activate
-pip install -r requirements.txt
-uvicorn api:app --port 8300
-```
+Each service reads `ALLOWED_ORIGINS` (comma-separated browser origins that may call it; default is the local dev server). See each service's `.env.example`.
 
-The frontend reads `VITE_KITCHEN_LAYOUT_URL` (default `http://localhost:8300`). See
-[`backend/kitchen_layout/README.md`](backend/kitchen_layout/README.md).
+---
 
-### 🚿 Bathroom Layout service (rule-based bathroom layouts)
+## Deploying
 
-When the room picked is a bathroom (its name contains "bath", "toilet", "WC",
-"washroom" or "shower"), View Layouts calls a fourth local Python service that
-arranges the shower, toilet, washbasin and storage cabinet, fixes the mirror,
-towel rails, floor drain and — when the user has mobility needs — wheelchair
-space and grab bars, by fifteen bathroom-arrangement rules. Same setup again:
+1. **Services:** follow `backend/deploy/README.md` (one EC2 instance, Docker Compose, Caddy for HTTPS), or use the Hugging Face Space bundle in `backend/deploy/huggingface-space/`. Set `ALLOWED_ORIGINS` to the exact address of your deployed web app.
+2. **Web app on Vercel:** set the two `VITE_SUPABASE_*` variables and the seven `VITE_*_URL` variables to the public service addresses, then redeploy. The build command is `npm run build:frontend`; `frontend/vercel.json` rewrites every path to `index.html`.
+3. **Supabase:** in Authentication, set the Site URL and redirect URLs to the deployed web app so email links and password resets come back to it.
+4. Run `backend/deploy/check-services.sh https://SITE https://your-app.vercel.app` to confirm every service is up and allows your web app.
+5. Check on the live site: sign up, upload a floor plan, pick a room, open a layout in 3D, save it, and sign in as an admin.
 
-```bash
-cd backend/bathroom_layout
-python -m venv venv
-source venv/Scripts/activate
-pip install -r requirements.txt
-uvicorn api:app --port 8400
-```
+---
 
-The frontend reads `VITE_BATHROOM_LAYOUT_URL` (default `http://localhost:8400`). See
-[`backend/bathroom_layout/README.md`](backend/bathroom_layout/README.md).
+## Security model
 
-### 🍽️ Dining Layout service (rule-based dining-area layouts)
+- Every table has row-level security. Users can read and change only their own floor plans, rooms, layouts and saved designs. Admins can read everything.
+- Users can update only their own profile fields (name, username, phone, location, bio, picture, notification choices). The `Role` column cannot be changed from the app.
+- The browser only holds the public key. Admin-only actions (deleting another user) go through an edge function that checks the caller's role.
+- Storage: `floorplans` and `avatars` are public-read with owner-only upload and delete; `designs` is private.
+- Page guards in the app (`RequireAuth`) keep signed-out visitors and customers away from pages they cannot use; the database enforces the same rules.
 
-When the room picked is a dining room or dining area, View Layouts calls a
-fifth local Python service that places the dining table and chairs, a sideboard
-and the pendant light by twelve dining-area rules. Same setup again:
+---
+
+## Testing
 
 ```bash
-cd backend/dining_layout
-python -m venv venv
-source venv/Scripts/activate
-pip install -r requirements.txt
-uvicorn api:app --port 8500
-```
-
-The frontend reads `VITE_DINING_LAYOUT_URL` (default `http://localhost:8500`). See
-[`backend/dining_layout/README.md`](backend/dining_layout/README.md).
-
-### 🛏️ Master Bedroom Layout service (rule-based master-bedroom layouts)
-
-When the room picked is a master bedroom (its name contains "master", "main" or
-"primary"), View Layouts calls a sixth local Python service instead of the
-bedroom one. It adds a dressing table, the lighting, both-sides bed access and
-the route to an en-suite bathroom, scored against fifteen master-bedroom rules.
-Same setup again:
-
-```bash
-cd backend/master_bedroom_layout
-python -m venv venv
-source venv/Scripts/activate
-pip install -r requirements.txt
-uvicorn api:app --port 8600
-```
-
-The frontend reads `VITE_MASTER_BEDROOM_LAYOUT_URL` (default `http://localhost:8600`). See
-[`backend/master_bedroom_layout/README.md`](backend/master_bedroom_layout/README.md).
-
-### 📦 Production Build
-
-```bash
+# layout engines (run inside each service folder; no pytest needed)
+cd backend/living_room_layout && python -m unittest living_room_layout.tests.test_engine -v
+# wall detector smoke test (needs the model file)
+cd backend/wall_detector && python smoke_test.py
+# web app production build
 npm run build:frontend
 ```
 
-> 📂 Output lands in `frontend/dist/` — ready for any static host (Netlify, Vercel, etc.).  
-> Deploy the backend to Railway, Render, or any Node.js host.
-
 ---
 
-## 🎨 Design Source
+## Credits
 
-Original Figma design → [View on Figma](https://www.figma.com/design/4nfXiCDREIVxzBClpAnTQN/Untitled)
-
----
-
-## 📄 License & Attributions
-
-See [ATTRIBUTIONS.md](ATTRIBUTIONS.md) for third-party attributions and licensing information.
-
----
-
-<div align="center">
-
-⚛️ Built with React &nbsp;+&nbsp; ⚡ Vite &nbsp;+&nbsp; 🌐 Express &nbsp;+&nbsp; ☁️ Supabase
-
-</div>
+UI primitives from [shadcn/ui](https://ui.shadcn.com/) (MIT). Photos from [Unsplash](https://unsplash.com). See `ATTRIBUTIONS.md`.
