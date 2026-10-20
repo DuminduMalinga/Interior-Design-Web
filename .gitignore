@@ -45,3 +45,8 @@ huggingface-space/main.py
 huggingface-space/room_shapes.py
 huggingface-space/requirements.txt
 huggingface-space/models/
+
+
+# Security policies (kept local, not published)
+backend/security/
+/SECURITY.md
