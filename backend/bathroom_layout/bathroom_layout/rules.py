@@ -65,32 +65,32 @@ RULES: Tuple[Rule, ...] = (
          "whether anything stands in the direct line."),
     Rule("R2", "toilet_space", "Space at the toilet",
          "Arrange the toilet to provide sufficient space for comfortable use.",
-         "Hard: 380 mm from the pan's centre line to anything at either side and 500 mm clear in front. "
-         "Scored: up to 450 mm and 750 mm, and out of the direct view from the door."),
+         "Hard: 0.38 m from the pan's centre line to anything at either side and 0.50 m clear in front. "
+         "Scored: up to 0.45 m and 0.75 m, and out of the direct view from the door."),
     Rule("R3", "shower_entry", "Safe way in and out of the shower",
          "Position the shower area to allow safe entry and exit.",
-         "Built in: the shower stands in a corner with a 700 mm way in. Hard: 600 mm of dry floor to "
-         "step out on to. Scored: up to 800 mm, and clear of the door's swing."),
+         "Built in: the shower stands in a corner with a 0.70 m way in. Hard: 0.60 m of dry floor to "
+         "step out on to. Scored: up to 0.80 m, and clear of the door's swing."),
     Rule("R4", "walking_paths", "Clear walking paths",
          "Keep clear walking paths between the entrance, washbasin, toilet, and shower.",
-         "Hard: one continuous path at least 600 mm wide links the entrance to all three. Scored: "
-         "whether it is 750 or 900 mm wide, and how much floor is cut off."),
+         "Hard: one continuous path at least 0.60 m wide links the entrance to all three. Scored: "
+         "whether it is 0.75 or 0.90 m wide, and how much floor is cut off."),
     Rule("R5", "basin_standing", "Standing room at the basin",
          "Provide sufficient space in front of the washbasin for standing and washing.",
-         "Hard: 550 mm of floor in front of the basin, 700 mm wide. Scored: up to 750 mm in front and "
-         "450 mm of elbow room either side of its centre line."),
+         "Hard: 0.55 m of floor in front of the basin, 0.70 m wide. Scored: up to 0.75 m in front and "
+         "0.45 m of elbow room either side of its centre line."),
     Rule("R6", "cabinet_position", "Cabinets out of the way",
          "Position bathroom cabinets so they do not obstruct movement or access to fixtures.",
          "Hard: a cabinet never stands in the floor a fixture or a door needs. Scored: clear of the "
          "direct lines from the door to each fixture and of the floor straight ahead of the door."),
     Rule("R7", "cabinet_doors", "Cabinet doors clear of the path",
          "Ensure cabinet doors and drawers can open without blocking essential walking paths.",
-         "Hard: an open door never hits a fixture. Scored: each door is opened in turn; 500 mm must "
+         "Hard: an open door never hits a fixture. Scored: each door is opened in turn; 0.50 m must "
          "remain to reach the other fixtures, and the leaf must stay out of the room door's swing."),
     Rule("R8", "towel_reach", "Towels within reach",
          "Place towel racks within convenient reach of the shower or washbasin.",
          "Built in: the rail goes on the free wall nearest the way out of the shower, a towel ring "
-         "nearest the basin. Scored: the reach to each, with full marks within 700 mm."),
+         "nearest the basin. Scored: the reach to each, with full marks within 0.70 m."),
     Rule("R9", "mirror", "Mirror at the basin",
          "Position mirrors above or near the washbasin at a suitable height.",
          "Built in: the mirror is hung above the basin, 1.1 to 1.9 m above the floor. Scored: above the "
@@ -98,7 +98,7 @@ RULES: Tuple[Rule, ...] = (
     Rule("R10", "toiletries_reach", "Toiletries within reach",
          "Keep frequently used toiletries within easy reach.",
          "Built in: a shelf inside the shower. Scored: a mirror cabinet over the basin, the paper "
-         "holder within 600 mm of the pan, and the storage one step from the basin."),
+         "holder within 0.60 m of the pan, and the storage one step from the basin."),
     Rule("R11", "splash_control", "Water kept off the walking area",
          "Arrange fixtures to reduce water splashing onto walking areas.",
          "Scored: the shower is the fixture furthest from the door, the route to the basin and the "
@@ -109,8 +109,8 @@ RULES: Tuple[Rule, ...] = (
          "floor covered, the largest clear square and straight lines from the door to each fixture."),
     Rule("R13", "wheelchair_access", "Wheelchair and mobility-aid access",
          "Provide sufficient space for wheelchair or mobility-aid access where required.",
-         "When required - hard: a clear 1.5 m turning square, 800 mm beside the pan to transfer and a "
-         "900 mm path. Scored on those and on the door width. Otherwise not applicable."),
+         "When required - hard: a clear 1.5 m turning square, 0.80 m beside the pan to transfer and a "
+         "0.90 m path. Scored on those and on the door width. Otherwise not applicable."),
     Rule("R14", "floor_and_drainage", "Non-slip floor and drainage",
          "Use suitable non-slip flooring and provide effective drainage to reduce water accumulation.",
          "Built in: a non-slip finish laid to a 1:80 fall towards a drain in the shower. Scored: the "
@@ -118,7 +118,7 @@ RULES: Tuple[Rule, ...] = (
     Rule("R15", "grab_bars", "Grab bars at the toilet and shower",
          "Install appropriate grab bars near the toilet and shower when required by the user's mobility needs.",
          "When required - built in: a bar inside the shower and bars at the pan. Scored: a fixed bar on "
-         "a side wall within 500 mm of the pan rather than drop-down rails. Otherwise not applicable."),
+         "a side wall within 0.50 m of the pan rather than drop-down rails. Otherwise not applicable."),
 )
 RULE_BY_ID: Dict[str, Rule] = {rule.id: rule for rule in RULES}
 
@@ -487,7 +487,7 @@ class Evaluator:
             metres(width), lay.entry_side, metres(depth), metres(c.shower_exit_min),
             "where the room door swings" if swept else "clear of the room door's swing",
             "the floor runs level into it, with nothing to step over" if spec.level
-            else "a low-profile tray keeps the step under 40 mm")
+            else "a low-profile tray keeps the step under 0.04 m")
         return self._result("R3", score, detail)
 
     # ------------------------------------------------------------------ #
@@ -843,14 +843,14 @@ class Evaluator:
                     add(rule_id, check, "The {} stands in the floor needed at {}.".format(label(other), name), owner.id)
 
         if self.front_clear(lay, lay.toilet) < c.toilet_front_min - 1.0:
-            add("R2", "toilet_space", "Less than {:.0f} mm is clear in front of the toilet.".format(
-                c.toilet_front_min), lay.toilet.id)
+            add("R2", "toilet_space", "Less than {} is clear in front of the toilet.".format(
+                metres(c.toilet_front_min)), lay.toilet.id)
         if self.front_clear(lay, lay.basin) < c.basin_front_min - 1.0:
-            add("R5", "basin_space", "Less than {:.0f} mm is clear in front of the basin.".format(
-                c.basin_front_min), lay.basin.id)
+            add("R5", "basin_space", "Less than {} is clear in front of the basin.".format(
+                metres(c.basin_front_min)), lay.basin.id)
         if lay.shower is not None and self.exit_depth(lay) < c.shower_exit_min - 1.0:
-            add("R3", "shower_exit", "Less than {:.0f} mm of floor is clear outside the shower.".format(
-                c.shower_exit_min), lay.shower.id)
+            add("R3", "shower_exit", "Less than {} of floor is clear outside the shower.".format(
+                metres(c.shower_exit_min)), lay.shower.id)
         if lay.shower is None and self.programme.shower_required:
             add("R3", "missing", "No position was found for the shower.")
 
@@ -864,18 +864,18 @@ class Evaluator:
                 add("R7", "leaf", "The cabinet door cannot open fully.", cabinet.id)
 
         if report is not None and report.checked and not report.valid:
-            add("R4", "path", "No path at least {:.0f} mm wide links the entrance to {}.".format(
-                c.path_min, _join(report.unreachable) if report.unreachable else "the rest of the room"))
+            add("R4", "path", "No path at least {} wide links the entrance to {}.".format(
+                metres(c.path_min), _join(report.unreachable) if report.unreachable else "the rest of the room"))
 
         if self.accessible:
             if walk is not None and walk.turning < a.turning_square - 1.0:
-                add("R13", "turning", "The largest clear square of floor is {:.0f} mm across; a wheelchair needs "
-                    "{:.0f} mm to turn.".format(walk.turning, a.turning_square))
+                add("R13", "turning", "The largest clear square of floor is {} across; a wheelchair needs "
+                    "{} to turn.".format(metres(walk.turning), metres(a.turning_square)))
             if self.transfer_space(lay) < a.transfer_width - 1.0:
-                add("R13", "transfer", "Less than {:.0f} mm is clear beside the pan to transfer from a "
-                    "wheelchair.".format(a.transfer_width), lay.toilet.id)
+                add("R13", "transfer", "Less than {} is clear beside the pan to transfer from a "
+                    "wheelchair.".format(metres(a.transfer_width)), lay.toilet.id)
             if (report is not None and report.checked and report.valid and walk is not None
                     and walk.path_width < a.path_width - 1.0):
-                add("R13", "path", "The path through the room is {:.0f} mm wide; a wheelchair needs {:.0f} mm.".format(
-                    walk.path_width, a.path_width))
+                add("R13", "path", "The path through the room is {} wide; a wheelchair needs {}.".format(
+                    metres(walk.path_width), metres(a.path_width)))
         return found

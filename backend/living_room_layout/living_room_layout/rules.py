@@ -65,7 +65,7 @@ RULES: Tuple[Rule, ...] = (
     Rule("R3", "zones", "Zones where needed",
          "Divide the room into living, dining, and entertainment zones when necessary.",
          "Built in: the sofa, armchairs and TV form one living and entertainment zone on a rug. Hard: a dining "
-         "table, desk or reading corner stands at least 600 mm clear of it. Scored: up to 900 mm. Not "
+         "table, desk or reading corner stands at least 0.60 m clear of it. Scored: up to 0.90 m. Not "
          "applicable when the activities need no second zone."),
     Rule("R4", "clear_openings", "Doors, windows and paths clear",
          "Keep doors, windows, and main walking paths unobstructed.",
@@ -78,8 +78,8 @@ RULES: Tuple[Rule, ...] = (
          "fit. Scored: the sofa's length against the room, the class placed, and the planned pieces placed."),
     Rule("R6", "within_reach", "Tables within reach",
          "Position coffee tables and frequently used furniture within comfortable reach of seating areas.",
-         "Built in: the coffee table stands 400 mm in front of the sofa. Scored: every seat with a table "
-         "within 600 mm, and a side table at the sofa's end."),
+         "Built in: the coffee table stands 0.40 m in front of the sofa. Scored: every seat with a table "
+         "within 0.60 m, and a side table at the sofa's end."),
     Rule("R7", "daily_activities", "Arranged for daily activities",
          "Arrange furniture according to the household's daily activities.",
          "Decides the furniture: a TV, a dining table, a desk or a reading chair for the activity that needs "
@@ -91,12 +91,12 @@ RULES: Tuple[Rule, ...] = (
          "clear square of floor against the room's shorter side."),
     Rule("R9", "movement", "Easy movement between areas",
          "Position furniture to support comfortable movement between different activity areas.",
-         "Hard: one continuous path at least 600 mm wide links the entrance to the seating, every other "
-         "zone and every other door. Scored: whether it is 750 or 900 mm wide, and the width of the "
+         "Hard: one continuous path at least 0.60 m wide links the entrance to the seating, every other "
+         "zone and every other door. Scored: whether it is 0.75 or 0.90 m wide, and the width of the "
          "seating group's open side."),
     Rule("R10", "accessibility", "Occupants' physical needs",
          "Consider the physical needs and accessibility requirements of occupants.",
-         "With mobility needs stated - hard: every path at least 900 mm wide and no loose rug. Scored "
+         "With mobility needs stated - hard: every path at least 0.90 m wide and no loose rug. Scored "
          "always: the path width, a 1.5 m turning space, and a place for a wheelchair in the seating group."),
 )
 RULE_BY_ID: Dict[str, Rule] = {rule.id: rule for rule in RULES}
@@ -663,26 +663,26 @@ class Evaluator:
 
         gap = distance(lay.sofa.rect, lay.coffee.rect)
         if not c.reach_gap_min - 1.0 <= gap <= c.reach_gap_max + 1.0:
-            add("R6", "reach", "The coffee table is {:.0f} mm from the sofa; it belongs between {:.0f} and "
-                "{:.0f} mm.".format(gap, c.reach_gap_min, c.reach_gap_max), lay.coffee.id)
+            add("R6", "reach", "The coffee table is {} from the sofa; it belongs between {} and "
+                "{}.".format(metres(gap), metres(c.reach_gap_min), metres(c.reach_gap_max)), lay.coffee.id)
         if lay.console is not None:
             if lay.view < c.tv_min - 1.0:
-                add("R7", "tv_distance", "The TV is only {:.0f} mm from the sofa; {:.0f} mm is needed.".format(
-                    lay.view, c.tv_min), lay.console.id)
+                add("R7", "tv_distance", "The TV is only {} from the sofa; {} is needed.".format(
+                    metres(lay.view), metres(c.tv_min)), lay.console.id)
             if self.tv_angle(lay) > c.tv_angle_max + 0.5:
                 add("R7", "tv_angle", "The TV stands {:.0f} degrees off straight ahead of the sofa.".format(
                     self.tv_angle(lay)), lay.console.id)
         if lay.open_gap < self.path_min - 1.0:
-            add("R9", "open_side", "Only {:.0f} mm is clear on the open side of the seating group; {:.0f} mm is "
-                "needed to walk in.".format(lay.open_gap, self.path_min), lay.sofa.id)
+            add("R9", "open_side", "Only {} is clear on the open side of the seating group; {} is "
+                "needed to walk in.".format(metres(lay.open_gap), metres(self.path_min)), lay.sofa.id)
         box = lay.group_box
         for zone in lay.zones:
             if distance(zone.box, box) < c.zone_gap_min - 1.0:
-                add("R3", "zone_gap", "Only {:.0f} mm separates {} from the seating; {:.0f} mm is needed.".format(
-                    distance(zone.box, box), ZONE_NAMES[zone.kind], c.zone_gap_min))
+                add("R3", "zone_gap", "Only {} separates {} from the seating; {} is needed.".format(
+                    metres(distance(zone.box, box)), ZONE_NAMES[zone.kind], metres(c.zone_gap_min)))
         if self.programme.accessible and lay.find("rug"):
             add("R10", "rug", "A loose rug is a trip hazard for an occupant with mobility needs.")
         if report is not None and report.checked and not report.valid:
-            add("R9", "path", "No path at least {:.0f} mm wide links the entrance to {}.".format(
-                self.path_min, _join(report.unreachable) if report.unreachable else "the seating"))
+            add("R9", "path", "No path at least {} wide links the entrance to {}.".format(
+                metres(self.path_min), _join(report.unreachable) if report.unreachable else "the seating"))
         return found

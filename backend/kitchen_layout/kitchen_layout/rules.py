@@ -59,12 +59,12 @@ class Rule:
 RULES: Tuple[Rule, ...] = (
     Rule("R1", "sink_location", "Sink in a convenient place",
          "Position the sink in a convenient location for washing and food preparation.",
-         "Hard: the sink stands 300 mm clear of an inside corner. Scored: worktop on both sides of it, "
+         "Hard: the sink stands 0.30 m clear of an inside corner. Scored: worktop on both sides of it, "
          "a window over it, and room at the corner."),
     Rule("R2", "prep_by_sink", "Preparation worktop by the sink",
          "Place the food preparation countertop close to the sink.",
-         "Built in: the preparation worktop always starts at the sink. Hard: it is at least 600 mm long. "
-         "Scored: up to 900 mm."),
+         "Built in: the preparation worktop always starts at the sink. Hard: it is at least 0.60 m long. "
+         "Scored: up to 0.90 m."),
     Rule("R3", "safe_workflow", "Safe sink-to-stove workflow",
          "Arrange the sink, food preparation area, and stove to support a safe workflow.",
          "Hard: sink and stove are never side by side. Scored: sink, preparation worktop and stove in one "
@@ -75,11 +75,11 @@ RULES: Tuple[Rule, ...] = (
          "with nothing standing across a leg."),
     Rule("R5", "stove_counter", "Worktop beside the stove",
          "Provide adequate countertop space near the stove.",
-         "Hard: at least 300 mm of worktop on one side of the stove, and worktop between the stove and the "
-         "refrigerator. Scored: 400 mm on one side and 300 mm on the other."),
+         "Hard: at least 0.30 m of worktop on one side of the stove, and worktop between the stove and the "
+         "refrigerator. Scored: 0.40 m on one side and 0.30 m on the other."),
     Rule("R6", "fridge_door", "Refrigerator door opens fully",
          "Leave sufficient space for refrigerator doors to open fully.",
-         "Hard: the floor the door swings over is empty. Scored: a further 500 mm to stand in, and the open "
+         "Hard: the floor the door swings over is empty. Scored: a further 0.50 m to stand in, and the open "
          "door clear of the room's doorway."),
     Rule("R7", "opened_units", "Open cupboards and drawers off the path",
          "Arrange cupboards and drawers so they do not block essential walking paths when opened.",
@@ -90,8 +90,8 @@ RULES: Tuple[Rule, ...] = (
          "Built in: a utensil drawer unit always stands beside the stove. Scored: on the preparation side."),
     Rule("R9", "working_route", "Clear working route",
          "Keep a clear working route between the sink, preparation area, stove, and refrigerator.",
-         "Hard: 900 mm of clear floor in front of every unit, and a path from the entrance to the sink, the "
-         "stove and the refrigerator. Scored: up to 1200 mm, nothing standing on the route, and no "
+         "Hard: 0.90 m of clear floor in front of every unit, and a path from the entrance to the sink, the "
+         "stove and the refrigerator. Scored: up to 1.20 m, nothing standing on the route, and no "
          "through-traffic across it."),
     Rule("R10", "dining", "Dining clear of the cooking",
          "Position the dining table and chairs so they do not interfere with cooking and washing activities.",
@@ -578,8 +578,8 @@ class Evaluator:
             return self._skip("R7", "No door was detected, so there was no way in to keep clear.")
         if total == 0:
             return self._skip("R7", "This kitchen has no cupboards or drawers to open.")
-        text = ("{} of the {} cupboards, drawers and appliance doors can stand open and still leave {:.0f} mm "
-                "to walk past").format(passable, total, self.c.opened_passage)
+        text = ("{} of the {} cupboards, drawers and appliance doors can stand open and still leave {} "
+                "to walk past").format(passable, total, metres(self.c.opened_passage))
         if blocker:
             text += "; the {} blocks the way when it is open".format(blocker)
         return self._result("R7", passable / total, text + ".")
@@ -613,7 +613,7 @@ class Evaluator:
             span = max(widths) - min(widths)
             wide = 0.5 + 0.5 * (report.width - min(widths)) / span if span else 1.0
             score = 0.5 * aisle_score + 0.3 * wide + 0.2 * direct
-            text += "; a path {:.0f} mm wide links them from the entrance".format(report.width)
+            text += "; a path {} wide links them from the entrance".format(metres(report.width))
         else:
             score = (0.5 * aisle_score + 0.2 * direct) / 0.7
         text += "."
@@ -675,7 +675,7 @@ class Evaluator:
         specs = lay.sink.spec, lay.stove.spec, lay.fridge.spec
         text = "{} appliances for a {:.1f} m2 kitchen ({} x {}): {}".format(
             lay.size_class.capitalize(), room.area_m2, metres(room.width), metres(room.length),
-            ", ".join("{} {:.0f} mm wide".format(spec.label, spec.width) for spec in specs))
+            ", ".join("{} {} wide".format(spec.label, metres(spec.width)) for spec in specs))
         if rank > 0:
             text += " - the {} ones the room called for do not fit this shape".format(programme.size_classes[0])
         text += ". " + (clashes[0].capitalize() + "." if clashes else "No two doors open into each other.")
@@ -714,9 +714,9 @@ class Evaluator:
                     add("R12", "window", "The {} blocks window {}.".format(item.role, window.id), item.id)
 
         if facts.prep.length < c.prep_min - 1.0:
-            add("R2", "prep", "The preparation worktop beside the sink is shorter than {:.0f} mm.".format(c.prep_min))
+            add("R2", "prep", "The preparation worktop beside the sink is shorter than {}.".format(metres(c.prep_min)))
         if facts.stove_sides[0] < c.stove_landing_min - 1.0:
-            add("R5", "stove", "The stove has less than {:.0f} mm of worktop beside it.".format(c.stove_landing_min))
+            add("R5", "stove", "The stove has less than {} of worktop beside it.".format(metres(c.stove_landing_min)))
         for station in (lay.sink, lay.stove):
             if station.chain >= 0 and lay.arrangement.chains[station.chain].corner_gap(
                     station.s0, station.s1) < c.corner_clear - 1.0:
@@ -728,8 +728,8 @@ class Evaluator:
             add("R6", "fridge", "The refrigerator door cannot open fully.", "fridge")
         for station in lay.stations:
             if self.aisle(lay, station) < c.aisle_min - 1.0:
-                add("R9", "aisle", "Less than {:.0f} mm is clear in front of the {}.".format(
-                    c.aisle_min, {"fridge": "refrigerator"}.get(station.kind, station.kind)), station.kind)
+                add("R9", "aisle", "Less than {} is clear in front of the {}.".format(
+                    metres(c.aisle_min), {"fridge": "refrigerator"}.get(station.kind, station.kind)), station.kind)
 
         if lay.dining is not None:
             for zone in lay.aisles + tuple(self.door_zones):
@@ -741,6 +741,6 @@ class Evaluator:
                 add("R10", "dining", "There is no floor to push the dining chairs back.")
 
         if report is not None and report.checked and not report.valid:
-            add("R9", "path", "No path at least {:.0f} mm wide links the entrance to {}.".format(
-                c.path_min, ", ".join(report.unreachable) or "the rest of the kitchen"))
+            add("R9", "path", "No path at least {} wide links the entrance to {}.".format(
+                metres(c.path_min), ", ".join(report.unreachable) or "the rest of the kitchen"))
         return found

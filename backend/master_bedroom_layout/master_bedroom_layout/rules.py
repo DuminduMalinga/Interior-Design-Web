@@ -73,24 +73,24 @@ RULES: Tuple[Rule, ...] = (
          "floor ahead of the door, and solid wall behind the headboard."),
     Rule("R2", "bed_sides", "Space on both sides of the bed",
          "Provide sufficient space on both sides of the bed where practical.",
-         "Hard: 600 mm beside the bed on each side an occupant uses - both sides for two. Scored: up to "
-         "750 mm beside it and 900 mm at the foot."),
+         "Hard: 0.60 m beside the bed on each side an occupant uses - both sides for two. Scored: up to "
+         "0.75 m beside it and 0.90 m at the foot."),
     Rule("R3", "entrance_path", "Clear path from the entrance to the bed",
          "Keep a clear walking path between the bedroom entrance and the bed.",
-         "Hard: a continuous path at least 600 mm wide from the entrance to each side of the bed in use. "
-         "Scored: whether it is 750 or 900 mm wide, and nothing standing in the direct line."),
+         "Hard: a continuous path at least 0.60 m wide from the entrance to each side of the bed in use. "
+         "Scored: whether it is 0.75 or 0.90 m wide, and nothing standing in the direct line."),
     Rule("R4", "bedside_reach", "Bedside tables in reach",
          "Place bedside tables within convenient reach of the bed.",
          "Built in: a table always touches the bed at the pillow end. Scored: tables placed out of "
          "tables wanted."),
     Rule("R5", "wardrobe_clearance", "Clearance in front of the wardrobe",
          "Leave sufficient clearance in front of wardrobes for opening doors and accessing clothes.",
-         "Hard: 750 mm in front of the wardrobe - its 500 mm doors open and leave room to stand. "
-         "Scored: up to 900 mm."),
+         "Hard: 0.75 m in front of the wardrobe - its 0.50 m doors open and leave room to stand. "
+         "Scored: up to 0.90 m."),
     Rule("R6", "wardrobe_position", "Wardrobe clear of doors, windows and paths",
          "Position wardrobes so they do not obstruct doors, windows, or walking paths.",
          "Hard: the wardrobe never stands in a door's swing, in front of a window or on the floor beside "
-         "the bed. Scored: a 300 mm margin from windows, distance from the doorway, and out of the direct "
+         "the bed. Scored: a 0.30 m margin from windows, distance from the doorway, and out of the direct "
          "line from the entrance to the bed."),
     Rule("R7", "dressing_mirror", "Dressing table with a usable mirror",
          "Place dressing tables where occupants can use the mirror comfortably.",
@@ -98,8 +98,8 @@ RULES: Tuple[Rule, ...] = (
          "the side and near, rather than behind the person or far away."),
     Rule("R8", "standing_space", "Standing room at dressing table and wardrobe",
          "Provide sufficient space in front of dressing tables and wardrobes for standing and movement.",
-         "Hard: 700 mm in front of the dressing table for its stool and the person on it. Scored: up to "
-         "900 mm, and the floor in front of each piece not shared with another piece or the bedside."),
+         "Hard: 0.70 m in front of the dressing table for its stool and the person on it. Scored: up to "
+         "0.90 m, and the floor in front of each piece not shared with another piece or the bedside."),
     Rule("R9", "desk_and_bed", "Desk and chair clear of the bed",
          "Position study desks and chairs so they do not interfere with access to the bed.",
          "Hard: the desk and its chair stay out of the floor beside the bed. Scored: the way to the bed "
@@ -127,7 +127,7 @@ RULES: Tuple[Rule, ...] = (
          "requested piece placed."),
     Rule("R15", "connecting_route", "Route between bed, wardrobe, bathroom and exit",
          "Maintain a clear route between the bed, wardrobe, bathroom entrance, and bedroom exit where applicable.",
-         "Hard: one continuous path at least 600 mm wide links them all. Scored: its width, floor that is "
+         "Hard: one continuous path at least 0.60 m wide links them all. Scored: its width, floor that is "
          "cut off, and nothing in the direct line from the bed to the bathroom door."),
 )
 RULE_BY_ID: Dict[str, Rule] = {rule.id: rule for rule in RULES}
@@ -313,8 +313,8 @@ class Evaluator:
             return Part(1.0)
         widths = self.c.path_widths
         if not report.valid:
-            return Part(0.0, "No path at least {:.0f} mm wide reaches {}.".format(
-                min(widths), ", ".join(report.unreachable) or "the bed"))
+            return Part(0.0, "No path at least {} wide reaches {}.".format(
+                metres(min(widths)), ", ".join(report.unreachable) or "the bed"))
         span = max(widths) - min(widths)
         wide = 0.6 + 0.4 * (report.width - min(widths)) / span if span else 1.0
         start = door.center(self.room)
@@ -324,8 +324,8 @@ class Evaluator:
             at_door = (start[0], start[1], start[0], start[1])
             target = center(min(zones, key=lambda entry: distance(at_door, entry[1]))[1])
             blocker = self._line_blocker(lay, start, target, ("bed", "bedside_table"))
-        text = "A path {:.0f} mm wide runs from the entrance to the bed; {}.".format(
-            report.width, "the {} stands in the direct line".format(label(blocker)) if blocker
+        text = "A path {} wide runs from the entrance to the bed; {}.".format(
+            metres(report.width), "the {} stands in the direct line".format(label(blocker)) if blocker
             else "nothing stands in the direct line")
         return Part(0.6 * wide + 0.4 * (0.0 if blocker else 1.0), text)
 
@@ -538,8 +538,8 @@ class Evaluator:
             return Part(1.0)
         widths, room = self.c.path_widths, self.room
         if not report.valid:
-            return Part(0.0, "No path at least {:.0f} mm wide reaches {}.".format(
-                min(widths), ", ".join(report.unreachable) or "the room"))
+            return Part(0.0, "No path at least {} wide reaches {}.".format(
+                metres(min(widths)), ", ".join(report.unreachable) or "the room"))
         span = max(widths) - min(widths)
         wide = 0.6 + 0.4 * (report.width - min(widths)) / span if span else 1.0
         lost = max(0.0, self.c.cut_off_tolerance - report.reached_ratio)
@@ -550,8 +550,8 @@ class Evaluator:
         if self.bath_door is not None:
             places.append("the bathroom door")
         places.append("the bedroom exit")
-        text = "One route {:.0f} mm wide links {} and {}; {:.0f}% of the open floor can be walked to".format(
-            report.width, ", ".join(places[:-1]), places[-1], report.reached_ratio * 100.0)
+        text = "One route {} wide links {} and {}; {:.0f}% of the open floor can be walked to".format(
+            metres(report.width), ", ".join(places[:-1]), places[-1], report.reached_ratio * 100.0)
         line = 1.0
         zones = self.bed_zones(lay)
         if self.bath_door is not None and zones:
@@ -566,7 +566,7 @@ class Evaluator:
         elif self.bath_door is None:
             text += "; no bathroom opens off this room"
         if report.pinch is not None:
-            text += "; a {:.0f} mm path would not reach {}".format(report.pinch[0], ", ".join(report.pinch[1]))
+            text += "; a {} path would not reach {}".format(metres(report.pinch[0]), ", ".join(report.pinch[1]))
         return Part(0.7 * wide + 0.3 * line, text + ".")
 
     # ------------------------------------------------------------------ #
@@ -844,10 +844,10 @@ class Evaluator:
         if report.chair_clear:
             return Part(1.0,
                 "The desk and chair are off the walking path: even with the chair pulled out, the route between "
-                "the entrance, the bed and the storage stays at least {:.0f} mm wide.".format(self.c.path_min))
+                "the entrance, the bed and the storage stays at least {} wide.".format(metres(self.c.path_min)))
         return Part(0.5,
             "The desk and chair stay out of every keep-clear zone, but a pulled-out chair narrows the route below "
-            "{:.0f} mm - it has to be tucked in for someone to pass.".format(self.c.path_min))
+            "{} - it has to be tucked in for someone to pass.".format(metres(self.c.path_min)))
 
     # ------------------------------------------------------------------ #
     # rule 6 - the wardrobe and the windows
@@ -890,8 +890,8 @@ class Evaluator:
                 marks.append(1.0 - clamp01(abs(table.height - MATTRESS_HEIGHT) / 300.0))
                 marks.append(1.0 - clamp01((reach - c.bedside_reach) / c.bedside_reach))
                 parts.append(
-                    "the bedside surface is {:.0f} mm high, level with the {:.0f} mm mattress, and {} from "
-                    "the bed edge".format(table.height, MATTRESS_HEIGHT, metres(reach)))
+                    "the bedside surface is {} high, level with the {} mattress, and {} from "
+                    "the bed edge".format(metres(table.height), metres(MATTRESS_HEIGHT), metres(reach)))
             else:
                 marks.append(0.0)
                 parts.append("nothing is within reach of the pillow")
@@ -902,7 +902,7 @@ class Evaluator:
                 (walk - c.storage_reach_good) / (c.storage_reach_far - c.storage_reach_good)))
             parts.append("the {} is {} from the bed".format(label(storage), metres(walk)))
         if lay.desk is not None:
-            parts.append("the desk top is at {:.0f} mm".format(lay.desk.height))
+            parts.append("the desk top is at {}".format(metres(lay.desk.height)))
         if not marks:
             return Part.skip("This layout has no bedside table or storage to judge.")
         score = sum(marks) / len(marks)
@@ -948,15 +948,15 @@ class Evaluator:
         usable = [side for side in ("lo", "hi") if clear[side] >= c.bed_side_min - 1.0]
         if len(usable) < need:
             add("R2", "bed_access",
-                "The bed has {:.0f} mm of clear floor on {} side{} but {} needed.".format(
-                    c.bed_side_min, len(usable) or "no", "" if len(usable) == 1 else "s",
+                "The bed has {} of clear floor on {} side{} but {} needed.".format(
+                    metres(c.bed_side_min), len(usable) or "no", "" if len(usable) == 1 else "s",
                     "both are" if need == 2 else "one is"),
                 lay.bed.id)
 
         for item, minimum in ((lay.wardrobe, c.wardrobe_front_min), (lay.dresser, c.drawer_front_min)):
             if item is not None and self.front_clearance(lay, item) < minimum - 1.0:
                 add("R5" if item is lay.wardrobe else "R8", "storage",
-                    "Less than {:.0f} mm is clear in front of the {}.".format(minimum, label(item)), item.id)
+                    "Less than {} is clear in front of the {}.".format(metres(minimum), label(item)), item.id)
 
         if self.programme.wardrobe_sizes and self.programme.wardrobe_required and lay.wardrobe is None:
             add("R14", "missing", "No position was found for the wardrobe.")
@@ -968,6 +968,6 @@ class Evaluator:
                         "The desk chair stands in the clear floor needed at {}.".format(name), lay.chair.id)
 
         if report is not None and report.checked and not report.valid:
-            add("R15", "path", "No path at least {:.0f} mm wide links the entrance to {}.".format(
-                c.path_min, ", ".join(report.unreachable) or "the rest of the room"))
+            add("R15", "path", "No path at least {} wide links the entrance to {}.".format(
+                metres(c.path_min), ", ".join(report.unreachable) or "the rest of the room"))
         return found

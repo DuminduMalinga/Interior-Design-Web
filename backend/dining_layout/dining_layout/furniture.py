@@ -33,7 +33,7 @@ class TableSpec:
 
 
 TABLES: Dict[int, TableSpec] = {
-    2: TableSpec(2, "800 mm square table for two", 800.0, 800.0, 1, 0),
+    2: TableSpec(2, "0.80 m square table for two", 800.0, 800.0, 1, 0),
     4: TableSpec(4, "1.2 m table for four", 1200.0, 800.0, 2, 0),
     6: TableSpec(6, "1.8 m table for six", 1800.0, 900.0, 3, 0),
     8: TableSpec(8, "2.2 m table for eight", 2200.0, 1000.0, 3, 1),
