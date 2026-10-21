@@ -42,7 +42,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 
 from room_shapes import trace_room_shapes
-from supabase_auth import docs_kwargs, require_user
 
 # ── Config ─────────────────────────────────────────────────────────────
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -55,7 +54,7 @@ except ImportError:
     pass
 
 # after load_dotenv: supabase_auth reads its settings when imported
-from supabase_auth import docs_kwargs, require_user
+from supabase_auth import docs_kwargs, require_user  # noqa: E402
 
 MODEL_PATH = os.getenv("MODEL_PATH", os.path.join(HERE, "models", "best.pt"))
 DEFAULT_CONF = float(os.getenv("DETECT_CONF", "0.25"))
