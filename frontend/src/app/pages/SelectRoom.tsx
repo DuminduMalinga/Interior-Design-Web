@@ -7,7 +7,7 @@ import PageGlows from "../components/marketing/PageGlows";
 import AppFooter from "../components/AppFooter";
 import FlowStepper from "../components/FlowStepper";
 import type { DetectionResult } from "../lib/wallDetector";
-import { roomKind } from "../lib/roomKind";
+import { roomKind, roomDisplayName } from "../lib/roomKind";
 
 type RoomType = "Room";
 
@@ -76,16 +76,31 @@ function planScale(detection: DetectionResult): { mmPerPx: number; source: "door
     : { mmPerPx: DEFAULT_MM_PER_PX, source: "default" };
 }
 
+/** Each room's display name (roomDisplayName), numbered in plan order when two rooms would share one. */
+function displayNames(names: string[]): string[] {
+  const labels = names.map(roomDisplayName);
+  const total = new Map<string, number>();
+  labels.forEach((l) => total.set(l, (total.get(l) ?? 0) + 1));
+  const seen = new Map<string, number>();
+  return labels.map((l) => {
+    if (total.get(l)! < 2) return l;
+    const n = (seen.get(l) ?? 0) + 1;
+    seen.set(l, n);
+    return `${l} ${n}`;
+  });
+}
+
 function roomsFromDetection(detection: DetectionResult): DetectedRoom[] {
   const scale = planScale(detection);
   const mPerPx = scale.mmPerPx / 1000;
-  return detection.rooms.map((r) => {
+  const names = displayNames(detection.rooms.map((r) => r.name));
+  return detection.rooms.map((r, i) => {
     const printed = r.widthM != null && r.heightM != null && r.areaM2 != null;
     const { x1, y1, x2, y2 } = r.bbox;
     const { x, y, w, h } = r.bboxPct;
     return {
       id: r.id,
-      name: r.name,
+      name: names[i],
       type: "Room" as const,
       labelDetected: r.labelDetected,
       widthM: printed ? r.widthM! : r.widthPx * mPerPx,

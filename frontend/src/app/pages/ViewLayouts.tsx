@@ -36,7 +36,7 @@ import {
   type GenerateAllDiningLayoutsResponse,
 } from "../lib/diningLayout";
 import { generateAllMasterBedroomLayouts } from "../lib/masterBedroomLayout";
-import { roomKind } from "../lib/roomKind";
+import { roomKind, roomDisplayName } from "../lib/roomKind";
 import { notifyBrowser } from "../lib/notifications";
 import LivingRoomLayoutGrid from "../components/LivingRoomLayoutGrid";
 import LivingRoomPlan from "../components/LivingRoomPlan";
@@ -332,7 +332,7 @@ export default function ViewLayouts() {
 
             <div className="mt-6 flex shrink-0 flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
               <div className="min-w-0">
-                <h1 className="text-3xl md:text-4xl leading-[1.05] tracking-tight text-lv-ink">{apiRoom.name} layouts</h1>
+                <h1 className="text-3xl md:text-4xl leading-[1.05] tracking-tight text-lv-ink">{roomDisplayName(navState?.room?.name ?? apiRoom.name)} layouts</h1>
                 <p className="mt-2 text-sm md:text-base text-lv-muted" aria-live="polite">
                   {livingLoading
                     ? "Working out the layouts for this room."
@@ -471,7 +471,7 @@ export default function ViewLayouts() {
         <div className="mt-8 flex flex-col items-center rounded-[28px] border border-lv-line bg-lv-surface px-6 py-16 text-center">
           <AlertCircle className="h-8 w-8 text-lv-muted" aria-hidden="true" />
           <h1 className="mt-5 text-2xl leading-tight text-lv-ink md:text-3xl">
-            {hasPlan ? `No layouts for ${navState?.room?.name ?? "this room"} yet` : "No floor plan selected"}
+            {hasPlan ? `No layouts for ${navState?.room?.name ? roomDisplayName(navState.room.name) : "this room"} yet` : "No floor plan selected"}
           </h1>
           <p className="mt-3 max-w-md text-base leading-relaxed text-lv-muted">
             {hasPlan

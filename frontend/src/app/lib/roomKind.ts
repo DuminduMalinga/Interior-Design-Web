@@ -14,3 +14,24 @@ export function roomKind(name: string): RoomKind | null {
   if (/din/i.test(name)) return "dining";
   return null;
 }
+
+const ROOM_LABELS: Record<RoomKind, string> = {
+  living: "Living Room",
+  bathroom: "Bathroom",
+  bedroom: "Bedroom",
+  master_bedroom: "Master Bedroom",
+  kitchen: "Kitchen",
+  dining: "Dining Room",
+};
+
+/**
+ * The name to show for a room: a recognised room gets its plain full name ("Bath" ->
+ * "Bathroom", "Living Area" -> "Living Room"), keeping a trailing number ("Bed 2" ->
+ * "Bedroom 2"). Other names are shown as read. Safe to apply twice.
+ */
+export function roomDisplayName(name: string): string {
+  const kind = roomKind(name);
+  if (!kind) return name;
+  const number = name.match(/(\d+)\s*$/)?.[1];
+  return number ? `${ROOM_LABELS[kind]} ${number}` : ROOM_LABELS[kind];
+}

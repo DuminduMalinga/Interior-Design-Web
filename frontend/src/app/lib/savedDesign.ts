@@ -1,5 +1,6 @@
 import { supabase } from "./supabaseClient";
 import type { LivingRoomLayoutResult } from "./livingRoomLayout";
+import { roomDisplayName } from "./roomKind";
 
 const BUCKET = "designs";
 
@@ -120,7 +121,8 @@ export async function listSavedDesigns(userId: string): Promise<SavedDesign[]> {
     designId: r.DesignID,
     floorPlanId: r.FloorPlanID,
     roomId: r.RoomID,
-    roomName: r.RoomName ?? "Room",
+    // designs saved before names were tidied ("Bath") show the full name too
+    roomName: roomDisplayName(r.RoomName ?? "Room"),
     title: r.Title,
     score: r.Score === null ? null : Math.round(Number(r.Score)),
     layout: r.LayoutJSON,

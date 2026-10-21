@@ -34,6 +34,7 @@ import type { LayoutFurnitureItem, LivingRoomLayoutResult } from "../lib/livingR
 import { furnitureColor } from "../lib/roomPalette3d";
 import { saveSelectedLivingRoomLayout } from "../lib/floorPlanAnalysis";
 import { saveDesign } from "../lib/savedDesign";
+import { roomDisplayName } from "../lib/roomKind";
 import { emailMe } from "../lib/notifications";
 
 // three.js is only needed on this page, so it is loaded with the 3D view itself
@@ -237,7 +238,7 @@ export default function RoomView3D() {
   const reduceMotion = useReducedMotion();
   const navState = location.state as RoomViewState | null;
   const layout = navState?.livingRoomLayout ?? null;
-  const roomName = navState?.room?.name ?? "Room";
+  const roomName = roomDisplayName(navState?.room?.name ?? "Room");
 
   const { theme } = useTheme();
   const [viewMode, setViewMode] = useState<ViewMode>("3D");

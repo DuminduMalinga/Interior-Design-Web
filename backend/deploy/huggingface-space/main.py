@@ -54,6 +54,9 @@ try:  # optional: load a local .env if python-dotenv is installed
 except ImportError:
     pass
 
+# after load_dotenv: supabase_auth reads its settings when imported
+from supabase_auth import docs_kwargs, require_user
+
 MODEL_PATH = os.getenv("MODEL_PATH", os.path.join(HERE, "models", "best.pt"))
 DEFAULT_CONF = float(os.getenv("DETECT_CONF", "0.25"))
 DEFAULT_IOU = float(os.getenv("DETECT_IOU", "0.45"))
